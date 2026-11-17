@@ -15,7 +15,21 @@ An independent Android browser whose application code, interface and browsing ex
 - Local bookmarks and recent browsing history, stored on-device.
 - HTTP(S) links can be opened from other Android apps.
 - Address resolution validates hostnames, IPv4, IPv6 and ports; internationalized domain names are converted to ASCII.
-- GitHub Actions runs JVM unit tests and builds a development debug APK.
+- ABI-specific APKs are built for `arm64-v8a`, `armeabi-v7a` and `x86_64`; CI checks the native-library contents and APK signatures and publishes SHA-256 checksums.
+
+## ABI-specific APK distribution
+
+GeckoView includes large native engine libraries. The app therefore produces separate APKs for three supported Android ABIs rather than shipping all native libraries in one universal APK:
+
+| APK | Intended devices |
+|---|---|
+| `cat-browser-arm64-v8a-debug.apk` | Most modern 64-bit ARM Android phones |
+| `cat-browser-armeabi-v7a-debug.apk` | 32-bit ARM Android devices |
+| `cat-browser-x86_64-debug.apk` | x86-64 Android devices and compatible emulators |
+
+There is deliberately no `x86` 32-bit APK: the pinned GeckoView dependency does not currently provide the key engine libraries for that ABI in the inspected dependency artifact. Each generated APK must contain native libraries for exactly one ABI and key GeckoView libraries (`libmozglue.so`, `libxul.so` and `libgkcodecs.so`). CI fails if those checks do not pass.
+
+GitHub Actions publishes one artifact named `cat-browser-abi-debug`, containing the three debug APKs and `SHA256SUMS`. These are development/debug builds, not production-signed stable releases. The APKs use the standard debug signing configuration.
 
 ## Restoration and local data
 
@@ -48,7 +62,7 @@ The app has passed its current CI compile, unit-test and APK-build checks. A phy
 | Local storage | App-private SharedPreferences |
 | Extensions | Firefox WebExtensions via GeckoView, planned |
 
-GeckoView is packaged inside the APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.
+GeckoView is packaged inside each APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.
 
 ## Build
 
@@ -59,13 +73,16 @@ The app compiles against Android API 37.2 to satisfy the published minimum compi
 Run from the repository root:
 
 ```bash
-./gradlew :app:testDebugUnitTest
-./gradlew :app:assembleDebug
+./gradlew :app:clean
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+python3 scripts/verify_abi_apks.py \
+  --input app/build/outputs/apk/debug \
+  --output dist/abi-apks
 ```
 
-The development APK is written to `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions installs the pinned SDK platform, runs the same test and build tasks, verifies that the APK exists, and uploads it as an artifact.
+Gradle writes the ABI-specific APKs to `app/build/outputs/apk/debug/`. The verification script checks the native ABI split, key GeckoView libraries and archive integrity, then copies the APKs to `dist/abi-apks/` using the stable filenames listed above and writes SHA-256 checksums. GitHub Actions additionally verifies each APK signature before upload.
 
-The debug APK is not production-signed and must not be treated as a stable release or an update channel.
+The debug APKs are not production-signed and must not be treated as stable releases or an update channel.
 
 ## Extension support
 

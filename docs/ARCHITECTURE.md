@@ -30,6 +30,19 @@ The current app stores tab IDs, titles, last HTTP(S) URLs, bookmarks and recent 
 
 This is intentionally URL-level restoration only. Full GeckoSession state (back/forward stack, scroll position, form state and in-page state) is not currently serialized. Browser data remains on-device; no browser-history backend or browsing telemetry is added by this implementation.
 
+## ABI packaging and validation
+
+GeckoView ships a large native engine. The Android module creates separate APK outputs for `arm64-v8a`, `armeabi-v7a` and `x86_64`; it does not create a universal APK or an `x86` 32-bit APK.
+
+The CI validation script inspects every generated APK archive and requires:
+
+- Native libraries for exactly one supported ABI per APK.
+- Key GeckoView engine libraries: `libmozglue.so`, `libxul.so` and `libgkcodecs.so`.
+- Exactly one APK for each configured ABI, with no missing or unexpected architecture.
+- A valid APK ZIP archive.
+
+CI then verifies the APK signatures, normalizes artifact filenames and writes SHA-256 checksums. These checks validate packaging and signing; they do not replace installation and runtime testing on physical devices for each ABI.
+
 ## Component responsibilities
 
 | Component | Responsibility |

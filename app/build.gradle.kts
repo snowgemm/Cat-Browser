@@ -17,6 +17,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // GeckoView is a large native engine. Ship only the libraries for the
+    // selected device ABI instead of bundling every supported architecture.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include(
+                "arm64-v8a",
+                "armeabi-v7a",
+                "x86_64"
+            )
+            isUniversalApk = false
+        }
+    }
+
     buildFeatures {
         compose = true
     }
