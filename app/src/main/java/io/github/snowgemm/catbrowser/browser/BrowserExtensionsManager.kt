@@ -268,7 +268,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
         ).accept(
             { extension ->
                 isWorking = false
-                statusMessage = "Đã cài ${extension.metaData.name ?: entry.name}."
+                statusMessage = "Đã cài ${extension?.metaData?.name ?: entry.name}."
                 refreshInstalled()
             },
             { error ->
