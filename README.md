@@ -15,7 +15,7 @@ An independent Android browser whose application code, interface and browsing ex
 - Local bookmarks and recent browsing history, stored on-device.
 - HTTP(S) links can be opened from other Android apps.
 - Address resolution validates hostnames, IPv4, IPv6 and ports; internationalized domain names are converted to ASCII.
-- ABI-specific APKs are built for `arm64-v8a`, `armeabi-v7a` and `x86_64`; CI checks the native-library contents and APK signatures and publishes SHA-256 checksums.
+- ABI-specific APKs are built for `arm64-v8a`, `armeabi-v7a` and `x86_64`; CI checks native-library contents, APK signatures and SHA-256 checksums.
 
 ## ABI-specific APK distribution
 
@@ -29,7 +29,9 @@ GeckoView includes large native engine libraries. The app therefore produces sep
 
 There is deliberately no `x86` 32-bit APK: the pinned GeckoView dependency does not currently provide the key engine libraries for that ABI in the inspected dependency artifact. Each generated APK must contain native libraries for exactly one ABI and key GeckoView libraries (`libmozglue.so`, `libxul.so` and `libgkcodecs.so`). CI fails if those checks do not pass.
 
-GitHub Actions publishes one artifact named `cat-browser-abi-debug`, containing the three debug APKs and `SHA256SUMS`. These are development/debug builds, not production-signed stable releases. The APKs use the standard debug signing configuration.
+GitHub Actions uploads **three separate, unarchived artifacts**: one ARM64 APK, one ARMv7 APK and one x86_64 APK. Each artifact is a standalone `.apk` file; there is no combined ZIP. SHA-256 checksums are printed in the workflow run summary. The artifacts are retained for 14 days.
+
+These are development/debug builds, not production-signed stable releases. The APKs use the standard debug signing configuration.
 
 ## Restoration and local data
 
@@ -80,7 +82,7 @@ python3 scripts/verify_abi_apks.py \
   --output dist/abi-apks
 ```
 
-Gradle writes the ABI-specific APKs to `app/build/outputs/apk/debug/`. The verification script checks the native ABI split, key GeckoView libraries and archive integrity, then copies the APKs to `dist/abi-apks/` using the stable filenames listed above and writes SHA-256 checksums. GitHub Actions additionally verifies each APK signature before upload.
+Gradle writes the ABI-specific APKs to `app/build/outputs/apk/debug/`. The verification script checks the native ABI split, key GeckoView libraries and archive integrity, then copies the APKs to `dist/abi-apks/` using the stable filenames listed above and writes SHA-256 checksums. GitHub Actions additionally verifies each APK signature before uploading each APK as a separate unarchived artifact.
 
 The debug APKs are not production-signed and must not be treated as stable releases or an update channel.
 

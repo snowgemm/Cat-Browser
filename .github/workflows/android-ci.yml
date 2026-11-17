@@ -23,7 +23,6 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # Install the exact Android platform required by GeckoView and Compose.
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
 
@@ -53,10 +52,38 @@ jobs:
             "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
           done
 
-      - name: Upload ABI-specific development APKs
+      - name: Publish SHA-256 checksums in workflow summary
+        run: |
+          {
+            echo "## Cat Browser ABI APK checksums"
+            echo
+            echo "The three APKs below are uploaded as separate, unarchived artifacts."
+            echo
+            echo "SHA-256:"
+            cat dist/abi-apks/SHA256SUMS
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # upload-artifact v7 supports archive:false for a single standalone file.
+      - name: Upload ARM64 APK
         uses: actions/upload-artifact@v7
         with:
-          name: cat-browser-abi-debug
-          path: dist/abi-apks/*
-          if-no-files-found: error
+          path: dist/abi-apks/cat-browser-arm64-v8a-debug.apk
+          archive: false
           retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload ARMv7 APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/abi-apks/cat-browser-armeabi-v7a-debug.apk
+          archive: false
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload x86_64 APK
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/abi-apks/cat-browser-x86_64-debug.apk
+          archive: false
+          retention-days: 14
+          if-no-files-found: error

@@ -41,7 +41,7 @@ The CI validation script inspects every generated APK archive and requires:
 - Exactly one APK for each configured ABI, with no missing or unexpected architecture.
 - A valid APK ZIP archive.
 
-CI then verifies the APK signatures, normalizes artifact filenames and writes SHA-256 checksums. These checks validate packaging and signing; they do not replace installation and runtime testing on physical devices for each ABI.
+CI then verifies the APK signatures, normalizes artifact filenames and writes SHA-256 checksums. Each APK is uploaded as a separate unarchived GitHub Actions artifact, so users can download the standalone APK without a ZIP wrapper. Checksums are shown in the workflow run summary. These checks validate packaging and signing; they do not replace installation and runtime testing on physical devices for each ABI.
 
 ## Component responsibilities
 
