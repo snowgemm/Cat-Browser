@@ -163,7 +163,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             },
             { error ->
                 isLoadingInstalled = false
-                statusMessage = "Không thể đọc danh sách tiện ích: ${error.message ?: "Lỗi GeckoView"}"
+                statusMessage = "Không thể đọc danh sách tiện ích: ${error?.message ?: "Lỗi GeckoView"}"
             }
         )
     }
@@ -238,7 +238,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             } catch (error: Exception) {
                 mainHandler.post {
                     isSearching = false
-                    statusMessage = "Không thể tải kho Mozilla Add-ons: ${error.message ?: "Lỗi kết nối"}"
+                    statusMessage = "Không thể tải kho Mozilla Add-ons: ${error?.message ?: "Lỗi kết nối"}"
                 }
             } finally {
                 connection?.disconnect()
@@ -273,7 +273,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             },
             { error ->
                 isWorking = false
-                statusMessage = "Cài đặt thất bại: ${error.message ?: "Extension không hợp lệ hoặc không được hỗ trợ"}"
+                statusMessage = "Cài đặt thất bại: ${error?.message ?: "Extension không hợp lệ hoặc không được hỗ trợ"}"
             }
         )
     }
@@ -294,7 +294,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             },
             { error ->
                 isWorking = false
-                statusMessage = "Không thể đổi trạng thái: ${error.message ?: "Lỗi GeckoView"}"
+                statusMessage = "Không thể đổi trạng thái: ${error?.message ?: "Lỗi GeckoView"}"
                 refreshInstalled()
             }
         )
@@ -316,7 +316,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             },
             { error ->
                 isWorking = false
-                statusMessage = "Cập nhật thất bại: ${error.message ?: "Không thể kiểm tra bản mới"}"
+                statusMessage = "Cập nhật thất bại: ${error?.message ?: "Không thể kiểm tra bản mới"}"
             }
         )
     }
@@ -332,7 +332,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             },
             { error ->
                 isWorking = false
-                statusMessage = "Không thể gỡ tiện ích: ${error.message ?: "Lỗi GeckoView"}"
+                statusMessage = "Không thể gỡ tiện ích: ${error?.message ?: "Lỗi GeckoView"}"
             }
         )
     }
