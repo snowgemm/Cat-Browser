@@ -34,17 +34,17 @@ import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
 
 private val CatColorScheme = darkColorScheme(
-    primary = Color(0xFF78DDB0),
-    onPrimary = Color(0xFF09271B),
-    secondary = Color(0xFFB6D9C7),
-    onSecondary = Color(0xFF14251D),
-    background = Color(0xFF0B121A),
-    onBackground = Color(0xFFEAF2F5),
-    surface = Color(0xFF131F2A),
-    onSurface = Color(0xFFEAF2F5),
-    surfaceVariant = Color(0xFF202E3B),
-    onSurfaceVariant = Color(0xFFAABBC7),
-    outline = Color(0xFF3A4B59)
+    primary = Color(0xFF55C98A),
+    onPrimary = Color(0xFF082417),
+    secondary = Color(0xFFE6B35A),
+    onSecondary = Color(0xFF241A08),
+    background = Color(0xFF101612),
+    onBackground = Color(0xFFE8EEE9),
+    surface = Color(0xFF171F1A),
+    onSurface = Color(0xFFE8EEE9),
+    surfaceVariant = Color(0xFF222C26),
+    onSurfaceVariant = Color(0xFFB2BDB5),
+    outline = Color(0xFF39483E)
 )
 
 @Composable
@@ -93,99 +93,6 @@ fun BrowserScreen(controller: BrowserController) {
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .statusBarsPadding().navigationBarsPadding()
     ) {
-        Row(
-            Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 17.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("CAT BROWSER", color = MaterialTheme.colorScheme.primary, fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold, letterSpacing = 1.25.sp)
-                Text(tab.title.ifBlank { "Tab mới" }, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Surface(
-                onClick = { showTabs = true }, shape = RoundedCornerShape(11.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.semantics { contentDescription = "Danh sách tab" }
-            ) {
-                Text(controller.tabs.size.toString(), Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                    color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-            }
-            Spacer(Modifier.width(9.dp))
-            Surface(onClick = { controller.newTab() }, shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(40.dp).semantics { contentDescription = "Tab mới" }) {
-                Box(contentAlignment = Alignment.Center) { Text("+", fontSize = 24.sp) }
-            }
-            Box {
-                TextButton(onClick = { showMenu = true }, modifier = Modifier.size(40.dp)) {
-                    Text("⋮", fontSize = 23.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Tiện ích mở rộng") },
-                        onClick = { showMenu = false; showExtensions = true })
-                    DropdownMenuItem(text = { Text("Dấu trang (" + controller.bookmarks.size + ")") },
-                        onClick = { showMenu = false; showBookmarks = true })
-                    DropdownMenuItem(text = { Text("Lịch sử") },
-                        onClick = { showMenu = false; showHistory = true })
-                }
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.weight(1f).height(54.dp)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(17.dp)),
-                shape = RoundedCornerShape(17.dp), color = MaterialTheme.colorScheme.surface
-            ) {
-                Row(Modifier.padding(horizontal = 13.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (tab.url.startsWith("https://")) "⌑" else "◎",
-                        color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
-                    Spacer(Modifier.width(9.dp))
-                    BasicTextField(
-                        value = address, onValueChange = { address = it },
-                        modifier = Modifier.weight(1f), singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { navigate() }),
-                        decorationBox = { inner ->
-                            Box {
-                                if (address.isEmpty()) Text("Tìm kiếm hoặc nhập địa chỉ",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                                inner()
-                            }
-                        }
-                    )
-                    if (tab.isLoading) {
-                        Text(tab.progress.toString() + "%", color = MaterialTheme.colorScheme.primary,
-                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    } else {
-                        TextButton(onClick = { address = tab.url }) {
-                            Text("×", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.width(8.dp))
-            Surface(onClick = { navigate() }, shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(54.dp)) {
-                Box(contentAlignment = Alignment.Center) { Text("→", fontSize = 23.sp) }
-            }
-        }
-
-        Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
-            if (tab.isLoading) Box(
-                Modifier.fillMaxWidth((tab.progress.coerceIn(0, 100) / 100f).coerceAtLeast(0.035f))
-                    .fillMaxHeight().background(MaterialTheme.colorScheme.primary)
-            )
-        }
-
         tab.error?.let { message ->
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(start = 15.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
@@ -226,20 +133,72 @@ fun BrowserScreen(controller: BrowserController) {
         }
 
         Row(
-            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = 5.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
+                .navigationBarsPadding()
+                .padding(horizontal = 7.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            BrowserAction("Quay lại", "‹", tab.canGoBack) { controller.goBack() }
-            BrowserAction("Tiếp", "›", tab.canGoForward) { controller.goForward() }
-            BrowserAction("Trang chủ", "⌂", true) { controller.goHome() }
-            BrowserAction(if (tab.isLoading) "Dừng" else "Tải lại",
-                if (tab.isLoading) "×" else "↻", true) { controller.stopOrReload() }
-            BrowserAction("Dấu trang", if (controller.isBookmarked(tab.url)) "★" else "☆", true) {
-                controller.toggleBookmark()
+            DockAction("‹", "Quay lại", tab.canGoBack) { controller.goBack() }
+            DockAction("›", "Tiến", tab.canGoForward) { controller.goForward() }
+            Surface(
+                modifier = Modifier.weight(1f).height(46.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                Row(Modifier.padding(start = 10.dp, end = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (tab.url.startsWith("https://")) "◈" else "⌕",
+                        color = MaterialTheme.colorScheme.primary, fontSize = 17.sp)
+                    Spacer(Modifier.width(7.dp))
+                    BasicTextField(
+                        value = address, onValueChange = { address = it },
+                        modifier = Modifier.weight(1f), singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { navigate() }),
+                        decorationBox = { inner ->
+                            Box {
+                                if (address.isEmpty()) Text("Tìm kiếm hoặc nhập địa chỉ",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1)
+                                inner()
+                            }
+                        }
+                    )
+                    if (tab.isLoading) {
+                        Text("${tab.progress}%", color = MaterialTheme.colorScheme.primary,
+                            fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    } else {
+                        TextButton(onClick = { navigate() }, contentPadding = PaddingValues(5.dp)) {
+                            Text("→", color = MaterialTheme.colorScheme.primary, fontSize = 19.sp)
+                        }
+                    }
+                }
             }
-            BrowserAction("Tiện ích", "✧", true) { showExtensions = true }
+            DockAction(controller.tabs.size.toString(), "Các tab", true) { showTabs = true }
+            Box {
+                DockAction("⋮", "Menu", true) { showMenu = true }
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(text = { Text("Trang chủ") },
+                        onClick = { showMenu = false; controller.goHome() })
+                    DropdownMenuItem(text = { Text(if (tab.isLoading) "Dừng tải" else "Tải lại") },
+                        onClick = { showMenu = false; controller.stopOrReload() })
+                    DropdownMenuItem(text = { Text(if (controller.isBookmarked(tab.url)) "Bỏ dấu trang" else "Thêm dấu trang") },
+                        onClick = { showMenu = false; controller.toggleBookmark() })
+                    DropdownMenuItem(text = { Text("Tiện ích mở rộng") },
+                        onClick = { showMenu = false; showExtensions = true })
+                    DropdownMenuItem(text = { Text("Dấu trang (${controller.bookmarks.size})") },
+                        onClick = { showMenu = false; showBookmarks = true })
+                    DropdownMenuItem(text = { Text("Lịch sử") },
+                        onClick = { showMenu = false; showHistory = true })
+                    DropdownMenuItem(text = { Text("Tab mới") },
+                        onClick = { showMenu = false; controller.newTab() })
+                }
+            }
         }
     }
 
@@ -248,6 +207,22 @@ fun BrowserScreen(controller: BrowserController) {
         { controller.clearHistory() })
     if (showBookmarks) EntryDialog("Dấu trang", controller.bookmarks, "Bạn chưa lưu trang nào.",
         { showBookmarks = false }, { controller.openEntry(it.url); showBookmarks = false })
+}
+
+@Composable
+private fun DockAction(symbol: String, label: String, enabled: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick, enabled = enabled, shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+        modifier = Modifier.widthIn(min = 32.dp).height(42.dp)
+            .semantics { contentDescription = label }
+    ) {
+        Box(Modifier.padding(horizontal = 5.dp), contentAlignment = Alignment.Center) {
+            Text(symbol, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+        }
+    }
 }
 
 @Composable
