@@ -9,7 +9,7 @@ on:
         default: iceraven-2.46.0
 
 env:
-  JAVA_VERSION: "17"   # JDK used by Fenix 153; change here only
+  JAVA_VERSION: "17"
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
 jobs:
@@ -44,13 +44,8 @@ jobs:
           ICERAVEN_TAG: ${{ inputs.iceraven_tag }}
         run: git clone --recursive --branch "$ICERAVEN_TAG" https://github.com/fork-maintainers/iceraven-browser.git iceraven
 
-      - name: Run Cat Browser branding script if present
-        run: |
-          if [ -f scripts/cat-branding.sh ]; then
-            bash scripts/cat-branding.sh "$GITHUB_WORKSPACE/iceraven"
-          else
-            echo "scripts/cat-branding.sh not found, skipping"
-          fi
+      - name: Run Cat Browser branding script
+        run: bash scripts/cat-branding.sh "$GITHUB_WORKSPACE/iceraven"
 
       - name: Enable signing with the debug key
         working-directory: iceraven
@@ -58,14 +53,14 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
           echo "autosignReleaseWithDebugKey=" >> local.properties
 
-      - name: Build release APKs
+      - name: Build forkRelease APK (Iceraven variant with Cat branding)
         working-directory: iceraven
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew :app:assembleForkRelease --no-daemon
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: cat-browser-apk
-          path: iceraven/**/build/outputs/apk/**/*.apk
+          path: iceraven/app/build/outputs/apk/fork/forkRelease/*.apk
           if-no-files-found: error
           retention-days: 14
