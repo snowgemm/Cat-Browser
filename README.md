@@ -1,51 +1,62 @@
 # Cat Browser
 
-Android-first browser experiment built from [Iceraven](https://github.com/fork-maintainers/iceraven-browser), which is based on Mozilla Fenix, GeckoView and Android Components.
+An independent Android browser whose application code, interface and browsing experience are maintained in this repository. Cat owns browser UI, navigation and local browser state; Mozilla GeckoView is embedded as the browser engine.
 
-## Current state
+## Current implementation
 
-This repository is currently a **build-and-branding layer**, not a complete standalone Android codebase. The workflow checks out an upstream Iceraven release, applies Cat Browser's package/name branding, and builds that Android app. Until Cat-owned application code is added, the resulting APK largely retains upstream behavior and UI.
+The first application foundation contains:
 
-The project is Android-only for the current phase. Desktop work is deferred.
+- Kotlin + Jetpack Compose + Material 3.
+- Mozilla GeckoView Stable, pinned to `160.0.20261104181552`.
+- One active GeckoSession rendered inside GeckoView.
+- Address/search field with DuckDuckGo search for plain text.
+- Back, forward, home, reload and Android system-back navigation.
+- HTTP(S)-only schemes from the address field; other schemes are treated as search text.
+- A unit-test suite for address resolution.
+- GitHub Actions builds and uploads a development debug APK.
 
-## Extension support: precise scope
+This is an early browser foundation, not a complete daily-use browser. Tab management, private browsing, history, bookmarks, downloads, site-permission prompts, extension management and Cat privacy controls are not implemented yet.
 
-The target is a hybrid **compatibility goal**, not a promise that every Chrome Web Store extension can be installed on GeckoView.
+## Technology
 
-- **Firefox WebExtensions:** use the WebExtensions runtime and add-on management inherited from the GeckoView/Fenix base.
-- **Chrome extensions:** only consider extensions whose manifest and API requirements are compatible with Gecko. Chrome Web Store packages are not directly interchangeable with Firefox add-ons.
-- **Local .xpi files:** arbitrary unsigned XPI sideloading is not claimed. GeckoView's normal install API validates the package and requires a Mozilla signature. The `FROM_FILE` installation method describes where installation came from; it does not remove signature validation.
-- **Unsupported APIs:** must be identified and shown as unsupported/limited rather than silently accepted.
+| Area | Choice |
+|---|---|
+| Platform | Android |
+| Language | Kotlin |
+| UI | Jetpack Compose + Material 3 |
+| Browser engine | GeckoView Stable |
+| Search provider | DuckDuckGo |
+| Local persistence | Not introduced until browser state requires it |
+| Extensions | Firefox WebExtensions via GeckoView, planned |
 
-See [Android extension support contract](docs/ANDROID-EXTENSIONS.md).
+GeckoView is packaged inside the APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.
 
-## Build an APK
+## Build
 
-1. Open the repository's **Actions** tab.
-2. Run **Build Cat Browser APK**.
-3. Keep the default Iceraven tag (`iceraven-2.53.0`) or select another release tag in the expected `iceraven-x.y.z` format.
-4. Download the `cat-browser-<tag>` artifact after the workflow succeeds.
+Requirements: JDK 17, Android SDK Platform 37 and Gradle 9.6.0.
 
-The workflow validates the branding script, checks the selected tag, prepares the upstream Android build, applies Cat Browser branding, builds `forkRelease`, and records APK SHA-256 hashes.
+Run the following commands from the repository root:
 
-### Signing and release status
+```bash
+gradle --no-daemon :app:testDebugUnitTest
+gradle --no-daemon :app:assembleDebug
+```
 
-The current workflow uses the Android debug key for a development APK. It is **not** a production signing setup and cannot be treated as a stable update channel. A dedicated release-signing and update strategy is still required before distributing production builds.
+The development APK is written to `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions runs the same test and build tasks on pushes to `main`.
 
-## Upstream security and availability warning
+The debug APK is not production-signed and must not be treated as a stable release or an update channel.
 
-Iceraven's own README states that it provides no guarantees of security, updates or stability and cautions users against relying on it as their primary browser. Its maintainers also state that the app may stop working on certified Android devices when the announced developer-identity requirements take effect.
+## Extension support
 
-Cat Browser inherits the current upstream base and its limitations. Treat these builds as experimental; do not rely on them as the only browser or for sensitive browsing until the upstream foundation, security-update process and signing model have been independently reviewed. This project does not attempt to bypass Android platform or developer-identity requirements.
+The target is Firefox WebExtensions through GeckoView. This does not imply compatibility with every Firefox add-on, every Chrome extension or the Chrome Web Store. The extension manager is not implemented yet. Read [Android extension support](docs/ANDROID-EXTENSIONS.md) before advertising compatibility.
 
-## Near-term development order
+## Architecture
 
-1. Keep the upstream build reproducible and fail fast when its source layout changes.
-2. Audit whether Iceraven is a suitable long-term base or whether Cat Browser should move to a directly maintained Fenix/GeckoView integration.
-3. Build Cat-owned Android features on top of supported GeckoView APIs.
-4. Add extension compatibility diagnostics and test supported add-ons before advertising compatibility.
-5. Add Rust only for a concrete native component where it offers a measurable benefit.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component ownership and lifecycle constraints.
 
-## License
+## Third-party components
 
-Iceraven / Firefox for Android is distributed under the Mozilla Public License 2.0. Cat Browser's own code and any later modifications must preserve applicable upstream notices and license obligations.
+- GeckoView: Mozilla Public License 2.0 (MPL-2.0).
+- Gradle tooling in CI: Gradle 9.6.0, distributed under the Apache License 2.0.
+
+Cat Browser is an independent project and is not affiliated with Mozilla.
