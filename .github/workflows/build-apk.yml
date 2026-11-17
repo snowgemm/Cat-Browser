@@ -27,7 +27,7 @@ jobs:
           df -h /
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -59,7 +59,7 @@ jobs:
           echo "autosignReleaseWithDebugKey=" >> local.properties
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Build forkRelease APK
         working-directory: iceraven
@@ -68,7 +68,7 @@ jobs:
         run: ./gradlew :app:assembleForkRelease -PversionName=cat-browser --stacktrace --no-daemon
 
       - name: Upload APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: cat-browser-apk
           path: |
