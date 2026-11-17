@@ -136,7 +136,6 @@ fun BrowserScreen(controller: BrowserController) {
             Modifier.fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
-                .navigationBarsPadding()
                 .padding(horizontal = 7.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
