@@ -25,7 +25,8 @@ jobs:
 
       - name: Validate repository scripts
         run: |
-          bash -n scripts/cat-branding.sh scripts/test-cat-branding.sh
+          bash -n scripts/cat-branding.sh
+          bash -n scripts/test-cat-branding.sh
           bash scripts/test-cat-branding.sh
 
       - name: Validate Iceraven tag input
