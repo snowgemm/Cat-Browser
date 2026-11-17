@@ -155,7 +155,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
             { extensions ->
                 installed.clear()
                 installed.addAll(
-                    extensions.sortedBy {
+                    extensions.orEmpty().sortedBy {
                         it.metaData.name?.lowercase().orEmpty().ifBlank { it.id.lowercase() }
                     }
                 )
@@ -310,7 +310,7 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
                 statusMessage = if (updated == null) {
                     "Tiện ích đã ở phiên bản mới nhất."
                 } else {
-                    "Đã cập nhật ${updated.metaData.name ?: updated.id}."
+                    "Đã cập nhật ${updated?.metaData?.name ?: updated?.id ?: extension.id}."
                 }
                 refreshInstalled()
             },
