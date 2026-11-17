@@ -10,13 +10,12 @@ on:
 
 env:
   JAVA_VERSION: "17"
-  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
 jobs:
   build:
     name: Build release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Check out this repo
         uses: actions/checkout@v4
@@ -33,16 +32,23 @@ jobs:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Gradle with caching
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Accept Android SDK licenses
-        run: yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-
       - name: Clone Iceraven (recursive)
         env:
           ICERAVEN_TAG: ${{ inputs.iceraven_tag }}
-        run: git clone --recursive --branch "$ICERAVEN_TAG" https://github.com/fork-maintainers/iceraven-browser.git iceraven
+        run: |
+          git clone --recursive --branch "$ICERAVEN_TAG" https://github.com/fork-maintainers/iceraven-browser.git iceraven
+          cd iceraven
+          git submodule update --init --recursive
+
+      - name: Install Android SDK (Iceraven script)
+        working-directory: iceraven
+        run: bash automation/iceraven/install-sdk.sh
+
+      - name: Patch android-components and setup venv
+        working-directory: iceraven
+        run: |
+          bash automation/iceraven/patch_android_components.sh
+          bash automation/iceraven/setup_venv.sh || true
 
       - name: Run Cat Browser branding script
         run: bash scripts/cat-branding.sh "$GITHUB_WORKSPACE/iceraven"
@@ -50,17 +56,23 @@ jobs:
       - name: Enable signing with the debug key
         working-directory: iceraven
         run: |
-          echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
           echo "autosignReleaseWithDebugKey=" >> local.properties
 
-      - name: Build forkRelease APK (Iceraven variant with Cat branding)
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build forkRelease APK
         working-directory: iceraven
-        run: ./gradlew :app:assembleForkRelease --no-daemon
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs="-XX:MaxMetaspaceSize=4g -Xms1g -Xmx6g -XX:+HeapDumpOnOutOfMemoryError"
+        run: ./gradlew :app:assembleForkRelease -PversionName=cat-browser --stacktrace --no-daemon
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: cat-browser-apk
-          path: iceraven/app/build/outputs/apk/fork/forkRelease/*.apk
+          path: |
+            iceraven/app/build/outputs/apk/**/*.apk
+            iceraven/gradle/build/app/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
