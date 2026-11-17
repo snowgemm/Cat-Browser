@@ -241,6 +241,7 @@ fun BrowserScreen(controller: BrowserController) {
                         factory = { context ->
                             GeckoView(context).apply {
                                 setSession(session)
+                                controller.onSessionViewAttached(activeTab.id, session)
                             }
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -248,9 +249,11 @@ fun BrowserScreen(controller: BrowserController) {
                             if (view.getSession() !== session) {
                                 view.releaseSession()
                                 view.setSession(session)
+                                controller.onSessionViewAttached(activeTab.id, session)
                             }
                         },
                         onRelease = { view ->
+                            controller.onSessionViewDetached(activeTab.id, session)
                             view.releaseSession()
                         }
                     )

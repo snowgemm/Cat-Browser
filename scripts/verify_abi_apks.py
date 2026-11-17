@@ -17,6 +17,7 @@ KNOWN_ANDROID_ABIS = frozenset(
 REQUIRED_GECKOVIEW_LIBRARIES = frozenset(
     ("libmozglue.so", "libxul.so", "libgkcodecs.so")
 )
+REQUIRED_GECKOVIEW_ASSETS = frozenset(("assets/omni.ja",))
 
 
 def inspect_apk(apk_path: Path) -> str:
@@ -27,8 +28,16 @@ def inspect_apk(apk_path: Path) -> str:
             if corrupt_entry is not None:
                 raise ValueError(f"corrupt ZIP entry: {corrupt_entry}")
 
+            archive_entries = set(archive.namelist())
+            missing_assets = REQUIRED_GECKOVIEW_ASSETS - archive_entries
+            if missing_assets:
+                raise ValueError(
+                    "APK is missing required GeckoView assets: "
+                    + ", ".join(sorted(missing_assets))
+                )
+
             native_entries: set[tuple[str, str]] = set()
-            for entry in archive.namelist():
+            for entry in archive_entries:
                 parts = PurePosixPath(entry).parts
                 if len(parts) < 3 or parts[0] != "lib" or not parts[-1].endswith(".so"):
                     continue

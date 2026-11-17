@@ -41,6 +41,12 @@ class BrowserTab internal constructor(
         internal set
     var session by mutableStateOf<GeckoSession?>(null)
         internal set
+    var isViewAttached = false
+        internal set
+    var loadPendingUntilAttached = false
+        internal set
+    var pendingOriginalInput: String? = null
+        internal set
 }
 
 class BrowserController(
@@ -102,7 +108,7 @@ class BrowserController(
         ensureSession(target)
         target.session?.let { session ->
             session.setActive(true)
-            session.setFocused(true)
+            session.setFocused(target.isViewAttached)
         }
         persistTabs()
     }
@@ -157,12 +163,18 @@ class BrowserController(
         val session = tab.session
         if (session == null || !session.isOpen) {
             ensureSession(tab, loadCurrentUrl = true)
-        } else {
+            tab.pendingOriginalInput = originalInput
+        } else if (tab.isViewAttached) {
+            tab.loadPendingUntilAttached = false
+            tab.pendingOriginalInput = null
             session.load(
                 GeckoSession.Loader()
                     .uri(destination)
                     .originalInput(originalInput)
             )
+        } else {
+            tab.loadPendingUntilAttached = true
+            tab.pendingOriginalInput = originalInput
         }
         persistTabs()
     }
@@ -183,6 +195,14 @@ class BrowserController(
         val tab = activeTab ?: return
         val session = tab.session
 
+        if (tab.isLoading && tab.loadPendingUntilAttached) {
+            tab.loadPendingUntilAttached = false
+            tab.pendingOriginalInput = null
+            tab.isLoading = false
+            tab.progress = 0
+            return
+        }
+
         if (tab.isLoading && session?.isOpen == true) {
             session.stop()
             tab.isLoading = false
@@ -193,8 +213,12 @@ class BrowserController(
         tab.error = null
         if (session == null || !session.isOpen) {
             ensureSession(tab, loadCurrentUrl = true)
-        } else {
+        } else if (tab.isViewAttached) {
             session.reload()
+        } else {
+            tab.loadPendingUntilAttached = true
+            tab.pendingOriginalInput = tab.url
+            tab.isLoading = true
         }
     }
 
@@ -235,12 +259,41 @@ class BrowserController(
             tab.session?.let { session ->
                 val active = tab.id == selected.id
                 session.setActive(active)
-                session.setFocused(active)
+                session.setFocused(active && tab.isViewAttached)
             }
         }
         ensureSession(selected)
         selected.session?.setActive(true)
-        selected.session?.setFocused(true)
+        selected.session?.setFocused(selected.isViewAttached)
+    }
+
+    fun onSessionViewAttached(tabId: String, session: GeckoSession) {
+        val tab = tabs.firstOrNull { it.id == tabId } ?: return
+        if (tab.session !== session || !session.isOpen) return
+
+        tab.isViewAttached = true
+        val isSelected = tab.id == selectedTabId
+        session.setActive(isSelected)
+        session.setFocused(isSelected)
+
+        if (isSelected && tab.loadPendingUntilAttached) {
+            val originalInput = tab.pendingOriginalInput ?: tab.url
+            tab.loadPendingUntilAttached = false
+            tab.pendingOriginalInput = null
+            session.load(
+                GeckoSession.Loader()
+                    .uri(tab.url)
+                    .originalInput(originalInput)
+            )
+        }
+    }
+
+    fun onSessionViewDetached(tabId: String, session: GeckoSession) {
+        val tab = tabs.firstOrNull { it.id == tabId } ?: return
+        if (tab.session !== session) return
+
+        tab.isViewAttached = false
+        if (session.isOpen) session.setFocused(false)
     }
 
     private fun ensureSession(tab: BrowserTab, loadCurrentUrl: Boolean = true) {
@@ -249,6 +302,9 @@ class BrowserController(
 
         val session = GeckoSession()
         tab.session = session
+        tab.isViewAttached = false
+        tab.loadPendingUntilAttached = loadCurrentUrl
+        tab.pendingOriginalInput = if (loadCurrentUrl) tab.url else null
 
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(
@@ -345,15 +401,7 @@ class BrowserController(
         session.open(runtime)
         val isSelected = tab.id == selectedTabId
         session.setActive(isSelected)
-        session.setFocused(isSelected)
-
-        if (loadCurrentUrl) {
-            session.load(
-                GeckoSession.Loader()
-                    .uri(tab.url)
-                    .originalInput(tab.url)
-            )
-        }
+        session.setFocused(isSelected && tab.isViewAttached)
     }
 
     private fun destroySession(tab: BrowserTab) {
@@ -365,6 +413,9 @@ class BrowserController(
         session.progressDelegate = null
         if (session.isOpen) session.close()
         tab.session = null
+        tab.isViewAttached = false
+        tab.loadPendingUntilAttached = false
+        tab.pendingOriginalInput = null
     }
 
     private fun recordVisit(tab: BrowserTab) {
