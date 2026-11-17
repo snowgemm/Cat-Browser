@@ -79,7 +79,12 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
             )
         }
 
-        Text("Tiện ích mở rộng", fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Tiện ích mở rộng",
+            color = MaterialTheme.colorScheme.onBackground,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.SemiBold
+        )
         Text(
             "Khám phá và quản lý Firefox WebExtensions trên GeckoView.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
