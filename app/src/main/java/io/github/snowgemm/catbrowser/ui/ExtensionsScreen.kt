@@ -1,39 +1,16 @@
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,8 +25,8 @@ import org.mozilla.geckoview.WebExtension
 
 @Composable
 fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedSection by remember { mutableStateOf("discover") }
+    var query by remember { mutableStateOf("") }
+    var section by remember { mutableStateOf("discover") }
     var pendingRemoval by remember { mutableStateOf<WebExtension?>(null) }
 
     LaunchedEffect(Unit) {
@@ -57,142 +34,125 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
         manager.searchCatalog("")
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().height(48.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(onClick = onBack) { Text("‹  Quay lại") }
-            Spacer(Modifier.weight(1f))
-            Text(
-                "EXTENSIONS",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp
-            )
-        }
-
-        Text(
-            "Tiện ích mở rộng",
-            color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 27.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            "Khám phá và quản lý Firefox WebExtensions trên GeckoView.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp
-        )
-
-        Spacer(Modifier.height(18.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SectionButton("Khám phá", selectedSection == "discover") {
-                selectedSection = "discover"
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+        .statusBarsPadding().navigationBarsPadding()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp).height(60.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(onClick = onBack, shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(40.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("‹", fontSize = 27.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
             }
-            SectionButton("Đã cài (${manager.installed.size})", selectedSection == "installed") {
-                selectedSection = "installed"
-                manager.refreshInstalled()
+            Column(Modifier.weight(1f).padding(start = 13.dp)) {
+                Text("CAT ADD-ONS", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.3.sp)
+                Text("Tiện ích mở rộng", color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Surface(shape = RoundedCornerShape(11.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                Text(manager.installed.size.toString() + " đã cài",
+                    Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
         }
 
-        if (selectedSection == "discover") {
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(18.dp),
-                placeholder = { Text("Tìm tiện ích…") },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = { manager.searchCatalog(searchQuery) }
-                )
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Nguồn: Mozilla Add-ons · Lọc tiện ích dành cho Android",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = { manager.searchCatalog(searchQuery) },
-                enabled = !manager.isSearching && !manager.isWorking,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (manager.isSearching) "Đang tìm…" else "Tìm tiện ích")
+        Column(Modifier.weight(1f).padding(horizontal = 18.dp)) {
+            Text("Mở rộng khả năng duyệt web", color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 25.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
+            Text("Tìm và quản lý Firefox WebExtensions tương thích với GeckoView.",
+                Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+
+            Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 14.dp)
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                ExtensionTab("Khám phá", section == "discover", Modifier.weight(1f)) { section = "discover" }
+                ExtensionTab("Đã cài (" + manager.installed.size + ")", section == "installed",
+                    Modifier.weight(1f)) {
+                    section = "installed"
+                    manager.refreshInstalled()
+                }
             }
-        }
 
-        manager.statusMessage?.let {
-            Spacer(Modifier.height(8.dp))
-            Text(it, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-        }
-
-        Spacer(Modifier.height(10.dp))
-        when (selectedSection) {
-            "discover" -> {
-                if (manager.catalog.isEmpty() && manager.isSearching) {
-                    Text("Đang tải kho tiện ích…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else if (manager.catalog.isEmpty()) {
-                    Text(
-                        "Chưa có kết quả. Hãy tìm tên tiện ích.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (section == "discover") {
+                OutlinedTextField(
+                    value = query, onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    placeholder = { Text("⌕  Tìm tên tiện ích…") },
+                    shape = RoundedCornerShape(15.dp),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { manager.searchCatalog(query) }),
+                    trailingIcon = {
+                        Surface(onClick = { manager.searchCatalog(query) }, shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 5.dp).size(38.dp)) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("→", color = MaterialTheme.colorScheme.onPrimary, fontSize = 20.sp)
+                            }
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
                     )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                )
+                Row(Modifier.fillMaxWidth().padding(top = 9.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("◉  Mozilla Add-ons · Android", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Spacer(Modifier.weight(1f))
+                    if (manager.catalog.isNotEmpty()) Text(manager.catalog.size.toString() + " kết quả",
+                        color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
+                }
+            }
+
+            manager.statusMessage?.let { message ->
+                Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {
+                    Text(message, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
+                }
+            }
+
+            when (section) {
+                "discover" -> when {
+                    manager.isSearching && manager.catalog.isEmpty() -> ExtensionState(
+                        "Đang tìm tiện ích", "Đang tải dữ liệu từ Mozilla Add-ons…", Modifier.weight(1f), true)
+                    manager.catalog.isEmpty() -> ExtensionState(
+                        if (manager.isSearching) "Chưa có kết quả" else "Khám phá tiện ích",
+                        if (manager.isSearching) "Thử từ khoá khác hoặc kiểm tra kết nối mạng."
+                        else "Tìm kiếm tiện ích tương thích Android để bắt đầu.",
+                        Modifier.weight(1f), false)
+                    else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                         items(manager.catalog, key = { it.id }) { entry ->
-                            CatalogExtensionCard(
-                                entry = entry,
-                                installed = manager.isInstalled(entry),
-                                busy = manager.isWorking,
-                                onInstall = { manager.install(entry) }
-                            )
+                            CatalogExtensionCard(entry, manager.isInstalled(entry), manager.isWorking) {
+                                manager.install(entry)
+                            }
                         }
                     }
                 }
-            }
-            else -> {
-                if (manager.isLoadingInstalled && manager.installed.isEmpty()) {
-                    Text("Đang tải tiện ích đã cài…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else if (manager.installed.isEmpty()) {
-                    Text("Bạn chưa cài tiện ích nào.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
+                else -> when {
+                    manager.isLoadingInstalled && manager.installed.isEmpty() -> ExtensionState(
+                        "Đang kiểm tra tiện ích", "Đang đồng bộ danh sách từ GeckoView…", Modifier.weight(1f), true)
+                    manager.installed.isEmpty() -> ExtensionState(
+                        "Chưa có tiện ích nào", "Các tiện ích bạn cài sẽ xuất hiện tại đây.",
+                        Modifier.weight(1f), false)
+                    else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                         items(manager.installed, key = { it.id }) { extension ->
                             InstalledExtensionCard(
-                                extension = extension,
-                                busy = manager.isWorking,
-                                onEnabledChange = { manager.setEnabled(extension, it) },
-                                onUpdate = { manager.update(extension) },
-                                onRemove = { pendingRemoval = extension }
+                                extension, manager.isWorking,
+                                { manager.setEnabled(extension, it) },
+                                { manager.update(extension) },
+                                { pendingRemoval = extension }
                             )
                         }
                     }
                 }
             }
-        }
 
-        Text(
-            "Cat dùng GeckoView để xác minh chữ ký, manifest và quyền. Không phải mọi Chrome Extension đều tương thích.",
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 11.sp
-        )
+            Text("Cat dùng GeckoView để xác minh gói cài đặt và quyền. Không phải mọi Chrome Extension đều tương thích.",
+                Modifier.padding(top = 10.dp, bottom = 9.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 10.sp, lineHeight = 14.sp)
+        }
     }
 
     manager.permissionPrompt?.let { prompt ->
@@ -205,94 +165,56 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
             title = { Text("Gỡ tiện ích?") },
-            text = { Text("Bạn sẽ gỡ ${extension.metaData.name ?: extension.id} khỏi Cat Browser.") },
+            text = { Text("Bạn sẽ gỡ " + (extension.metaData.name ?: extension.id) + " khỏi Cat Browser.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRemoval = null
-                        manager.uninstall(extension)
-                    }
-                ) { Text("Gỡ") }
+                TextButton(onClick = { pendingRemoval = null; manager.uninstall(extension) }) { Text("Gỡ tiện ích") }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingRemoval = null }) { Text("Huỷ") }
-            }
+            dismissButton = { TextButton(onClick = { pendingRemoval = null }) { Text("Huỷ") } }
         )
     }
 }
 
 @Composable
-private fun SectionButton(label: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            fontSize = 13.sp
-        )
+private fun ExtensionTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(11.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant) {
+        Box(Modifier.padding(vertical = 11.dp), contentAlignment = Alignment.Center) {
+            Text(label, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+        }
     }
 }
 
 @Composable
-private fun CatalogExtensionCard(
-    entry: ExtensionCatalogEntry,
-    installed: Boolean,
-    busy: Boolean,
-    onInstall: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(Modifier.padding(16.dp)) {
+private fun CatalogExtensionCard(entry: ExtensionCatalogEntry, installed: Boolean, busy: Boolean, onInstall: () -> Unit) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
-                ) {
-                    Text(
-                        entry.name.firstOrNull()?.uppercase() ?: "E",
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(48.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(entry.name.firstOrNull()?.uppercase() ?: "E", color = MaterialTheme.colorScheme.primary,
+                            fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(
-                        entry.name,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "v${entry.version} · ★ ${entry.averageRating} · ${entry.dailyUsers} người dùng",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
+                    Text(entry.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("★ " + entry.averageRating + "  ·  " + entry.dailyUsers + " người dùng",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                }
+                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text("ANDROID", Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                        color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            if (entry.summary.isNotBlank()) {
-                Text(
-                    entry.summary,
-                    modifier = Modifier.padding(top = 10.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onInstall, enabled = !busy && !installed) {
+            if (entry.summary.isNotBlank()) Text(entry.summary, Modifier.padding(top = 11.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp,
+                maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("v" + entry.version, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                Button(onClick = onInstall, enabled = !busy && !installed, shape = RoundedCornerShape(11.dp)) {
                     Text(if (installed) "Đã cài" else "Cài đặt")
                 }
             }
@@ -309,46 +231,31 @@ private fun InstalledExtensionCard(
     onRemove: () -> Unit
 ) {
     val metadata = extension.metaData
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(Modifier.padding(16.dp)) {
+    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(15.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        metadata.name ?: extension.id,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "v${metadata.version} · ${metadata.creatorName ?: "Nhà phát triển không rõ"}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
+                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(44.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text((metadata.name ?: extension.id).firstOrNull()?.uppercase() ?: "E",
+                            color = MaterialTheme.colorScheme.primary, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
-                Switch(
-                    checked = metadata.enabled,
-                    onCheckedChange = onEnabledChange,
-                    enabled = !busy
-                )
+                Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                    Text(metadata.name ?: extension.id, color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("v" + metadata.version + " · " + (metadata.creatorName ?: "Nhà phát triển không rõ"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Switch(checked = metadata.enabled, onCheckedChange = onEnabledChange, enabled = !busy)
             }
             metadata.description?.takeIf(String::isNotBlank)?.let {
-                Text(
-                    it,
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Text(it, Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
+            Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onUpdate, enabled = !busy) { Text("Cập nhật") }
                 TextButton(onClick = onRemove, enabled = !busy) { Text("Gỡ") }
             }
@@ -357,10 +264,24 @@ private fun InstalledExtensionCard(
 }
 
 @Composable
-private fun ExtensionPermissionDialog(
-    prompt: ExtensionPermissionPrompt,
-    onDecision: (Boolean, Boolean) -> Unit
-) {
+private fun ExtensionState(title: String, detail: String, modifier: Modifier, loading: Boolean) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(68.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(if (loading) "◌" else "✧", color = MaterialTheme.colorScheme.primary, fontSize = 31.sp)
+                }
+            }
+            Text(title, Modifier.padding(top = 14.dp), color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text(detail, Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp, lineHeight = 17.sp)
+        }
+    }
+}
+
+@Composable
+private fun ExtensionPermissionDialog(prompt: ExtensionPermissionPrompt, onDecision: (Boolean, Boolean) -> Unit) {
     var allowDataCollection by remember(prompt) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { onDecision(false, false) },
@@ -369,64 +290,32 @@ private fun ExtensionPermissionDialog(
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 item {
                     Text(prompt.extensionName, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
-                    if (prompt.description.isNotBlank()) {
-                        Text(
-                            prompt.description,
-                            modifier = Modifier.padding(top = 6.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    if (prompt.description.isNotBlank()) Text(prompt.description, Modifier.padding(top = 6.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (prompt.permissions.isNotEmpty()) {
-                    item { PermissionGroup("Quyền truy cập", prompt.permissions) }
-                }
-                if (prompt.origins.isNotEmpty()) {
-                    item { PermissionGroup("Website có thể truy cập", prompt.origins) }
-                }
-                if (prompt.dataCollectionPermissions.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Thu thập dữ liệu",
-                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        prompt.dataCollectionPermissions.forEach { Text("• $it", fontSize = 12.sp) }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(
-                                checked = allowDataCollection,
-                                onCheckedChange = { allowDataCollection = it }
-                            )
-                            Text("Cho phép quyền thu thập dữ liệu này", fontSize = 12.sp)
-                        }
+                if (prompt.permissions.isNotEmpty()) item { PermissionGroup("Quyền truy cập", prompt.permissions) }
+                if (prompt.origins.isNotEmpty()) item { PermissionGroup("Website có thể truy cập", prompt.origins) }
+                if (prompt.dataCollectionPermissions.isNotEmpty()) item {
+                    Text("Thu thập dữ liệu", Modifier.padding(top = 12.dp, bottom = 4.dp), fontWeight = FontWeight.SemiBold)
+                    prompt.dataCollectionPermissions.forEach { Text("• " + it, fontSize = 12.sp) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = allowDataCollection, onCheckedChange = { allowDataCollection = it })
+                        Text("Cho phép quyền thu thập dữ liệu này", fontSize = 12.sp)
                     }
                 }
                 item {
-                    Text(
-                        "Cat không cấp quyền chạy trong chế độ riêng tư.",
-                        modifier = Modifier.padding(top = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
+                    Text("Cat không cấp quyền chạy trong chế độ riêng tư.", Modifier.padding(top = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = { onDecision(true, allowDataCollection) }) { Text("Đồng ý") }
-        },
-        dismissButton = {
-            TextButton(onClick = { onDecision(false, false) }) { Text("Từ chối") }
-        }
+        confirmButton = { TextButton(onClick = { onDecision(true, allowDataCollection) }) { Text("Đồng ý") } },
+        dismissButton = { TextButton(onClick = { onDecision(false, false) }) { Text("Từ chối") } }
     )
 }
 
 @Composable
 private fun PermissionGroup(title: String, values: List<String>) {
-    Text(
-        title,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-        fontWeight = FontWeight.SemiBold
-    )
-    values.forEach { permission ->
-        Text("• $permission", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+    Text(title, Modifier.padding(top = 12.dp, bottom = 4.dp), fontWeight = FontWeight.SemiBold)
+    values.forEach { Text("• " + it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
