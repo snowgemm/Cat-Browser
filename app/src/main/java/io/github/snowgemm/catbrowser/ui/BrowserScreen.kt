@@ -3,7 +3,6 @@ package io.github.snowgemm.catbrowser.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -102,7 +100,7 @@ fun BrowserScreen(controller: BrowserController) {
             }
         }
 
-        Surface(Modifier.fillMaxWidth().weight(1f), color = Color(0xFF080D13)) {
+        Surface(Modifier.fillMaxWidth().weight(1f), color = MaterialTheme.colorScheme.background) {
             val session = tab.session
             if (session == null) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -221,18 +219,6 @@ private fun DockAction(symbol: String, label: String, enabled: Boolean, onClick:
         Box(Modifier.padding(horizontal = 5.dp), contentAlignment = Alignment.Center) {
             Text(symbol, fontSize = 20.sp, fontWeight = FontWeight.Medium)
         }
-    }
-}
-
-@Composable
-private fun BrowserAction(label: String, symbol: String, enabled: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier.alpha(if (enabled) 1f else 0.38f).clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 5.dp, vertical = 4.dp).semantics { contentDescription = label },
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(symbol, color = MaterialTheme.colorScheme.primary, fontSize = 22.sp, lineHeight = 24.sp)
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1)
     }
 }
 
