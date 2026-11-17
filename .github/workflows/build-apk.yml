@@ -1,0 +1,71 @@
+name: Build Cat Browser APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      iceraven_tag:
+        description: Iceraven release tag to build
+        required: true
+        default: iceraven-2.46.0
+
+env:
+  JAVA_VERSION: "17"   # JDK used by Fenix 153; change here only
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out this repo
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/node_modules /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Gradle with caching
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - name: Clone Iceraven (recursive)
+        env:
+          ICERAVEN_TAG: ${{ inputs.iceraven_tag }}
+        run: git clone --recursive --branch "$ICERAVEN_TAG" https://github.com/fork-maintainers/iceraven-browser.git iceraven
+
+      - name: Run Cat Browser branding script if present
+        run: |
+          if [ -f scripts/cat-branding.sh ]; then
+            bash scripts/cat-branding.sh "$GITHUB_WORKSPACE/iceraven"
+          else
+            echo "scripts/cat-branding.sh not found, skipping"
+          fi
+
+      - name: Enable signing with the debug key
+        working-directory: iceraven
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
+          echo "autosignReleaseWithDebugKey=" >> local.properties
+
+      - name: Build release APKs
+        working-directory: iceraven
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: cat-browser-apk
+          path: iceraven/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
