@@ -14,13 +14,15 @@ cd "$ICERAVEN_DIR"
 
 echo "=== Cat Browser branding ==="
 
-# 1. Change base applicationId
+# 1. Change base applicationId so the app is independent
 #    io.github.forkmaintainers → io.github.snowgemm
+#    Final package will be approximately: io.github.snowgemm.catbrowser
 if [[ -f app/build.gradle ]]; then
   sed -i 's/applicationId "io.github.forkmaintainers"/applicationId "io.github.snowgemm"/g' app/build.gradle
   sed -i 's/applicationIdSuffix ".iceraven"/applicationIdSuffix ".catbrowser"/g' app/build.gradle
   sed -i 's/applicationIdSuffix ".iceraven.debug"/applicationIdSuffix ".catbrowser.debug"/g' app/build.gradle
   sed -i 's/io.github.forkmaintainers.iceraven.sharedID/io.github.snowgemm.catbrowser.sharedID/g' app/build.gradle
+  # Update deep link scheme
   sed -i 's/"iceraven"/"catbrowser"/g' app/build.gradle
   sed -i 's/"iceraven-debug"/"catbrowser-debug"/g' app/build.gradle
   echo "Updated app/build.gradle (applicationId + suffixes + deep links)"
@@ -35,12 +37,6 @@ find . -name "*.xml" -type f -print0 | while IFS= read -r -d '' file; do
   fi
 done
 
-# 3. Optional: change some comments / identifiers
-if [[ -f app/build.gradle ]]; then
-  sed -i 's/forkRelease/catRelease/g' app/build.gradle || true
-  sed -i 's/forkDebug/catDebug/g' app/build.gradle || true
-fi
-
 echo "=== Branding finished ==="
 echo "Application ID will be approximately: io.github.snowgemm.catbrowser"
-echo "You can now build with: ./gradlew assembleRelease"
+echo "Build with: ./gradlew :app:assembleForkRelease"
