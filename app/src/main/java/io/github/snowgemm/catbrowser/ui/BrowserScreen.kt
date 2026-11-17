@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -170,7 +169,7 @@ fun BrowserScreen(runtime: GeckoRuntime) {
         ) {
             OutlinedTextField(
                 value = addressText,
-                onValueChange = { addressText = it },
+                onValueChange = { newValue -> addressText = newValue },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 placeholder = { Text("Search or enter address") },
