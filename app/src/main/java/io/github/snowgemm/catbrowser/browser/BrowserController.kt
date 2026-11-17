@@ -58,6 +58,8 @@ class BrowserController(
         Context.MODE_PRIVATE
     )
 
+    val extensionsManager = BrowserExtensionsManager(runtime)
+
     val tabs = mutableStateListOf<BrowserTab>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()

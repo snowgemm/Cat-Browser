@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -59,13 +61,13 @@ private val CatColorScheme = darkColorScheme(
     onPrimary = Color(0xFF062417),
     secondary = Color(0xFFB6D9C2),
     onSecondary = Color(0xFF14251B),
-    background = Color(0xFF101612),
-    onBackground = Color(0xFFE7F0E9),
-    surface = Color(0xFF151E18),
-    onSurface = Color(0xFFE7F0E9),
-    surfaceVariant = Color(0xFF202B24),
-    onSurfaceVariant = Color(0xFFB5C2B8),
-    outline = Color(0xFF53645A)
+    background = Color(0xFF0D1722),
+    onBackground = Color(0xFFEAF1F5),
+    surface = Color(0xFF16232F),
+    onSurface = Color(0xFFEAF1F5),
+    surfaceVariant = Color(0xFF253442),
+    onSurfaceVariant = Color(0xFFB8C6D1),
+    outline = Color(0xFF536575)
 )
 
 @Composable
@@ -75,6 +77,15 @@ fun CatBrowserTheme(content: @Composable () -> Unit) {
 
 @Composable
 fun BrowserScreen(controller: BrowserController) {
+    var showExtensions by remember { mutableStateOf(false) }
+    if (showExtensions) {
+        ExtensionsScreen(
+            manager = controller.extensionsManager,
+            onBack = { showExtensions = false }
+        )
+        return
+    }
+
     val activeTab = controller.activeTab
     if (activeTab == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -87,6 +98,7 @@ fun BrowserScreen(controller: BrowserController) {
     var showTabsDialog by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
     var showBookmarksDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -138,17 +150,45 @@ fun BrowserScreen(controller: BrowserController) {
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showBookmarksDialog = true }) {
-                    Text("☆ " + controller.bookmarks.size)
-                }
                 TextButton(onClick = { showTabsDialog = true }) {
-                    Text("Tabs " + controller.tabs.size)
+                    Text("▢ " + controller.tabs.size)
                 }
                 Button(
                     onClick = { controller.newTab() },
                     contentPadding = ButtonDefaults.ContentPadding
                 ) {
                     Text("+")
+                }
+                Box {
+                    TextButton(onClick = { showOverflowMenu = true }) {
+                        Text("⋮", fontSize = 22.sp)
+                    }
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Tiện ích mở rộng") },
+                            onClick = {
+                                showOverflowMenu = false
+                                showExtensions = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Dấu trang (" + controller.bookmarks.size + ")") },
+                            onClick = {
+                                showOverflowMenu = false
+                                showBookmarksDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Lịch sử") },
+                            onClick = {
+                                showOverflowMenu = false
+                                showHistoryDialog = true
+                            }
+                        )
+                    }
                 }
             }
         }

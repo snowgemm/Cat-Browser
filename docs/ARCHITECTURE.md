@@ -52,7 +52,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | BrowserController | GeckoSession collection, active tab, navigation, local state persistence |
 | BrowserTab | Per-tab UI state and GeckoSession reference |
 | Site permissions | Explicit prompts and persisted per-origin decisions; not implemented |
-| Extension manager | WebExtensionController operations and permission review; not implemented |
+| Extension manager | GeckoView WebExtensionController, AMO Android catalog, install prompts and lifecycle actions |
 | Downloads | Safe download destination, progress and file handling; not implemented |
 | Privacy controls | Tracking protection and per-site controls; not fully implemented |
 
@@ -61,7 +61,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 - No private-browsing mode or isolated private storage.
 - No complete website permission prompt or per-site permission manager.
 - No downloads UI or file management flow.
-- No extension installation/management interface.
+- Extension action/popup toolbar integration, options-page routing, local XPI import and full compatibility reporting are not implemented.
 - No complete GeckoSession state restore.
 - No find-in-page or browser settings screen.
 - Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.

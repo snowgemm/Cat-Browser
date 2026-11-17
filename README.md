@@ -46,7 +46,7 @@ This is a usable early browser foundation, not yet a complete daily-use browser.
 - Private browsing and independent private-session storage.
 - A complete website permission prompt and per-site permission manager.
 - A downloads manager and file picker workflow.
-- Firefox WebExtensions installation and management UI.
+- Firefox WebExtensions catalog and management UI (initial GeckoView-backed implementation; requires physical-device validation).
 - Full GeckoSession state restoration, including scroll/form/navigation history.
 - Find-in-page, browser settings and a complete privacy dashboard.
 
@@ -62,7 +62,7 @@ The app has passed its current CI compile, unit-test and APK-build checks. A phy
 | Browser engine | GeckoView Stable |
 | Search provider | DuckDuckGo |
 | Local storage | App-private SharedPreferences |
-| Extensions | Firefox WebExtensions via GeckoView, planned |
+| Extensions | Firefox WebExtensions via GeckoView; Android-compatible catalog and manager are implemented, compatibility remains API-dependent |
 
 GeckoView is packaged inside each APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.
 
