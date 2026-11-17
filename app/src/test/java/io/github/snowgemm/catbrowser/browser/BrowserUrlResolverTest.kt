@@ -6,18 +6,43 @@ import org.junit.Test
 
 class BrowserUrlResolverTest {
     @Test
-    fun keepsHttpAndHttpsUrls() {
+    fun keepsValidHttpAndHttpsUrls() {
         assertEquals(
             "https://example.com/path",
             BrowserUrlResolver.resolve("https://example.com/path")
         )
-        assertEquals("http://example.com", BrowserUrlResolver.resolve("http://example.com"))
+        assertEquals(
+            "http://example.com",
+            BrowserUrlResolver.resolve("http://example.com")
+        )
     }
 
     @Test
     fun addsHttpsToHostnamesAndLocalAddresses() {
-        assertEquals("https://example.com", BrowserUrlResolver.resolve("example.com"))
-        assertEquals("https://localhost:8080", BrowserUrlResolver.resolve("localhost:8080"))
+        assertEquals(
+            "https://example.com",
+            BrowserUrlResolver.resolve("example.com")
+        )
+        assertEquals(
+            "https://localhost:8080",
+            BrowserUrlResolver.resolve("localhost:8080")
+        )
+        assertEquals(
+            "https://192.168.1.20:8080/status",
+            BrowserUrlResolver.resolve("192.168.1.20:8080/status")
+        )
+    }
+
+    @Test
+    fun supportsInternationalizedDomainsAndIpv6() {
+        assertEquals(
+            "https://xn--bcher-kva.de",
+            BrowserUrlResolver.resolve("bücher.de")
+        )
+        assertEquals(
+            "https://[::1]:8080",
+            BrowserUrlResolver.resolve("[::1]:8080")
+        )
     }
 
     @Test
@@ -33,6 +58,22 @@ class BrowserUrlResolverTest {
         assertEquals(
             "https://duckduckgo.com/?q=javascript%3Aalert%281%29",
             BrowserUrlResolver.resolve("javascript:alert(1)")
+        )
+    }
+
+    @Test
+    fun rejectsMalformedAddressesAndInvalidPorts() {
+        assertEquals(
+            "https://duckduckgo.com/?q=999.1.1.1",
+            BrowserUrlResolver.resolve("999.1.1.1")
+        )
+        assertEquals(
+            "https://duckduckgo.com/?q=example.com%3A70000",
+            BrowserUrlResolver.resolve("example.com:70000")
+        )
+        assertEquals(
+            "https://duckduckgo.com/?q=https%3A%2F%2Fexample.com%3A70000",
+            BrowserUrlResolver.resolve("https://example.com:70000")
         )
     }
 

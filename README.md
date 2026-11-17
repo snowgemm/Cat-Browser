@@ -4,18 +4,37 @@ An independent Android browser whose application code, interface and browsing ex
 
 ## Current implementation
 
-The first application foundation contains:
-
 - Kotlin + Jetpack Compose + Material 3.
 - Mozilla GeckoView Stable, pinned to `160.0.20261104181552`.
-- One active GeckoSession rendered inside GeckoView.
+- Multiple tabs (up to 20), with tab switching and closing.
+- Links requesting a new browsing context (`target="_blank"` / `window.open`) create a new Cat tab.
+- Tab metadata is stored locally. On app restart, tabs reopen at their last HTTP(S) URL.
 - Address/search field with DuckDuckGo search for plain text.
-- Back, forward, home, reload and Android system-back navigation.
-- HTTP(S)-only schemes from the address field; other schemes are treated as search text.
-- A unit-test suite for address resolution.
-- GitHub Actions builds and uploads a development debug APK.
+- Back, forward, home, stop/reload and Android system-back navigation.
+- Page-load progress and basic load/process error feedback.
+- Local bookmarks and recent browsing history, stored on-device.
+- HTTP(S) links can be opened from other Android apps.
+- Address resolution validates hostnames, IPv4, IPv6 and ports; internationalized domain names are converted to ASCII.
+- GitHub Actions runs JVM unit tests and builds a development debug APK.
 
-This is an early browser foundation, not a complete daily-use browser. Tab management, private browsing, history, bookmarks, downloads, site-permission prompts, extension management and Cat privacy controls are not implemented yet.
+## Restoration and local data
+
+Cat stores tab IDs, titles, last URLs, bookmarks and recent history in app-private local preferences. This data is not sent to a Cat account or backend.
+
+After a process restart, each saved tab is reopened at its last URL. The current implementation does **not** persist GeckoSession's full state: per-tab back/forward stacks, scroll position, form state and in-page state are not restored. Clearing app data removes this local data.
+
+## Current limitations
+
+This is a usable early browser foundation, not yet a complete daily-use browser. The following are not implemented:
+
+- Private browsing and independent private-session storage.
+- A complete website permission prompt and per-site permission manager.
+- A downloads manager and file picker workflow.
+- Firefox WebExtensions installation and management UI.
+- Full GeckoSession state restoration, including scroll/form/navigation history.
+- Find-in-page, browser settings and a complete privacy dashboard.
+
+The app has passed its current CI compile, unit-test and APK-build checks. A physical-device installation and browsing smoke test is still required before claiming runtime readiness.
 
 ## Technology
 
@@ -26,7 +45,7 @@ This is an early browser foundation, not a complete daily-use browser. Tab manag
 | UI | Jetpack Compose + Material 3 |
 | Browser engine | GeckoView Stable |
 | Search provider | DuckDuckGo |
-| Local persistence | Not introduced until browser state requires it |
+| Local storage | App-private SharedPreferences |
 | Extensions | Firefox WebExtensions via GeckoView, planned |
 
 GeckoView is packaged inside the APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.
@@ -54,7 +73,7 @@ The target is Firefox WebExtensions through GeckoView. This does not imply compa
 
 ## Architecture
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component ownership and lifecycle constraints.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component ownership, session lifecycle and current limits.
 
 ## Third-party components
 

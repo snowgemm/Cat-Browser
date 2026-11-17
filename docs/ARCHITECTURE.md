@@ -4,41 +4,51 @@
 
 Cat Browser is the Android application. It owns the browsing experience and is responsible for tab/session management, navigation UI, local data, permissions, downloads, extension management and privacy controls. GeckoView is an embedded browser engine, not a complete browser application.
 
-## Current foundation
+## Current implementation
 
-- `CatBrowserApplication` creates one process-wide `GeckoRuntime`.
-- `BrowserScreen` owns the initial `GeckoSession` and navigation controls.
-- `BrowserUrlResolver` recognizes HTTP(S) URLs, common hostnames and local addresses; plain text becomes a DuckDuckGo search.
-- `GeckoSession.Loader` is used for navigation.
-- The initial UI uses a restrained dark palette and a single green accent; no gradient or blur dependency is introduced.
+- `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
+- `BrowserController` owns tab metadata, GeckoSession instances, tab selection, local history and bookmarks.
+- GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
+- Each tab has a separate GeckoSession. The controller handles new-session requests from web content and retains the returned session.
+- `BrowserScreen` renders the active tab and sends user actions to the controller.
+- `BrowserUrlResolver` validates HTTP(S) addresses, hostnames, IPv4/IPv6 and ports; plain text becomes a DuckDuckGo search.
+- HTTP(S) external intents are accepted by `MainActivity`.
 
 ## Lifecycle rules
 
 1. Create one `GeckoRuntime` per application process.
-2. Each future browser tab owns one `GeckoSession`.
+2. Each open browser tab owns one `GeckoSession`.
 3. Open a session before attaching it to a `GeckoView`.
-4. Clear delegates and close a session when its owning tab is permanently removed.
-5. Save/restore session state before claiming reliable tab recovery.
-6. Keep browsing history, search text and session state local unless a separately reviewed feature explicitly requires otherwise.
+4. Set background sessions inactive and unfocused; keep the selected session active and focused.
+5. Detach a session from `GeckoView` when its AndroidView is released. Do not close a session merely because the screen recomposes or the Activity is recreated.
+6. Clear delegates and close a session when its tab is permanently removed.
+7. Never advertise full session restoration unless GeckoSession state is serialized and restored successfully.
 
-## Planned component boundaries
+## Local persistence
+
+The current app stores tab IDs, titles, last HTTP(S) URLs, bookmarks and recent history in app-private SharedPreferences. The saved tabs are reopened at their last URL when the application process starts again.
+
+This is intentionally URL-level restoration only. Full GeckoSession state (back/forward stack, scroll position, form state and in-page state) is not currently serialized. Browser data remains on-device; no browser-history backend or browsing telemetry is added by this implementation.
+
+## Component responsibilities
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | Address input, tab switcher, navigation controls and menus |
-| Runtime | GeckoRuntime and process lifecycle |
-| Tab manager | GeckoSession collection, active tab and session restore |
-| Site permissions | Explicit prompts and persisted per-origin decisions |
-| Extension manager | WebExtensionController operations and permission review |
-| Local data | Room for structured records; DataStore for preferences |
-| Privacy controls | GeckoView tracking protection and per-site controls |
+| Browser UI | Address input, tab switcher, navigation controls, bookmark/history dialogs |
+| Runtime | GeckoRuntime lifetime and Gecko engine process |
+| BrowserController | GeckoSession collection, active tab, navigation, local state persistence |
+| BrowserTab | Per-tab UI state and GeckoSession reference |
+| Site permissions | Explicit prompts and persisted per-origin decisions; not implemented |
+| Extension manager | WebExtensionController operations and permission review; not implemented |
+| Downloads | Safe download destination, progress and file handling; not implemented |
+| Privacy controls | Tracking protection and per-site controls; not fully implemented |
 
 ## Current limitations
 
-- One session only; there is no tab manager.
-- No private-browsing mode or persistent session recovery.
-- No history, bookmarks or downloads UI.
-- No site permission prompt UI has been added yet.
-- No extension catalog or extension management UI.
-- No separate ad-blocking engine or Cat privacy dashboard.
-- No analytics, account backend or browsing-history telemetry is introduced by this foundation.
+- No private-browsing mode or isolated private storage.
+- No complete website permission prompt or per-site permission manager.
+- No downloads UI or file management flow.
+- No extension installation/management interface.
+- No complete GeckoSession state restore.
+- No find-in-page or browser settings screen.
+- Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.
