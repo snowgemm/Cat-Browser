@@ -30,7 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -169,7 +169,7 @@ fun BrowserScreen(runtime: GeckoRuntime) {
         ) {
             OutlinedTextField(
                 value = addressText,
-                onValueChange = { newValue -> addressText = newValue },
+                onValueChange = { newValue: String -> addressText = newValue },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 placeholder = { Text("Search or enter address") },
