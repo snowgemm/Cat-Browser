@@ -33,13 +33,13 @@ GeckoView is packaged inside the APK. Engine security fixes reach Cat only after
 
 ## Build
 
-Requirements: JDK 17, Android SDK Platform 37 and Gradle 9.6.0.
+Requirements: JDK 17, Android SDK Platform 37 and the Gradle 9.6.0 Wrapper.
 
-Run the following commands from the repository root:
+Run from the repository root:
 
 ```bash
-gradle --no-daemon :app:testDebugUnitTest
-gradle --no-daemon :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
 ```
 
 The development APK is written to `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions runs the same test and build tasks on pushes to `main`.
@@ -57,6 +57,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component ownership and lif
 ## Third-party components
 
 - GeckoView: Mozilla Public License 2.0 (MPL-2.0).
-- Gradle tooling in CI: Gradle 9.6.0, distributed under the Apache License 2.0.
+- Gradle Wrapper: Gradle 9.6.0, Apache License 2.0.
 
 Cat Browser is an independent project and is not affiliated with Mozilla.

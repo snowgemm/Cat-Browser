@@ -23,19 +23,23 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted Ubuntu images provide ANDROID_HOME. Avoid the legacy SDK
+      # setup action because its sdkmanager tools package is no longer available.
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
 
       - name: Install Android SDK components
-        run: sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-37" \
+            "build-tools;36.0.0" \
+            "platform-tools"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: "9.6.0"
 
       - name: Run unit tests and build debug APK
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
       - name: Upload development APK
         uses: actions/upload-artifact@v7
