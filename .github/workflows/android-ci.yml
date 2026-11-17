@@ -23,23 +23,26 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # GitHub-hosted Ubuntu images provide ANDROID_HOME. Use the SDK manager
-      # shipped with the runner rather than an action that installs removed SDK packages.
+      # Install the exact Android platform required by GeckoView and Compose.
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
 
       - name: Install Android SDK components
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-36" \
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-37.2" \
             "build-tools;36.0.0" \
             "platform-tools"
+          test -f "$ANDROID_HOME/platforms/android-37.2/android.jar"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
       - name: Run unit tests and build debug APK
-        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Verify debug APK
+        run: test -s app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload development APK
         uses: actions/upload-artifact@v7

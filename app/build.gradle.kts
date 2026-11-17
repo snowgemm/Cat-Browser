@@ -5,7 +5,8 @@ plugins {
 
 android {
     namespace = "io.github.snowgemm.catbrowser"
-    compileSdk = 36
+    compileSdk = 37
+    compileSdkMinor = 2
 
     defaultConfig {
         applicationId = "io.github.snowgemm.catbrowser"

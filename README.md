@@ -33,7 +33,9 @@ GeckoView is packaged inside the APK. Engine security fixes reach Cat only after
 
 ## Build
 
-Requirements: JDK 17, Android SDK Platform 36 and the Gradle 9.6.0 Wrapper.
+Requirements: JDK 17, Android SDK Platform 37.2, Android SDK Build-Tools 36.0.0 and the Gradle 9.6.0 Wrapper.
+
+The app compiles against Android API 37.2 to satisfy the published minimum compile SDK requirements of GeckoView and the selected Compose libraries. It currently targets API 36; compile SDK and target SDK are independent settings.
 
 Run from the repository root:
 
@@ -42,7 +44,7 @@ Run from the repository root:
 ./gradlew :app:assembleDebug
 ```
 
-The development APK is written to `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions runs the same test and build tasks on pushes to `main`.
+The development APK is written to `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions installs the pinned SDK platform, runs the same test and build tasks, verifies that the APK exists, and uploads it as an artifact.
 
 The debug APK is not production-signed and must not be treated as a stable release or an update channel.
 
