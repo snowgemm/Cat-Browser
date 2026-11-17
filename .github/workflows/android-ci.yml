@@ -23,15 +23,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # GitHub-hosted Ubuntu images provide ANDROID_HOME. Avoid the legacy SDK
-      # setup action because its sdkmanager tools package is no longer available.
+      # GitHub-hosted Ubuntu images provide ANDROID_HOME. Use the SDK manager
+      # shipped with the runner rather than an action that installs removed SDK packages.
       - name: Accept Android SDK licenses
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
 
       - name: Install Android SDK components
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-37" \
+            "platforms;android-36" \
             "build-tools;36.0.0" \
             "platform-tools"
 

@@ -33,7 +33,7 @@ GeckoView is packaged inside the APK. Engine security fixes reach Cat only after
 
 ## Build
 
-Requirements: JDK 17, Android SDK Platform 37 and the Gradle 9.6.0 Wrapper.
+Requirements: JDK 17, Android SDK Platform 36 and the Gradle 9.6.0 Wrapper.
 
 Run from the repository root:
 
