@@ -181,49 +181,90 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
                     .appendQueryParameter("type", "extension")
                     .appendQueryParameter("page_size", "24")
                     .appendQueryParameter("sort", "users")
+                    .appendQueryParameter("lang", "en-US")
                 query.trim().take(100).takeIf(String::isNotBlank)?.let {
                     builder.appendQueryParameter("q", it)
                 }
 
-                connection = URL(builder.build().toString()).openConnection() as HttpURLConnection
+                connection = URL(builder.build().toString())
+                    .openConnection() as HttpURLConnection
                 connection.connectTimeout = 10_000
                 connection.readTimeout = 15_000
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", "application/json")
                 connection.setRequestProperty("User-Agent", "CatBrowser-Android")
 
-                val payload = connection.inputStream.bufferedReader().use { it.readText() }
-                val results = JSONObject(payload).optJSONArray("results")
-                val entries = buildList {
-                    if (results != null) {
-                        for (index in 0 until results.length()) {
-                            val item = results.optJSONObject(index) ?: continue
-                            val currentVersion = item.optJSONObject("current_version") ?: continue
-                            val files = currentVersion.optJSONArray("files") ?: continue
-                            val file = (0 until files.length())
-                                .mapNotNull(files::optJSONObject)
-                                .firstOrNull { candidate ->
-                                    candidate.optString("url").startsWith("https://addons.mozilla.org/") &&
-                                        candidate.optString("status").let { it.isBlank() || it == "public" }
-                                } ?: continue
+                val responseCode = connection.responseCode
+                val responseStream = if (responseCode in 200..299) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                val payload = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                if (responseCode !in 200..299) {
+                    val detail = runCatching {
+                        JSONObject(payload).optString("detail")
+                    }.getOrNull().orEmpty()
+                    throw IllegalStateException(
+                        detail.ifBlank { "Mozilla Add-ons trả về HTTP $responseCode." }
+                    )
+                }
 
-                            val slug = item.optString("slug")
-                            if (slug.isBlank()) continue
-                            val ratings = item.optJSONObject("ratings")
-                            add(
-                                ExtensionCatalogEntry(
-                                    id = item.optString("id", slug),
-                                    slug = slug,
-                                    name = item.optString("name", slug),
-                                    summary = item.optString("summary"),
-                                    version = currentVersion.optString("version"),
-                                    downloadUrl = file.optString("url"),
-                                    listingUrl = "https://addons.mozilla.org/android/addon/$slug/",
-                                    averageRating = ratings?.optDouble("average", 0.0) ?: 0.0,
-                                    dailyUsers = item.optInt("average_daily_users", 0)
-                                )
-                            )
+                val response = JSONObject(payload)
+                val results = response.optJSONArray("results")
+                    ?: throw IllegalStateException("Phản hồi Mozilla không chứa danh sách tiện ích.")
+
+                val entries = buildList {
+                    for (index in 0 until results.length()) {
+                        val item = results.optJSONObject(index) ?: continue
+                        if (item.optString("status") != "public") continue
+
+                        val version = item.optJSONObject("current_version") ?: continue
+                        // AMO v5 exposes the approved XPI as current_version.file.
+                        // Accept the legacy files array as a defensive fallback.
+                        val file = version.optJSONObject("file")
+                            ?: version.optJSONArray("files")?.let { files ->
+                                (0 until files.length())
+                                    .mapNotNull(files::optJSONObject)
+                                    .firstOrNull()
+                            }
+                            ?: continue
+
+                        val downloadUrl = file.optString("url")
+                        val downloadUri = Uri.parse(downloadUrl)
+                        if (downloadUri.scheme != "https" ||
+                            downloadUri.host != "addons.mozilla.org" ||
+                            downloadUrl.isBlank()
+                        ) {
+                            continue
                         }
+
+                        // GeckoView only installs Mozilla-signed WebExtensions.
+                        // If AMO explicitly says a file is unsigned, don't offer it.
+                        if (file.has("is_mozilla_signed_extension") &&
+                            !file.optBoolean("is_mozilla_signed_extension")
+                        ) {
+                            continue
+                        }
+
+                        val slug = item.optString("slug")
+                        if (slug.isBlank()) continue
+
+                        val locale = item.optString("default_locale", "en-US")
+                        val ratings = item.optJSONObject("ratings")
+                        add(
+                            ExtensionCatalogEntry(
+                                id = item.optString("id", slug),
+                                slug = slug,
+                                name = localizedField(item, "name", locale).ifBlank { slug },
+                                summary = localizedField(item, "summary", locale),
+                                version = version.optString("version"),
+                                downloadUrl = downloadUrl,
+                                listingUrl = "https://addons.mozilla.org/android/addon/$slug/",
+                                averageRating = ratings?.optDouble("average", 0.0) ?: 0.0,
+                                dailyUsers = item.optInt("average_daily_users", 0)
+                            )
+                        )
                     }
                 }
 
@@ -232,18 +273,37 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
                     catalog.addAll(entries)
                     isSearching = false
                     statusMessage = if (entries.isEmpty()) {
-                        "Không tìm thấy tiện ích tương thích Android."
-                    } else null
+                        "Mozilla Add-ons hiện không trả về tiện ích công khai phù hợp với Android."
+                    } else {
+                        null
+                    }
                 }
             } catch (error: Exception) {
                 mainHandler.post {
                     isSearching = false
-                    statusMessage = "Không thể tải kho Mozilla Add-ons: ${error?.message ?: "Lỗi kết nối"}"
+                    statusMessage = "Không thể tải kho Mozilla Add-ons: \${error.message ?: "Lỗi kết nối"}"
                 }
             } finally {
                 connection?.disconnect()
             }
         }
+    }
+
+    private fun localizedField(item: JSONObject, field: String, fallbackLocale: String): String {
+        val value = item.opt(field) ?: return ""
+        if (value is String) return value
+        if (value !is JSONObject) return ""
+
+        return value.optString("en-US")
+            .ifBlank { value.optString(fallbackLocale) }
+            .ifBlank {
+                val keys = value.keys()
+                var translated = ""
+                while (keys.hasNext() && translated.isBlank()) {
+                    translated = value.optString(keys.next())
+                }
+                translated
+            }
     }
 
     fun isInstalled(entry: ExtensionCatalogEntry): Boolean =
