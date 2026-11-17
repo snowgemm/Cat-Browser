@@ -279,9 +279,10 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
                     }
                 }
             } catch (error: Exception) {
+                val message = error.message?.takeIf(String::isNotBlank) ?: "Lỗi kết nối"
                 mainHandler.post {
                     isSearching = false
-                    statusMessage = "Không thể tải kho Mozilla Add-ons: \${error.message ?: "Lỗi kết nối"}"
+                    statusMessage = "Không thể tải kho Mozilla Add-ons: $message"
                 }
             } finally {
                 connection?.disconnect()
