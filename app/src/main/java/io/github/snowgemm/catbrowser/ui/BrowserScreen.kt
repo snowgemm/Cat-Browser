@@ -265,7 +265,7 @@ private fun BrowserMainScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        "Cat Browser không lưu lịch sử hoặc dấu trang của tab này.",
+                        "Không lưu lịch sử trên máy; website và mạng vẫn có thể thấy lượt truy cập.",
                         color = Color(0xFFC9C0D2),
                         fontSize = 10.sp
                     )
@@ -929,7 +929,7 @@ private fun TabsOverview(
                                 BrowserGlyph(
                                     BrowserGlyphType.CLEAR,
                                     iconSize = 17.dp,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint = cardMuted
                                 )
                             }
                         }
