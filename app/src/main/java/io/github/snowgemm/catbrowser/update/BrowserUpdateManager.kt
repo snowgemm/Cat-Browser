@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -192,7 +193,7 @@ class BrowserUpdateManager(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !appContext.packageManager.canRequestPackageInstalls()) {
             val settingsIntent = Intent(
-                Intent.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${appContext.packageName}")
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             appContext.startActivity(settingsIntent)
