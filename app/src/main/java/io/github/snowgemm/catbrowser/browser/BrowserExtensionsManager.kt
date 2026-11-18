@@ -1,6 +1,7 @@
 package io.github.snowgemm.catbrowser.browser
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -58,6 +59,7 @@ data class ExtensionToolbarAction(
     val enabled: Boolean,
     val badgeText: String?,
     val badgeBackgroundColor: Int?,
+    val iconBitmap: Bitmap?,
     val sessionIdentity: Int?,
     val action: WebExtension.Action
 )
@@ -101,6 +103,28 @@ class BrowserExtensionsManager(
     private var pendingPermissionDecision: ((Boolean, Boolean) -> Unit)? = null
 
     init {
+        controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
+            override fun onReady(extension: WebExtension) {
+                attachExtension(extension)
+                sessionProvider().forEach(::attachSession)
+            }
+
+            override fun onEnabled(extension: WebExtension) {
+                attachExtension(extension)
+                sessionProvider().forEach(::attachSession)
+            }
+
+            override fun onDisabled(extension: WebExtension) {
+                toolbarActions.removeAll { it.extensionId == extension.id }
+                if (popup?.extensionId == extension.id) closePopup()
+            }
+
+            override fun onUninstalled(extension: WebExtension) {
+                toolbarActions.removeAll { it.extensionId == extension.id }
+                if (popup?.extensionId == extension.id) closePopup()
+            }
+        })
+
         controller.setPromptDelegate(object : WebExtensionController.PromptDelegate {
             override fun onInstallPromptRequest(
                 extension: WebExtension,
@@ -277,9 +301,26 @@ class BrowserExtensionsManager(
                 enabled = action.enabled ?: !isPageAction,
                 badgeText = action.badgeText,
                 badgeBackgroundColor = action.badgeBackgroundColor,
+                iconBitmap = null,
                 sessionIdentity = identity,
                 action = action
             )
+        )
+        action.icon?.getBitmap(64)?.accept(
+            { bitmap ->
+                mainHandler.post {
+                    val currentIndex = toolbarActions.indexOfFirst {
+                        it.extensionId == extension.id &&
+                            it.isPageAction == isPageAction &&
+                            it.sessionIdentity == identity &&
+                            it.action === action
+                    }
+                    if (currentIndex >= 0) {
+                        toolbarActions[currentIndex] = toolbarActions[currentIndex].copy(iconBitmap = bitmap)
+                    }
+                }
+            },
+            { /* Keep the extension's monogram fallback if its icon cannot be decoded. */ }
         )
     }
 
@@ -296,6 +337,7 @@ class BrowserExtensionsManager(
             }
             if (override == null) default else override.copy(
                 title = override.title.ifBlank { default.title },
+                iconBitmap = override.iconBitmap ?: default.iconBitmap,
                 action = override.action.withDefault(default.action)
             )
         }
@@ -368,7 +410,10 @@ class BrowserExtensionsManager(
                         it.metaData.name?.lowercase().orEmpty().ifBlank { it.id.lowercase() }
                     }
                 )
-                available.forEach(::attachExtension)
+                val enabledIds = available.filter { it.metaData.enabled }.mapTo(mutableSetOf()) { it.id }
+                toolbarActions.removeAll { it.extensionId !in enabledIds }
+                if (popup?.extensionId?.let { it !in enabledIds } == true) closePopup()
+                available.filter { it.metaData.enabled }.forEach(::attachExtension)
                 sessionProvider().forEach(::attachSession)
                 isLoadingInstalled = false
             },
