@@ -668,7 +668,9 @@ class BrowserController(
         ).accept(
             { result ->
                 dataHandler.post {
-                    findInPageResult = FindInPageState(result.found, result.current, result.total)
+                    findInPageResult = result?.let {
+                        FindInPageState(it.found, it.current, it.total)
+                    } ?: FindInPageState(false, 0, 0)
                 }
             },
             {
@@ -686,7 +688,9 @@ class BrowserController(
         ).accept(
             { result ->
                 dataHandler.post {
-                    findInPageResult = FindInPageState(result.found, result.current, result.total)
+                    findInPageResult = result?.let {
+                        FindInPageState(it.found, it.current, it.total)
+                    } ?: FindInPageState(false, 0, 0)
                 }
             },
             {
