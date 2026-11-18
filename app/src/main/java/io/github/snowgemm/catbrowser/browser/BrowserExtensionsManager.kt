@@ -713,8 +713,7 @@ class BrowserExtensionsManager(
             override fun fileExists(): Boolean =
                 item.status == BrowserDownloadStatus.COMPLETE &&
                     (item.outputFile?.isFile == true || item.outputUri != null)
-            override fun filename(): String =
-                item.outputFile?.absolutePath ?: item.outputUri?.toString() ?: item.fileName
+            override fun filename(): String = item.fileName
             override fun fileSize(): Long =
                 if (item.status == BrowserDownloadStatus.COMPLETE) item.receivedBytes else -1L
             override fun mime(): String = item.mimeType
