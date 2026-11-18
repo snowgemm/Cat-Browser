@@ -160,13 +160,13 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsCard {
                     Text("Địa chỉ trang chủ", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold)
-                    Text("Dùng cho nút Trang chủ và chế độ khởi động bằng trang chủ.",
+                    Text("Mặc định là trang trống như Brave. Bạn cũng có thể nhập URL riêng.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(homePage, { homePage = it; homePageError = false },
                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                         singleLine = true, label = { Text("URL trang chủ") }, isError = homePageError)
-                    if (homePageError) Text("URL không hợp lệ. Hãy nhập địa chỉ http/https.",
+                    if (homePageError) Text("URL không hợp lệ. Hãy nhập about:blank hoặc địa chỉ http/https.",
                         color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Button(onClick = { homePageError = !controller.setHomePage(homePage) },
                         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
@@ -179,7 +179,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsCard {
                     SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
                         controller.startupMode == "continue") { controller.updateStartupMode("continue") }
-                    SettingsChoice("Mở trang chủ", "Bắt đầu bằng một tab trang chủ mới",
+                    SettingsChoice("Mở trang chủ", "Mở tab trống (about:blank) hoặc URL bạn đã đặt",
                         controller.startupMode == "home") { controller.updateStartupMode("home") }
                 }
             }
