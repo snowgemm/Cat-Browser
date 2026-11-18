@@ -836,14 +836,29 @@ class BrowserController(
         findInPageResult = null
     }
 
-    private fun createExtensionTab(): GeckoSession? {
+    private fun createExtensionTab(active: Boolean): GeckoSession? {
         if (tabs.size >= MAX_TABS) return null
         val tab = BrowserTab(initialUrl = START_PAGE_URL, initialTitle = "Tab tiện ích")
         tabs.add(tab)
         ensureSession(tab, loadCurrentUrl = false)
-        selectTab(tab.id)
+        if (active || selectedTabId.isBlank()) {
+            selectTab(tab.id)
+        } else {
+            tab.session?.setActive(false)
+            tab.session?.setFocused(false)
+        }
         persistTabs()
         return tab.session
+    }
+
+    private fun activateExtensionTab(session: GeckoSession) {
+        tabs.firstOrNull { it.session === session }?.let { selectTab(it.id) }
+    }
+
+    private fun closeExtensionTab(session: GeckoSession): Boolean {
+        val tab = tabs.firstOrNull { it.session === session } ?: return false
+        closeTab(tab.id)
+        return true
     }
 
     private fun openExtensionOptionsPage(url: String) {
