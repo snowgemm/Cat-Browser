@@ -58,6 +58,7 @@ import androidx.compose.ui.res.painterResource
 import io.github.snowgemm.catbrowser.R
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.snowgemm.catbrowser.browser.BrowserController
+import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
 import kotlinx.coroutines.delay
@@ -222,11 +223,6 @@ private fun BrowserMainScreen(
     }
     LaunchedEffect(showBookmarks) {
         if (showBookmarks) controller.loadBookmarks()
-    }
-    LaunchedEffect(controller.sitePermissionPrompt?.permission) {
-        val permission = controller.sitePermissionPrompt?.permission ?: return@LaunchedEffect
-        withFrameNanos { }
-        permission.notifyShown()
     }
 
     val tab = controller.activeTab ?: return
