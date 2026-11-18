@@ -326,6 +326,63 @@ private fun BrowserMainScreen(
         }
 
         AnimatedVisibility(
+            visible = showFind,
+            enter = fadeIn(tween(150)) + slideInVertically(tween(150)) { -it / 3 },
+            exit = fadeOut(tween(100))
+        ) {
+            Surface(
+                Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    OutlinedTextField(
+                        value = findQuery,
+                        onValueChange = { findQuery = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        label = { Text("Tìm trong trang") },
+                        textStyle = MaterialTheme.typography.bodyMedium
+                    )
+                    val result = controller.findInPageResult
+                    Text(
+                        when {
+                            findQuery.isBlank() -> ""
+                            result == null -> "…"
+                            !result.found -> "0"
+                            result.total < 0 -> result.current.toString()
+                            else -> result.current.toString() + "/" + result.total
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                    DockAction(
+                        BrowserGlyphType.BACK,
+                        "Kết quả trước",
+                        findQuery.isNotBlank()
+                    ) { controller.findNextInPage(false) }
+                    DockAction(
+                        BrowserGlyphType.FORWARD,
+                        "Kết quả tiếp",
+                        findQuery.isNotBlank()
+                    ) { controller.findNextInPage(true) }
+                    DockAction(BrowserGlyphType.CLEAR, "Đóng tìm kiếm", true) {
+                        showFind = false
+                        findQuery = ""
+                        controller.clearFindInPage()
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(
             visible = tab.error != null,
             enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
             exit = fadeOut(tween(100))
@@ -498,6 +555,23 @@ private fun BrowserMainScreen(
                         onClick = { showMenu = false; controller.stopOrReload() }
                     )
                     DropdownMenuItem(
+                        text = { Text("Tìm trong trang") },
+                        leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) },
+                        onClick = {
+                            showMenu = false
+                            showFind = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Tải xuống") },
+                        leadingIcon = { BrowserGlyph(BrowserGlyphType.DOWNLOAD) },
+                        onClick = {
+                            showMenu = false
+                            onOpenDownloads()
+                        }
+                    )
+                    MenuDivider()
+                    DropdownMenuItem(
                         text = { Text("Tab ẩn danh mới") },
                         leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO) },
                         onClick = { showMenu = false; controller.newPrivateTab() },
@@ -581,11 +655,92 @@ private fun BrowserMainScreen(
             isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading
         )
     }
+
+    controller.sitePermissionPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { controller.resolveSitePermission(false) },
+            title = { Text("Quyền website") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(
+                        prompt.origin + " muốn sử dụng: " + prompt.permissionLabel + ".",
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (prompt.isPrivate) {
+                        Text(
+                            "Yêu cầu đến từ tab ẩn danh. Lựa chọn này không được lưu thành quyền lâu dài.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        Text(
+                            "Cat Browser sẽ ghi nhớ lựa chọn cho website này. Bạn có thể quản lý quyền đã lưu trong Cài đặt.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    if (prompt.isIrreversible) {
+                        Text(
+                            "Lưu ý: quyền lưu trữ lâu dài có giới hạn thu hồi theo GeckoView.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { controller.resolveSitePermission(true) }) {
+                    Text("Cho phép")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { controller.resolveSitePermission(false) }) {
+                    Text("Chặn")
+                }
+            }
+        )
+    }
+
+    controller.mediaPermissionPrompt?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { controller.resolveMediaPermission(false) },
+            title = { Text("Truy cập camera / microphone") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(prompt.origin + " yêu cầu:")
+                    if (prompt.hasCamera) Text("• Camera")
+                    if (prompt.hasMicrophone) Text("• Microphone")
+                    if (prompt.isPrivate) {
+                        Text(
+                            "Yêu cầu đến từ tab ẩn danh.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Text(
+                        "Android có thể hiển thị thêm hộp thoại quyền thiết bị.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { controller.resolveMediaPermission(true) }) {
+                    Text("Cho phép")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { controller.resolveMediaPermission(false) }) {
+                    Text("Từ chối")
+                }
+            }
+        )
+    }
 }
 
 private enum class BrowserGlyphType {
     BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE, INCOGNITO,
-    HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS
+    SEARCH, DOWNLOAD, HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS
 }
 
 @Composable
@@ -651,6 +806,18 @@ private fun BrowserGlyph(
             BrowserGlyphType.CLEAR, BrowserGlyphType.CLOSE -> {
                 line(6f, 6f, 18f, 18f)
                 line(18f, 6f, 6f, 18f)
+            }
+            BrowserGlyphType.SEARCH -> {
+                drawCircle(tint, 6.5f * unit, point(10f, 10f), style = Stroke(strokeWidth))
+                line(14.5f, 14.5f, 20.5f, 20.5f)
+            }
+            BrowserGlyphType.DOWNLOAD -> {
+                line(12f, 3f, 12f, 15f)
+                line(7f, 10f, 12f, 15f)
+                line(17f, 10f, 12f, 15f)
+                line(4f, 18f, 4f, 21f)
+                line(4f, 21f, 20f, 21f)
+                line(20f, 21f, 20f, 18f)
             }
             BrowserGlyphType.INCOGNITO -> {
                 // Hat brim and glasses create a recognizable private-browsing mark.
