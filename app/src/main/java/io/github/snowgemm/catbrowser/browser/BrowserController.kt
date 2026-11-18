@@ -20,8 +20,9 @@ import org.mozilla.geckoview.WebResponse
 import java.util.UUID
 import java.util.concurrent.Executors
 
-const val START_PAGE_URL = "https://duckduckgo.com/"
-const val DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
+const val START_PAGE_URL = "about:blank"
+const val DEFAULT_HOME_PAGE_URL = "about:blank"
+private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
 data class BrowserEntry(
     val title: String,
@@ -133,7 +134,11 @@ class BrowserController(
         private set
     var searchEngine by mutableStateOf(preferences.getString(KEY_SEARCH_ENGINE, SEARCH_DUCKDUCKGO) ?: SEARCH_DUCKDUCKGO)
         private set
-    var homePage by mutableStateOf(preferences.getString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL) ?: DEFAULT_HOME_PAGE_URL)
+    var homePage by mutableStateOf(
+        preferences.getString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL)
+            ?.takeUnless { it == LEGACY_DEFAULT_HOME_PAGE_URL }
+            ?: DEFAULT_HOME_PAGE_URL
+    )
         private set
     var startupMode by mutableStateOf(preferences.getString(KEY_STARTUP_MODE, STARTUP_CONTINUE) ?: STARTUP_CONTINUE)
         private set
@@ -204,6 +209,9 @@ class BrowserController(
         get() = tabs.size - privateTabCount
 
     init {
+        if (preferences.getString(KEY_HOME_PAGE, null) == LEGACY_DEFAULT_HOME_PAGE_URL) {
+            preferences.edit().putString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL).apply()
+        }
         if (startupMode == STARTUP_CONTINUE) restoreTabs()
 
         if (tabs.isEmpty()) {
@@ -475,7 +483,11 @@ class BrowserController(
     }
 
     fun setHomePage(input: String): Boolean {
-        val normalized = BrowserUrlResolver.resolveAddress(input) ?: return false
+        val normalized = if (input.trim().equals("about:blank", ignoreCase = true)) {
+            DEFAULT_HOME_PAGE_URL
+        } else {
+            BrowserUrlResolver.resolveAddress(input) ?: return false
+        }
         homePage = normalized
         preferences.edit().putString(KEY_HOME_PAGE, normalized).apply()
         return true
