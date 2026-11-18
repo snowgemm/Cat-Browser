@@ -257,8 +257,9 @@ private fun BrowserMainScreen(
     val androidPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
+        val request = controller.pendingAndroidPermissionRequest
         controller.resolveAndroidPermissionRequest(
-            results.isNotEmpty() && results.values.all { it }
+            request != null && areRequestedAndroidPermissionsGranted(request.permissions, results)
         )
     }
 
