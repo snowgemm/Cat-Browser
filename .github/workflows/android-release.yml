@@ -36,7 +36,8 @@ jobs:
 
           major, minor, patch = (int(match.group(i)) for i in range(1, 4))
           beta_text = match.group(4)
-          is_beta = "-beta" in tag\nstage = int(beta_text) if beta_text else (0 if is_beta else 99)
+          is_beta = "-beta" in tag
+          stage = int(beta_text) if beta_text else (0 if is_beta else 99)
           if major > 2099 or minor > 99 or patch > 99:
               sys.exit("Version components exceed the supported Android versionCode range")
           if beta_text and not 1 <= stage <= 98:
