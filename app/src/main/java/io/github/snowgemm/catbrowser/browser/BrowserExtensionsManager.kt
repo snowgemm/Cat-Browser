@@ -626,10 +626,22 @@ class BrowserExtensionsManager(
                         result.completeExceptionally(error)
                         return@post
                     }
+                    if (download == null) {
+                        result.completeExceptionally(
+                            IllegalStateException("GeckoView không thể tạo tác vụ tải xuống.")
+                        )
+                        return@post
+                    }
 
                     webExecutor.fetch(request.request, request.downloadFlags).accept(
                         { response ->
                             mainHandler.post {
+                                if (response == null) {
+                                    result.completeExceptionally(
+                                        IllegalStateException("GeckoView không trả về phản hồi tải xuống.")
+                                    )
+                                    return@post
+                                }
                                 if (!request.allowHttpErrors && response.statusCode >= 400) {
                                     runCatching { response.body?.close() }
                                     result.completeExceptionally(
@@ -669,7 +681,11 @@ class BrowserExtensionsManager(
                             }
                         },
                         { error ->
-                            mainHandler.post { result.completeExceptionally(error) }
+                            mainHandler.post {
+                                result.completeExceptionally(
+                                    error ?: IllegalStateException("Không thể lấy dữ liệu tải xuống.")
+                                )
+                            }
                         }
                     )
                 }
