@@ -3,6 +3,7 @@ package io.github.snowgemm.catbrowser.browser
 import android.content.Context
 import android.net.Uri
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -182,6 +183,8 @@ class BrowserController(
     private var pendingAndroidPermissionCallback: GeckoSession.PermissionDelegate.Callback? = null
     private var pendingAndroidPermissionSession: GeckoSession? = null
     private val dataHandler = Handler(Looper.getMainLooper())
+    private val storageHandlerThread = HandlerThread("CatBrowserStorage").apply { start() }
+    private val storageHandler = Handler(storageHandlerThread.looper)
     private val dataExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "CatBrowserData").apply { isDaemon = true }
     }
@@ -530,7 +533,7 @@ class BrowserController(
         if (isSitePermissionsLoading) return
         isSitePermissionsLoading = true
         sitePermissionsMessage = null
-        dataExecutor.execute {
+        storageHandler.post {
             storageController.getAllPermissions().accept(
                 { permissions ->
                     val entries = permissions.orEmpty().map { permission ->
@@ -648,7 +651,7 @@ class BrowserController(
         // recreate data while the storage clear operation is running.
         tabs.forEach(::destroySession)
 
-        dataExecutor.execute {
+        storageHandler.post {
             storageController.clearData(flags).accept(
                 {
                     dataHandler.post {
