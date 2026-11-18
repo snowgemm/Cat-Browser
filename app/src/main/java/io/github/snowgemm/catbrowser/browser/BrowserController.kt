@@ -261,13 +261,13 @@ class BrowserController(
         persistHistory()
     }
 
-    fun setThemeMode(mode: String) {
+    fun updateThemeMode(mode: String) {
         if (mode !in setOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)) return
         themeMode = mode
         preferences.edit().putString(KEY_THEME_MODE, mode).apply()
     }
 
-    fun setSearchEngine(engine: String) {
+    fun updateSearchEngine(engine: String) {
         if (engine !in setOf(SEARCH_GOOGLE, SEARCH_DUCKDUCKGO, SEARCH_BING, SEARCH_BRAVE)) return
         searchEngine = engine
         preferences.edit().putString(KEY_SEARCH_ENGINE, engine).apply()
@@ -280,7 +280,7 @@ class BrowserController(
         return true
     }
 
-    fun setStartupMode(mode: String) {
+    fun updateStartupMode(mode: String) {
         if (mode !in setOf(STARTUP_CONTINUE, STARTUP_HOME)) return
         startupMode = mode
         preferences.edit().putString(KEY_STARTUP_MODE, mode).apply()
