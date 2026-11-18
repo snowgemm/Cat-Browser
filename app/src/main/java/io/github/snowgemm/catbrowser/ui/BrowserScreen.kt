@@ -18,7 +18,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -465,7 +467,12 @@ private fun BrowserMainScreen(
                         keyboard?.hide()
                         focusManager.clearFocus()
                     },
-                    onSearch = ::navigate
+                    onSearch = ::navigate,
+                    onDismiss = {
+                        addressFocused = false
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                    }
                 )
                 tab.url == START_PAGE_URL && tab.session == null -> NewTabPage(
                     isPrivate = tab.isPrivate,
@@ -558,7 +565,7 @@ private fun BrowserMainScreen(
                         value = address,
                         onValueChange = { address = it },
                         modifier = Modifier.weight(1f).onFocusChanged { state ->
-                            if (state.isFocused && !addressFocused && address.text.isNotEmpty()) {
+                            if (state.isFocused && !addressFocused) {
                                 address = address.copy(selection = TextRange(0, address.text.length))
                             } else if (!state.isFocused && addressFocused) {
                                 address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
@@ -592,10 +599,18 @@ private fun BrowserMainScreen(
                             DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
                         }
                         DockAction(
-                            BrowserGlyphType.CLEAR,
-                            "Xoá nội dung",
-                            address.text.isNotEmpty()
-                        ) { address = TextFieldValue("") }
+                            if (address.text.isNotEmpty()) BrowserGlyphType.CLEAR else BrowserGlyphType.CLOSE,
+                            if (address.text.isNotEmpty()) "Xoá nội dung" else "Đóng gợi ý",
+                            true
+                        ) {
+                            if (address.text.isNotEmpty()) {
+                                address = TextFieldValue("")
+                            } else {
+                                addressFocused = false
+                                focusManager.clearFocus()
+                                keyboard?.hide()
+                            }
+                        }
                     } else if (tab.isLoading) {
                         Text(tab.progress.toString() + "%",
                             color = MaterialTheme.colorScheme.primary, fontSize = 10.sp,
@@ -608,114 +623,116 @@ private fun BrowserMainScreen(
 
             if (!addressFocused) {
                 TabSwitcherAction(controller.tabs.size, onOpenTabs)
-                Box {
-                    DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        modifier = Modifier.width(248.dp)
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Quay lại") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BACK) },
-                            enabled = tab.canGoBack,
-                            onClick = { showMenu = false; controller.goBack() }
+                DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
+            }
+        }
+    }
+
+    if (showMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showMenu = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 20.dp)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Cat Browser", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            tab.title.ifBlank { "Tab mới" },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        DropdownMenuItem(
-                            text = { Text("Tiến tới") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.FORWARD) },
-                            enabled = tab.canGoForward,
-                            onClick = { showMenu = false; controller.goForward() }
-                        )
-                        MenuDivider()
-                        DropdownMenuItem(
-                            text = { Text("Tab mới") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB) },
-                            enabled = controller.tabs.size < 20,
-                            onClick = { showMenu = false; controller.newTab() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Trang chủ") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.HOME) },
-                            onClick = { showMenu = false; controller.goHome() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text(if (tab.isLoading) "Dừng tải" else "Tải lại") },
-                            leadingIcon = {
-                                BrowserGlyph(if (tab.isLoading) BrowserGlyphType.CLEAR else BrowserGlyphType.RELOAD)
-                            },
-                            onClick = { showMenu = false; controller.stopOrReload() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Tìm trong trang") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) },
-                            onClick = { showMenu = false; showFind = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Tải xuống") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.DOWNLOAD) },
-                            onClick = { showMenu = false; onOpenDownloads() }
-                        )
-                        MenuDivider()
+                    }
+                    Text(
+                        if (tab.isPrivate) "ẨN DANH" else "ĐANG DUYỆT",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    BrowserMenuAction(BrowserGlyphType.BACK, "Quay lại", Modifier.weight(1f), tab.canGoBack) {
+                        showMenu = false; controller.goBack()
+                    }
+                    BrowserMenuAction(BrowserGlyphType.FORWARD, "Tiến tới", Modifier.weight(1f), tab.canGoForward) {
+                        showMenu = false; controller.goForward()
+                    }
+                    BrowserMenuAction(
+                        if (tab.isLoading) BrowserGlyphType.CLEAR else BrowserGlyphType.RELOAD,
+                        if (tab.isLoading) "Dừng tải" else "Tải lại",
+                        Modifier.weight(1f)
+                    ) { showMenu = false; controller.stopOrReload() }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    BrowserMenuAction(BrowserGlyphType.NEW_TAB, "Tab mới", Modifier.weight(1f), controller.tabs.size < 20) {
+                        showMenu = false; controller.newTab()
+                    }
+                    BrowserMenuAction(BrowserGlyphType.INCOGNITO, "Tab ẩn danh", Modifier.weight(1f), controller.tabs.size < 20) {
+                        showMenu = false; controller.newPrivateTab()
+                    }
+                    BrowserMenuAction(BrowserGlyphType.HOME, "Trang chủ", Modifier.weight(1f)) {
+                        showMenu = false; controller.goHome()
+                    }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    BrowserMenuAction(BrowserGlyphType.BOOKS, "Dấu trang", Modifier.weight(1f)) {
+                        showMenu = false; showBookmarks = true
+                    }
+                    BrowserMenuAction(BrowserGlyphType.HISTORY, "Lịch sử", Modifier.weight(1f)) {
+                        showMenu = false; showHistory = true
+                    }
+                    BrowserMenuAction(BrowserGlyphType.DOWNLOAD, "Tải xuống", Modifier.weight(1f)) {
+                        showMenu = false; onOpenDownloads()
+                    }
+                }
+                Row(Modifier.fillMaxWidth()) {
+                    BrowserMenuAction(BrowserGlyphType.SEARCH, "Tìm trong trang", Modifier.weight(1f)) {
+                        showMenu = false; showFind = true
+                    }
+                    BrowserMenuAction(BrowserGlyphType.EXTENSIONS, "Tiện ích", Modifier.weight(1f)) {
+                        showMenu = false; onOpenExtensions()
+                    }
+                    BrowserMenuAction(BrowserGlyphType.SETTINGS, "Cài đặt", Modifier.weight(1f)) {
+                        showMenu = false; onOpenSettings()
+                    }
+                }
+                if (controller.recentlyClosedTabs.isNotEmpty() || controller.privateTabCount > 0) {
+                    Row(Modifier.fillMaxWidth()) {
                         if (controller.recentlyClosedTabs.isNotEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("Mở lại tab vừa đóng") },
-                                leadingIcon = { BrowserGlyph(BrowserGlyphType.RELOAD) },
-                                enabled = controller.tabs.size < 20,
-                                onClick = {
-                                    showMenu = false
-                                    controller.restoreRecentlyClosedTab()
-                                }
-                            )
+                            BrowserMenuAction(
+                                BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
+                                Modifier.weight(1f), controller.tabs.size < 20
+                            ) { showMenu = false; controller.restoreRecentlyClosedTab() }
                         }
-                        DropdownMenuItem(
-                            text = { Text("Tab ẩn danh mới") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO) },
-                            enabled = controller.tabs.size < 20,
-                            onClick = { showMenu = false; controller.newPrivateTab() }
-                        )
                         if (controller.privateTabCount > 0) {
-                            DropdownMenuItem(
-                                text = { Text("Đóng tất cả tab ẩn danh (" + controller.privateTabCount + ")") },
-                                leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE) },
-                                onClick = { showMenu = false; controller.closeAllPrivateTabs() }
-                            )
+                            BrowserMenuAction(
+                                BrowserGlyphType.CLOSE, "Đóng tab ẩn danh", Modifier.weight(1f)
+                            ) { showMenu = false; controller.closeAllPrivateTabs() }
                         }
-                        if (!tab.isPrivate) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(if (controller.isBookmarked(tab.url)) "Bỏ dấu trang" else "Thêm dấu trang")
-                                },
-                                leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKMARK) },
-                                onClick = { showMenu = false; controller.toggleBookmark() }
-                            )
+                        if (controller.recentlyClosedTabs.isEmpty() || controller.privateTabCount == 0) {
+                            Spacer(Modifier.weight(1f))
                         }
-                        MenuDivider()
-                        DropdownMenuItem(
-                            text = { Text("Tiện ích mở rộng") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.EXTENSIONS) },
-                            onClick = { showMenu = false; onOpenExtensions() }
-                        )
-                        DropdownMenuItem(
-                            text = {
-                                Text(if (controller.isBookmarksLoaded) {
-                                    "Dấu trang (" + controller.bookmarks.size + ")"
-                                } else "Dấu trang")
-                            },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKS) },
-                            onClick = { showMenu = false; showBookmarks = true }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Lịch sử") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.HISTORY) },
-                            onClick = { showMenu = false; showHistory = true }
-                        )
-                        MenuDivider()
-                        DropdownMenuItem(
-                            text = { Text("Cài đặt") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.SETTINGS) },
-                            onClick = { showMenu = false; onOpenSettings() }
-                        )
+                    }
+                }
+                if (!tab.isPrivate) {
+                    TextButton(
+                        onClick = { showMenu = false; controller.toggleBookmark() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        BrowserGlyph(BrowserGlyphType.BOOKMARK, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (controller.isBookmarked(tab.url)) "Bỏ dấu trang hiện tại" else "Thêm trang hiện tại vào dấu trang")
                     }
                 }
             }
@@ -1122,6 +1139,57 @@ private fun MenuDivider() {
 }
 
 @Composable
+private fun BrowserMenuAction(
+    icon: BrowserGlyphType,
+    label: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.padding(4.dp).heightIn(min = 84.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 11.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (enabled) MaterialTheme.colorScheme.secondaryContainer
+                    else MaterialTheme.colorScheme.surface,
+                modifier = Modifier.size(38.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    BrowserGlyph(
+                        icon,
+                        tint = if (enabled) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                        iconSize = 19.dp
+                    )
+                }
+            }
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 10.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun TabsOverview(
     controller: BrowserController,
     onBack: () -> Unit,
@@ -1129,9 +1197,17 @@ private fun TabsOverview(
     onNewPrivateTab: () -> Unit
 ) {
     var tabSearch by remember { mutableStateOf("") }
+    var tabFilter by remember { mutableStateOf("all") }
     val visibleTabs = controller.tabs.filter { tab ->
-        tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
-            tab.url.contains(tabSearch, ignoreCase = true)
+        val matchesFilter = when (tabFilter) {
+            "regular" -> !tab.isPrivate
+            "private" -> tab.isPrivate
+            else -> true
+        }
+        matchesFilter && (
+            tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
+                tab.url.contains(tabSearch, ignoreCase = true)
+        )
     }
     Column(
         Modifier.fillMaxSize()
@@ -1175,16 +1251,39 @@ private fun TabsOverview(
             placeholder = { Text("Tìm trong các tab") },
             leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) }
         )
-        if (visibleTabs.isEmpty()) {
-            Text(
-                "Không tìm thấy tab phù hợp.",
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            FilterChip(
+                selected = tabFilter == "all",
+                onClick = { tabFilter = "all" },
+                label = { Text("Tất cả " + controller.tabs.size) }
+            )
+            FilterChip(
+                selected = tabFilter == "regular",
+                onClick = { tabFilter = "regular" },
+                label = { Text("Thường " + controller.regularTabCount) }
+            )
+            FilterChip(
+                selected = tabFilter == "private",
+                onClick = { tabFilter = "private" },
+                label = { Text("Ẩn danh " + controller.privateTabCount) }
             )
         }
+        if (visibleTabs.isEmpty()) {
+            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    if (tabSearch.isBlank()) "Không có tab trong nhóm này."
+                    else "Không tìm thấy tab phù hợp.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
-        LazyVerticalGrid(
+        if (visibleTabs.isNotEmpty()) LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 154.dp),
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 18.dp),
