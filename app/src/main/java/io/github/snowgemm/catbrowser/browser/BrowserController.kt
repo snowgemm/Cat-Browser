@@ -154,6 +154,8 @@ class BrowserController(
         context = context.applicationContext,
         sessionProvider = { tabs.mapNotNull { it.session } },
         onCreateTabFromExtension = ::createExtensionTab,
+        onActivateSession = ::activateExtensionTab,
+        onCloseSession = ::closeExtensionTab,
         onOpenOptionsPage = ::openExtensionOptionsPage
     )
     // Kept in memory only; private tabs are never added here.
@@ -259,10 +261,12 @@ class BrowserController(
         val target = tabs.firstOrNull { it.id == tabId } ?: return
         if (selectedTabId == tabId) {
             if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
+            target.session?.let { runtime.webExtensionController.setTabActive(it, true) }
             return
         }
 
         activeTab?.session?.let { session ->
+            runtime.webExtensionController.setTabActive(session, false)
             session.setFocused(false)
             session.setActive(false)
         }
@@ -273,6 +277,7 @@ class BrowserController(
             target.session?.let { session ->
                 session.setActive(true)
                 session.setFocused(target.isViewAttached)
+                runtime.webExtensionController.setTabActive(session, true)
             }
         }
         persistTabs()
@@ -869,6 +874,7 @@ class BrowserController(
                 val active = tab.id == selected.id
                 session.setActive(active)
                 session.setFocused(active && tab.isViewAttached)
+                runtime.webExtensionController.setTabActive(session, active)
             }
         }
         if (selected.url != START_PAGE_URL || selected.session != null) {

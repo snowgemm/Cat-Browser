@@ -75,7 +75,9 @@ class BrowserExtensionsManager(
     private val runtime: GeckoRuntime,
     private val context: Context,
     private val sessionProvider: () -> List<GeckoSession>,
-    private val onCreateTabFromExtension: () -> GeckoSession?,
+    private val onCreateTabFromExtension: (Boolean) -> GeckoSession?,
+    private val onActivateSession: (GeckoSession) -> Unit,
+    private val onCloseSession: (GeckoSession) -> Boolean,
     private val onOpenOptionsPage: (String) -> Unit
 ) {
     private val controller = runtime.webExtensionController
@@ -213,7 +215,16 @@ class BrowserExtensionsManager(
                 source: WebExtension,
                 createDetails: WebExtension.CreateTabDetails
             ): GeckoResult<GeckoSession>? {
-                val session = onCreateTabFromExtension() ?: return null
+                if (createDetails.pinned == true ||
+                    createDetails.discarded == true ||
+                    createDetails.openInReaderMode == true ||
+                    createDetails.cookieStoreId != null ||
+                    createDetails.index != null
+                ) {
+                    statusMessage = "Yêu cầu tạo tab này dùng tuỳ chọn mà Cat Browser chưa hỗ trợ."
+                    return null
+                }
+                val session = onCreateTabFromExtension(createDetails.active != false) ?: return null
                 return GeckoResult.fromValue(session)
             }
 
@@ -238,6 +249,37 @@ class BrowserExtensionsManager(
             session.getWebExtensionController().setActionDelegate(
                 extension,
                 createActionDelegate(extension, session)
+            )
+            session.getWebExtensionController().setTabDelegate(
+                extension,
+                object : WebExtension.SessionTabDelegate {
+                    override fun onUpdateTab(
+                        extension: WebExtension,
+                        session: GeckoSession,
+                        details: WebExtension.UpdateTabDetails
+                    ): GeckoResult<AllowOrDeny> {
+                        if (details.pinned != null ||
+                            details.muted != null ||
+                            details.autoDiscardable != null
+                        ) {
+                            return GeckoResult.fromValue(AllowOrDeny.DENY)
+                        }
+                        if (details.active == true || details.highlighted == true) {
+                            onActivateSession(session)
+                        }
+                        return GeckoResult.fromValue(AllowOrDeny.ALLOW)
+                    }
+
+                    override fun onCloseTab(
+                        source: WebExtension?,
+                        session: GeckoSession
+                    ): GeckoResult<AllowOrDeny> {
+                        val closed = onCloseSession(session)
+                        return GeckoResult.fromValue(
+                            if (closed) AllowOrDeny.ALLOW else AllowOrDeny.DENY
+                        )
+                    }
+                }
             )
         }
     }
