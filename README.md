@@ -9,8 +9,10 @@ An independent Android browser whose application code, interface and browsing ex
 - Multiple tabs (up to 20), with tab switching and closing.
 - Links requesting a new browsing context (`target="_blank"` / `window.open`) create a new Cat tab.
 - Tab metadata is stored locally. On app restart, tabs reopen at their last HTTP(S) URL.
-- Address/search field with DuckDuckGo search for plain text.
-- Back, forward, home, stop/reload and Android system-back navigation.
+- Native New Tab Page with bookmark shortcuts, recent normal-mode visits and user-added shortcuts.
+- Address/search field with DuckDuckGo search for plain text and local suggestions from same-mode tabs, bookmarks and normal-mode history.
+- Swipe left/right on the unfocused address bar to switch adjacent tabs; Back/Forward actions are in the overflow menu.
+- Tab overview search and restoration of recently closed normal tabs (last URL only, in-memory).
 - Page-load progress and basic load/process error feedback.
 - Local bookmarks and recent browsing history, stored on-device.
 - HTTP(S) links can be opened from other Android apps.
@@ -41,16 +43,16 @@ After a process restart, each saved tab is reopened at its last URL. The current
 
 ## Current limitations
 
-This is a usable early browser foundation, not yet a complete daily-use browser. The following are not implemented:
+The browser has a working foundation, but these areas are still incomplete or require validation:
 
-- Private browsing and independent private-session storage.
-- A complete website permission prompt and per-site permission manager.
-- A downloads manager and file picker workflow.
-- Firefox WebExtensions catalog and management UI (initial GeckoView-backed implementation; requires physical-device validation).
-- Full GeckoSession state restoration, including scroll/form/navigation history.
-- Find-in-page, browser settings and a complete privacy dashboard.
+- Full GeckoSession state restoration, including back/forward stacks, scroll position, form state and in-page state.
+- Recently closed tabs restore the last URL only and are kept in memory; they do not restore the complete session.
+- Extension toolbar actions, popup/options-page routing, local XPI import and complete compatibility reporting.
+- Persistent download-task restoration, pause/resume and retry.
+- Complete website-permission coverage and physical-device validation of permission prompts and private-session boundaries.
+- Desktop-site mode, reader mode, built-in translation and a complete tracking-protection dashboard.
 
-The app has passed its current CI compile, unit-test and APK-build checks. A physical-device installation and browsing smoke test is still required before claiming runtime readiness.
+CI build success does not replace installation and runtime smoke testing on supported physical Android devices.
 
 ## Technology
 

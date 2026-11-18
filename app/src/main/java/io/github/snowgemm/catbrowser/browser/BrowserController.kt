@@ -251,7 +251,7 @@ class BrowserController(
     fun selectTab(tabId: String) {
         val target = tabs.firstOrNull { it.id == tabId } ?: return
         if (selectedTabId == tabId) {
-            if (target.url == START_PAGE_URL) destroySession(target) else ensureSession(target)
+            if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
             return
         }
 
@@ -261,9 +261,7 @@ class BrowserController(
         }
 
         selectedTabId = target.id
-        if (target.url == START_PAGE_URL) {
-            destroySession(target)
-        } else {
+        if (target.url != START_PAGE_URL || target.session != null) {
             ensureSession(target)
             target.session?.let { session ->
                 session.setActive(true)
@@ -834,9 +832,7 @@ class BrowserController(
                 session.setFocused(active && tab.isViewAttached)
             }
         }
-        if (selected.url == START_PAGE_URL) {
-            destroySession(selected)
-        } else {
+        if (selected.url != START_PAGE_URL || selected.session != null) {
             ensureSession(selected)
             selected.session?.setActive(true)
             selected.session?.setFocused(selected.isViewAttached)

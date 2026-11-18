@@ -466,7 +466,7 @@ private fun BrowserMainScreen(
                     },
                     onSearch = ::navigate
                 )
-                tab.url == START_PAGE_URL -> NewTabPage(
+                tab.url == START_PAGE_URL && tab.session == null -> NewTabPage(
                     isPrivate = tab.isPrivate,
                     bookmarks = controller.bookmarks.toList(),
                     recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),

@@ -160,7 +160,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsCard {
                     Text("Địa chỉ trang chủ", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold)
-                    Text("Mặc định là trang trống như Brave. Bạn cũng có thể nhập URL riêng.",
+                    Text("Mặc định là sảnh Cat Browser với lối tắt và website vừa truy cập. Bạn cũng có thể nhập URL riêng.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(homePage, { homePage = it; homePageError = false },
@@ -179,7 +179,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsCard {
                     SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
                         controller.startupMode == "continue") { controller.updateStartupMode("continue") }
-                    SettingsChoice("Mở trang chủ", "Mở tab trống (about:blank) hoặc URL bạn đã đặt",
+                    SettingsChoice("Mở trang chủ", "Mở sảnh Cat Browser (about:blank) hoặc URL bạn đã đặt",
                         controller.startupMode == "home") { controller.updateStartupMode("home") }
                 }
             }
