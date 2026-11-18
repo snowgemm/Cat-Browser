@@ -228,7 +228,7 @@ class BrowserUpdateManager(context: Context) {
         return 0
     }
 
-    private fun post(action: () -> Unit) = mainHandler.post(action)
+    private fun post(action: () -> Unit) = mainHandler.post { action() }
 
     private companion object {
         const val LATEST_RELEASE_URL =
