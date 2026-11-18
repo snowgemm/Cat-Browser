@@ -12,6 +12,7 @@ import org.json.JSONObject
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSessionSettings
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -27,7 +28,8 @@ data class BrowserEntry(
 class BrowserTab internal constructor(
     val id: String = UUID.randomUUID().toString(),
     initialUrl: String = START_PAGE_URL,
-    initialTitle: String = "New tab"
+    initialTitle: String = "New tab",
+    val isPrivate: Boolean = false
 ) {
     var url by mutableStateOf(initialUrl)
         internal set
@@ -98,6 +100,12 @@ class BrowserController(
     val activeTab: BrowserTab?
         get() = tabs.firstOrNull { it.id == selectedTabId }
 
+    val privateTabCount: Int
+        get() = tabs.count { it.isPrivate }
+
+    val regularTabCount: Int
+        get() = tabs.size - privateTabCount
+
     init {
         if (startupMode == STARTUP_CONTINUE) restoreTabs()
 
@@ -117,6 +125,18 @@ class BrowserController(
         if (tabs.size >= MAX_TABS) return
 
         val tab = BrowserTab(initialUrl = homePage)
+        tabs.add(tab)
+        selectTab(tab.id)
+    }
+
+    fun newPrivateTab() {
+        if (tabs.size >= MAX_TABS) return
+
+        val tab = BrowserTab(
+            initialUrl = homePage,
+            initialTitle = "Tab ẩn danh",
+            isPrivate = true
+        )
         tabs.add(tab)
         selectTab(tab.id)
     }
@@ -158,6 +178,27 @@ class BrowserController(
         } else if (wasSelected) {
             val replacementIndex = index.coerceAtMost(tabs.lastIndex)
             selectedTabId = tabs[replacementIndex].id
+            activateSelectedTab()
+        }
+
+        persistTabs()
+    }
+
+    fun closeAllPrivateTabs() {
+        val privateTabs = tabs.filter { it.isPrivate }
+        if (privateTabs.isEmpty()) return
+
+        val selectedWasPrivate = activeTab?.isPrivate == true
+        privateTabs.forEach(::destroySession)
+        tabs.removeAll { it.isPrivate }
+
+        if (tabs.isEmpty()) {
+            val replacement = BrowserTab(initialUrl = homePage)
+            tabs.add(replacement)
+            selectedTabId = replacement.id
+            ensureSession(replacement)
+        } else if (selectedWasPrivate || tabs.none { it.id == selectedTabId }) {
+            selectedTabId = tabs.first().id
             activateSelectedTab()
         }
 
@@ -297,7 +338,7 @@ class BrowserController(
         }
 
         val tab = activeTab ?: return
-        if (!isWebUrl(tab.url)) return
+        if (tab.isPrivate || !isWebUrl(tab.url)) return
 
         val existing = bookmarks.indexOfFirst { it.url == tab.url }
         if (existing >= 0) {
@@ -400,7 +441,11 @@ class BrowserController(
         val existing = tab.session
         if (existing != null && existing.isOpen) return
 
-        val session = GeckoSession()
+        val session = GeckoSession(
+            GeckoSessionSettings.Builder()
+                .usePrivateMode(tab.isPrivate)
+                .build()
+        )
         tab.session = session
         tab.isViewAttached = false
         tab.loadPendingUntilAttached = loadCurrentUrl
@@ -435,7 +480,8 @@ class BrowserController(
                 val safeUrl = if (isWebUrl(uri)) uri else homePage
                 val newTab = BrowserTab(
                     initialUrl = safeUrl,
-                    initialTitle = "New tab"
+                    initialTitle = "New tab",
+                    isPrivate = tab.isPrivate
                 )
                 tabs.add(newTab)
                 ensureSession(newTab, loadCurrentUrl = false)
@@ -519,7 +565,7 @@ class BrowserController(
     }
 
     private fun recordVisit(tab: BrowserTab) {
-        if (!isWebUrl(tab.url)) return
+        if (tab.isPrivate || !isWebUrl(tab.url)) return
 
         val visit = BrowserEntry(
             title = tab.title.ifBlank { tab.url },
@@ -590,8 +636,14 @@ class BrowserController(
     }
 
     private fun persistTabs() {
+        // Private-tab URLs and titles must never enter app-owned persistent storage.
+        val persistentTabs = tabs.filterNot { it.isPrivate }
+        val persistentSelectedTabId = selectedTabId
+            .takeIf { id -> persistentTabs.any { it.id == id } }
+            ?: persistentTabs.firstOrNull()?.id.orEmpty()
+
         val array = JSONArray()
-        tabs.forEach { tab ->
+        persistentTabs.forEach { tab ->
             array.put(
                 JSONObject()
                     .put("id", tab.id)
@@ -602,7 +654,7 @@ class BrowserController(
 
         preferences.edit()
             .putString(KEY_TABS, array.toString())
-            .putString(KEY_ACTIVE_TAB, selectedTabId)
+            .putString(KEY_ACTIVE_TAB, persistentSelectedTabId)
             .apply()
     }
 
