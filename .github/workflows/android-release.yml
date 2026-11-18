@@ -30,7 +30,7 @@ jobs:
           import sys
 
           tag = os.environ["RELEASE_TAG"]
-          match = re.fullmatch(r"v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-beta\\.(\\d+))?", tag)
+          match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?", tag)
           if not match:
               sys.exit("Release tags must use vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N")
 
