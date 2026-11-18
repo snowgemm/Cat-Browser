@@ -37,7 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.TextRange
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -361,7 +361,7 @@ fun BrowserScreen(controller: BrowserController) {
 }
 
 private enum class BrowserGlyphType {
-    BACK, FORWARD, LOCK, GLOBE, CLEAR, GO, TABS, MORE,
+    BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE,
     HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS
 }
 
@@ -425,7 +425,7 @@ private fun BrowserGlyph(
                 )
                 line(3.5f, 12f, 20.5f, 12f)
             }
-            BrowserGlyphType.CLEAR -> {
+            BrowserGlyphType.CLEAR, BrowserGlyphType.CLOSE -> {
                 line(6f, 6f, 18f, 18f)
                 line(18f, 6f, 6f, 18f)
             }
