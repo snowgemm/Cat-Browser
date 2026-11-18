@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import io.github.snowgemm.catbrowser.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +25,7 @@ import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = remember { BrowserUpdateManager(context) }
+    val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val updateState = updateManager.state
     var homePage by remember(controller.homePage) { mutableStateOf(controller.homePage) }
     var homePageError by remember { mutableStateOf(false) }
@@ -59,9 +64,10 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                             shape = RoundedCornerShape(16.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer
                         ) {
-                            Text("猫", Modifier.padding(horizontal = 15.dp, vertical = 11.dp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Image(painterResource(R.drawable.ic_launcher_foreground),
+                                contentDescription = "Cat Browser",
+                                modifier = Modifier.size(54.dp).padding(4.dp),
+                                contentScale = ContentScale.Fit)
                         }
                         Spacer(Modifier.width(13.dp))
                         Column(Modifier.weight(1f)) {
@@ -229,7 +235,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsCard {
                     Text("Cat Browser", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
-                    Text("Phiên bản ứng dụng được đọc trực tiếp từ Android.",
+                    Text("Phiên bản $appVersion · Cập nhật qua GitHub Releases.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
                     Text("Chủ đề chỉ thay đổi giao diện trình duyệt, không tự ép màu các trang web.",
