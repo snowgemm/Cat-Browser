@@ -47,7 +47,9 @@ The browser has a working foundation, but these areas are still incomplete or re
 
 - Full GeckoSession state restoration, including back/forward stacks, scroll position, form state and in-page state.
 - Recently closed tabs restore the last URL only and are kept in memory; they do not restore the complete session.
-- Extension toolbar actions, popup/options-page routing, local XPI import and complete compatibility reporting.
+- Firefox WebExtension browser/page actions with icons and badges, popup windows, options-page routing, and supported tabs.create / tabs.update / tabs.remove integration.
+- Local XPI import through Android's document picker, limited to 50 MB and validated by GeckoView; Mozilla signature checks remain enforced.
+- Per-extension private-browsing access is disabled by default and requires explicit user confirmation. Chrome Web Store compatibility and full API parity are not provided.
 - Persistent download-task restoration, pause/resume and retry.
 - Complete website-permission coverage and physical-device validation of permission prompts and private-session boundaries.
 - Desktop-site mode, reader mode, built-in translation and a complete tracking-protection dashboard.
@@ -90,7 +92,7 @@ The debug APKs are not production-signed and must not be treated as stable relea
 
 ## Extension support
 
-The target is Firefox WebExtensions through GeckoView. This does not imply compatibility with every Firefox add-on, every Chrome extension or the Chrome Web Store. The extension manager is not implemented yet. Read [Android extension support](docs/ANDROID-EXTENSIONS.md) before advertising compatibility.
+The target is Firefox WebExtensions through GeckoView. Cat integrates action buttons, popup sessions, options pages, signed XPI import and selected tab-management callbacks. This does not imply compatibility with every Firefox add-on, arbitrary Chrome extensions or the Chrome Web Store. Read [Android extension support](docs/ANDROID-EXTENSIONS.md) for the supported API surface and known limitations before advertising compatibility.
 
 ## Architecture
 
