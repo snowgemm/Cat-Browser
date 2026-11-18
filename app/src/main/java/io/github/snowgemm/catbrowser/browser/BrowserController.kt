@@ -844,8 +844,11 @@ class BrowserController(
         if (active || selectedTabId.isBlank()) {
             selectTab(tab.id)
         } else {
-            tab.session?.setActive(false)
-            tab.session?.setFocused(false)
+            tab.session?.let { session ->
+                session.setActive(false)
+                session.setFocused(false)
+                runtime.webExtensionController.setTabActive(session, false)
+            }
         }
         persistTabs()
         return tab.session
