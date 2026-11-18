@@ -6,12 +6,20 @@ import org.junit.Test
 
 class BrowserTabPrivacyTest {
     @Test
-    fun regularTabsRemainEligibleForSessionRestore() {
-        assertTrue(shouldPersistBrowserTab(BrowserTab(isPrivate = false)))
+    fun regularTabsCanBeRestoredAndSaved() {
+        val tab = BrowserTab(isPrivate = false)
+
+        assertTrue(shouldPersistBrowserTab(tab))
+        assertTrue(shouldRecordBrowserHistory(tab))
+        assertTrue(shouldAllowBookmark(tab))
     }
 
     @Test
-    fun privateTabsAreNeverSavedForSessionRestore() {
-        assertFalse(shouldPersistBrowserTab(BrowserTab(isPrivate = true)))
+    fun privateTabsAreExcludedFromAllAppOwnedBrowsingRecords() {
+        val tab = BrowserTab(isPrivate = true)
+
+        assertFalse(shouldPersistBrowserTab(tab))
+        assertFalse(shouldRecordBrowserHistory(tab))
+        assertFalse(shouldAllowBookmark(tab))
     }
 }
