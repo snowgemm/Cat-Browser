@@ -3,6 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystorePath = providers.environmentVariable("CAT_RELEASE_KEYSTORE_PATH").orNull
+val releaseStorePassword = providers.environmentVariable("CAT_RELEASE_STORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("CAT_RELEASE_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("CAT_RELEASE_KEY_PASSWORD").orNull
+val hasReleaseSigning = listOf(
+    releaseKeystorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "io.github.snowgemm.catbrowser"
     compileSdk = 37
@@ -12,9 +23,28 @@ android {
         applicationId = "io.github.snowgemm.catbrowser"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseKeystorePath))
+                storePassword = requireNotNull(releaseStorePassword)
+                keyAlias = requireNotNull(releaseKeyAlias)
+                keyPassword = requireNotNull(releaseKeyPassword)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     // GeckoView is a large native engine. Ship only the libraries for the
