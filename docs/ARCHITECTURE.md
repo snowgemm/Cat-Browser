@@ -7,6 +7,7 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 ## Current implementation
 
 - `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
+- New tabs and the default startup page use `about:blank`; a custom HTTP(S) home page remains configurable. Existing installs that still have the old DuckDuckGo default are migrated to `about:blank` without overwriting a user-defined home page.
 - `BrowserController` owns tab metadata, GeckoSession instances, tab selection, normal-mode history and bookmarks.
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
@@ -14,7 +15,7 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 - `BrowserScreen` renders the active tab, the find-in-page bar, download manager, and GeckoView permission prompts.
 - `BrowserDownloadManager` consumes GeckoView's original `WebResponse.body` stream, writes files to MediaStore Downloads on Android 10+ or app-scoped Downloads on Android 8/9, and tracks progress/cancel/open/share/delete in memory.
 - `BrowserController` owns the GeckoView `StorageController` workflow for site permission inspection/reset and browsing-data clearing; storage clearing closes all sessions before clearing and recreates the selected tab afterward.
-- `BrowserUrlResolver` validates HTTP(S) addresses, hostnames, IPv4/IPv6 and ports; plain text becomes a DuckDuckGo search.
+- `BrowserUrlResolver` validates HTTP(S) addresses, hostnames, IPv4/IPv6 and ports; plain text becomes a blank start page.
 - HTTP(S) external intents are accepted by `MainActivity`.
 
 ## Lifecycle rules
