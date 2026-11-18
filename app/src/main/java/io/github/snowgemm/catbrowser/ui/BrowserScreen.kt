@@ -34,22 +34,24 @@ import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
 
 private val CatDarkColorScheme = darkColorScheme(
-    primary = Color(0xFF55C98A), onPrimary = Color(0xFF082417),
-    secondary = Color(0xFFE6B35A), onSecondary = Color(0xFF241A08),
-    background = Color(0xFF101612), onBackground = Color(0xFFE8EEE9),
-    surface = Color(0xFF171F1A), onSurface = Color(0xFFE8EEE9),
-    surfaceVariant = Color(0xFF222C26), onSurfaceVariant = Color(0xFFB2BDB5),
-    outline = Color(0xFF39483E)
+    primary = Color(0xFFD6B96C), onPrimary = Color(0xFF211A08),
+    secondary = Color(0xFFE3C77E), onSecondary = Color(0xFF241C0A),
+    background = Color(0xFF101318), onBackground = Color(0xFFF1F1ED),
+    surface = Color(0xFF1C222B), onSurface = Color(0xFFF1F1ED),
+    surfaceVariant = Color(0xFF272E38), onSurfaceVariant = Color(0xFFB8BDC5),
+    outline = Color(0xFF343A43), secondaryContainer = Color(0xFF3A3321),
+    onSecondaryContainer = Color(0xFFEAD69D)
 )
 
 private val CatLightColorScheme = lightColorScheme(
-    primary = Color(0xFF167548), onPrimary = Color.White,
-    primaryContainer = Color(0xFFB9F1D0), onPrimaryContainer = Color(0xFF002111),
-    secondary = Color(0xFF8A5A00), onSecondary = Color.White,
-    background = Color(0xFFF7F9F7), onBackground = Color(0xFF191D1A),
-    surface = Color.White, onSurface = Color(0xFF191D1A),
-    surfaceVariant = Color(0xFFE8EEE9), onSurfaceVariant = Color(0xFF414B44),
-    outline = Color(0xFFBBC8BE)
+    primary = Color(0xFFA98535), onPrimary = Color.White,
+    primaryContainer = Color(0xFFF0E4C5), onPrimaryContainer = Color(0xFF35280C),
+    secondary = Color(0xFFA98535), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF0E8D5), onSecondaryContainer = Color(0xFF3D321C),
+    background = Color(0xFFF8F7F3), onBackground = Color(0xFF242424),
+    surface = Color.White, onSurface = Color(0xFF242424),
+    surfaceVariant = Color(0xFFF0EEE8), onSurfaceVariant = Color(0xFF5F5B51),
+    outline = Color(0xFFE5E1D7)
 )
 
 @Composable
