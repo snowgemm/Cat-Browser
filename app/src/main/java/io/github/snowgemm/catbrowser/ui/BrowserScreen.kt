@@ -473,34 +473,35 @@ private fun BrowserMainScreen(
                     onOpenUrl = controller::openEntry,
                     onAddShortcut = if (tab.isPrivate) { _, _ -> false } else controller::addBookmark
                 )
-                tab.session == null -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Đang khởi tạo trang…", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
                 else -> {
                     val session = tab.session
-                    key(tab.id) {
-                        AndroidView(
-                            factory = { context ->
-                                GeckoView(context).apply {
-                                    setSession(session)
-                                    controller.onSessionViewAttached(tab.id, session)
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                            update = { view ->
-                                if (view.getSession() !== session) {
+                    if (session == null) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Đang khởi tạo trang…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        key(tab.id) {
+                            AndroidView(
+                                factory = { context ->
+                                    GeckoView(context).apply {
+                                        setSession(session)
+                                        controller.onSessionViewAttached(tab.id, session)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                                update = { view ->
+                                    if (view.getSession() !== session) {
+                                        view.releaseSession()
+                                        view.setSession(session)
+                                        controller.onSessionViewAttached(tab.id, session)
+                                    }
+                                },
+                                onRelease = { view ->
+                                    controller.onSessionViewDetached(tab.id, session)
                                     view.releaseSession()
-                                    view.setSession(session)
-                                    controller.onSessionViewAttached(tab.id, session)
                                 }
-                            },
-                            onRelease = { view ->
-                                controller.onSessionViewDetached(tab.id, session)
-                                view.releaseSession()
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
