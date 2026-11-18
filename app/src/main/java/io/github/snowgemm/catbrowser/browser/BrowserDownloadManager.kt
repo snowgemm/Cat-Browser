@@ -44,6 +44,7 @@ class BrowserDownloadItem internal constructor(
         internal set
     var localUri by mutableStateOf<String?>(null)
         internal set
+    @Volatile
     var isCancelled = false
         internal set
 
@@ -269,8 +270,13 @@ class BrowserDownloadManager(context: Context) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
             temporaryFile?.delete()
             updateOnMain(item) {
-                it.status = BrowserDownloadStatus.FAILED
-                it.errorMessage = error.message?.take(240) ?: "Không thể tải tệp."
+                if (item.isCancelled) {
+                    it.status = BrowserDownloadStatus.CANCELLED
+                    it.errorMessage = "Đã hủy tải xuống."
+                } else {
+                    it.status = BrowserDownloadStatus.FAILED
+                    it.errorMessage = error.message?.take(240) ?: "Không thể tải tệp."
+                }
             }
         } finally {
             runCatching { output?.close() }
