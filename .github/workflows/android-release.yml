@@ -20,6 +20,36 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@v7
 
+      - name: Derive Android version from release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import os
+          import re
+          import sys
+
+          tag = os.environ["RELEASE_TAG"]
+          match = re.fullmatch(r"v?(\\d+)\\.(\\d+)\\.(\\d+)(?:-beta\\.(\\d+))?", tag)
+          if not match:
+              sys.exit("Release tags must use vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N")
+
+          major, minor, patch = (int(match.group(i)) for i in range(1, 4))
+          beta_text = match.group(4)
+          stage = int(beta_text) if beta_text else 99
+          if major > 2099 or minor > 99 or patch > 99:
+              sys.exit("Version components exceed the supported Android versionCode range")
+          if beta_text and not 1 <= stage <= 98:
+              sys.exit("Beta sequence must be between 1 and 98")
+
+          version_code = major * 1_000_000 + minor * 10_000 + patch * 100 + stage
+          if version_code > 2_100_000_000:
+              sys.exit("Generated Android versionCode exceeds the Play/PackageManager limit")
+
+          print("CAT_VERSION_NAME=" + tag.removeprefix("v"))
+          print("CAT_VERSION_CODE=" + str(version_code))
+          PY
+
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
@@ -113,25 +143,35 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          release_create_flags=()
+          release_edit_flags=()
+          if [[ "$GITHUB_REF_NAME" == *-beta.* ]]; then
+            release_create_flags+=(--prerelease)
+            release_edit_flags+=(--prerelease)
+          fi
+
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" \
               dist/abi-apks/*-release.apk \
               dist/abi-apks/SHA256SUMS \
               --clobber
             gh release edit "$GITHUB_REF_NAME" \
-              --title "Cat Browser $GITHUB_REF_NAME"
+              --title "Cat Browser $GITHUB_REF_NAME" \
+              "${release_edit_flags[@]}"
           else
             if [[ -f ".github/release-notes/$GITHUB_REF_NAME.md" ]]; then
               gh release create "$GITHUB_REF_NAME" \
                 dist/abi-apks/*-release.apk \
                 dist/abi-apks/SHA256SUMS \
                 --title "Cat Browser $GITHUB_REF_NAME" \
-                --notes-file ".github/release-notes/$GITHUB_REF_NAME.md"
+                --notes-file ".github/release-notes/$GITHUB_REF_NAME.md" \
+                "${release_create_flags[@]}"
             else
               gh release create "$GITHUB_REF_NAME" \
                 dist/abi-apks/*-release.apk \
                 dist/abi-apks/SHA256SUMS \
                 --title "Cat Browser $GITHUB_REF_NAME" \
-                --generate-notes
+                --generate-notes \
+                "${release_create_flags[@]}"
             fi
           fi
