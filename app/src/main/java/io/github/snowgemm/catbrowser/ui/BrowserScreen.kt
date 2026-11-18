@@ -21,6 +21,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -212,6 +213,7 @@ fun BrowserScreen(controller: BrowserController) {
 
 private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BrowserMainScreen(
     controller: BrowserController,
