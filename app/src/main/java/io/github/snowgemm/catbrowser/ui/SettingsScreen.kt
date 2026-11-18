@@ -349,8 +349,8 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     clearHistorySelected
                 ) { clearHistorySelected = it }
                 ClearDataOption(
-                    "Cookie và dữ liệu website",
-                    "Có thể đăng xuất khỏi các website và xóa dữ liệu đăng nhập cục bộ.",
+                    "Cookie, web storage và đăng nhập",
+                    "Xóa cookie, DOM storage và auth sessions; có thể đăng xuất khỏi website.",
                     clearCookiesSelected
                 ) { clearCookiesSelected = it }
                 ClearDataOption(
