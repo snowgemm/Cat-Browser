@@ -537,6 +537,7 @@ class BrowserController(
 
     fun clearHistory() {
         history.clear()
+        recentlyClosedTabs.clear()
         isHistoryLoaded = true
         isHistoryLoading = false
         persistHistory()

@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -518,6 +519,7 @@ private fun BrowserMainScreen(
             Surface(
                 modifier = Modifier.weight(1f)
                     .height(if (addressFocused) 52.dp else 46.dp)
+                    .animateContentSize()
                     .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
                     .pointerInput(tab.id, addressFocused, controller.tabs.size) {
                         if (!addressFocused && controller.tabs.size > 1) {
@@ -1173,6 +1175,14 @@ private fun TabsOverview(
             placeholder = { Text("Tìm trong các tab") },
             leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) }
         )
+        if (visibleTabs.isEmpty()) {
+            Text(
+                "Không tìm thấy tab phù hợp.",
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 154.dp),
