@@ -298,9 +298,12 @@ private fun UpdateChannelCard(
                 )
             }
         }
-        val onAction = {
+        val onAction: () -> Unit = {
             when {
-                state.downloaded -> manager.installDownloadedApk(channel)
+                state.downloaded -> {
+                    manager.installDownloadedApk(channel)
+                    Unit
+                }
                 state.updateAvailable -> manager.downloadUpdate(channel)
                 else -> manager.checkForUpdates(channel)
             }
