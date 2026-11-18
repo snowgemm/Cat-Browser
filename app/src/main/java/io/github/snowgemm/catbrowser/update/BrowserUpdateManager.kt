@@ -2,7 +2,6 @@ package io.github.snowgemm.catbrowser.update
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -12,12 +11,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
+
+enum class UpdateChannel {
+    STABLE,
+    BETA
+}
 
 data class UpdateUiState(
     val isChecking: Boolean = false,
@@ -31,51 +36,88 @@ data class UpdateUiState(
     val error: Boolean = false
 )
 
+private data class PendingUpdate(
+    val downloadUrl: String,
+    val expectedSha256: String
+)
+
 class BrowserUpdateManager(context: Context) {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val executor = Executors.newSingleThreadExecutor()
-    private var downloadUrl: String? = null
-    private var expectedSha256: String? = null
-    private var apkFile: File? = null
+    private val executor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "CatBrowserUpdater").apply { isDaemon = true }
+    }
+    private val pendingUpdates = mutableMapOf<UpdateChannel, PendingUpdate>()
 
-    var state by mutableStateOf(UpdateUiState())
+    var stableState by mutableStateOf(UpdateUiState())
+        private set
+    var betaState by mutableStateOf(
+        UpdateUiState(message = "Kiểm tra bản Beta (pre-release) khi cần thử tính năng mới.")
+    )
         private set
 
-    fun checkForUpdates() {
-        if (state.isChecking || state.isDownloading) return
-        state = state.copy(isChecking = true, error = false, message = "Đang kiểm tra phiên bản mới…")
+    private fun state(channel: UpdateChannel): UpdateUiState =
+        if (channel == UpdateChannel.STABLE) stableState else betaState
+
+    private fun setState(channel: UpdateChannel, newState: UpdateUiState) {
+        if (channel == UpdateChannel.STABLE) stableState = newState else betaState = newState
+    }
+
+    private fun updateState(channel: UpdateChannel, transform: (UpdateUiState) -> UpdateUiState) {
+        setState(channel, transform(state(channel)))
+    }
+
+    fun checkForUpdates(channel: UpdateChannel) {
+        val currentState = state(channel)
+        if (currentState.isChecking || currentState.isDownloading) return
+
+        updateState(channel) {
+            it.copy(isChecking = true, error = false, message = "Đang kiểm tra " + channel.label + "…")
+        }
         executor.execute {
             try {
-                val connection = (URL(LATEST_RELEASE_URL).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    connectTimeout = 15_000
-                    readTimeout = 20_000
-                    setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
-                    setRequestProperty("User-Agent", "Cat-Browser-Android")
+                val release = fetchRelease(channel)
+                if (release == null) {
+                    pendingUpdates.remove(channel)
+                    post {
+                        setState(
+                            channel,
+                            UpdateUiState(
+                                message = if (channel == UpdateChannel.BETA) {
+                                    "Chưa có bản Beta (pre-release) nào được phát hành."
+                                } else {
+                                    "Chưa có bản Stable nào được phát hành."
+                                }
+                            )
+                        )
+                    }
+                    return@execute
                 }
-                val release = connection.inputStream.bufferedReader().use { JSONObject(it.readText()) }
-                connection.disconnect()
 
                 val tag = release.optString("tag_name").removePrefix("v")
-                val current = appContext.packageManager
+                if (tag.isBlank()) throw IllegalStateException("Bản phát hành không có tag phiên bản.")
+
+                val currentVersion = appContext.packageManager
                     .getPackageInfo(appContext.packageName, 0).versionName.orEmpty()
-                val available = compareVersions(tag, current) > 0
-                if (!available) {
-                    post { state = UpdateUiState(message = "Cat Browser đã ở phiên bản mới nhất ($current).") }
+                if (compareBrowserVersions(tag, currentVersion) <= 0) {
+                    pendingUpdates.remove(channel)
+                    post {
+                        setState(
+                            channel,
+                            UpdateUiState(
+                                message = when (channel) {
+                                    UpdateChannel.STABLE -> "Đang dùng Stable mới nhất (" + currentVersion + ")."
+                                    UpdateChannel.BETA -> "Không có bản Beta mới hơn phiên bản đang cài (" + currentVersion + ")."
+                                }
+                            )
+                        )
+                    }
                     return@execute
                 }
 
                 val abi = Build.SUPPORTED_ABIS.firstOrNull { it in SUPPORTED_ABIS }
                     ?: throw IllegalStateException("Thiết bị chưa có APK phù hợp.")
-                val suffix = when (abi) {
-                    "arm64-v8a" -> "arm64-v8a"
-                    "armeabi-v7a" -> "armeabi-v7a"
-                    "x86_64" -> "x86_64"
-                    else -> throw IllegalStateException("Kiến trúc thiết bị không được hỗ trợ.")
-                }
-                val expectedName = "cat-browser-$suffix-release.apk"
+                val expectedName = "cat-browser-" + abi + "-release.apk"
                 val assets = release.optJSONArray("assets")
                     ?: throw IllegalStateException("Bản phát hành không có tệp APK.")
                 var selected: JSONObject? = null
@@ -86,6 +128,7 @@ class BrowserUpdateManager(context: Context) {
                         break
                     }
                 }
+
                 val asset = selected ?: throw IllegalStateException("Không tìm thấy APK cho thiết bị này.")
                 val assetUrl = asset.optString("browser_download_url")
                 val digest = asset.optString("digest")
@@ -98,113 +141,184 @@ class BrowserUpdateManager(context: Context) {
                     throw IllegalStateException("Bản phát hành chưa có SHA-256 hợp lệ.")
                 }
 
-                downloadUrl = assetUrl
-                expectedSha256 = digest.removePrefix("sha256:").lowercase()
+                pendingUpdates[channel] = PendingUpdate(
+                    downloadUrl = assetUrl,
+                    expectedSha256 = digest.removePrefix("sha256:").lowercase()
+                )
                 val notes = release.optString("body").take(1200)
                 post {
-                    state = UpdateUiState(
-                        updateAvailable = true,
-                        version = tag,
-                        releaseNotes = notes,
-                        message = "Có phiên bản mới: $tag"
+                    setState(
+                        channel,
+                        UpdateUiState(
+                            updateAvailable = true,
+                            version = tag,
+                            releaseNotes = notes,
+                            message = "Có " + channel.label + " mới: " + tag
+                        )
                     )
                 }
             } catch (error: Exception) {
+                pendingUpdates.remove(channel)
                 post {
-                    state = UpdateUiState(
-                        message = error.message ?: "Không thể kiểm tra cập nhật.",
-                        error = true
+                    setState(
+                        channel,
+                        UpdateUiState(
+                            message = error.message ?: "Không thể kiểm tra " + channel.label + ".",
+                            error = true
+                        )
                     )
                 }
             }
         }
     }
 
-    fun downloadUpdate() {
-        val url = downloadUrl ?: return
-        val digest = expectedSha256 ?: return
-        if (state.isDownloading) return
-        state = state.copy(isDownloading = true, progress = 0, error = false, message = "Đang tải bản cập nhật…")
+    private fun fetchRelease(channel: UpdateChannel): JSONObject? {
+        val url = when (channel) {
+            UpdateChannel.STABLE -> LATEST_RELEASE_URL
+            UpdateChannel.BETA -> RELEASES_URL
+        }
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15_000
+            readTimeout = 20_000
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+            setRequestProperty("User-Agent", "Cat-Browser-Android")
+        }
+
+        val body = try {
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                throw IllegalStateException("GitHub API trả về lỗi " + connection.responseCode + ".")
+            }
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+
+        if (channel == UpdateChannel.STABLE) return JSONObject(body)
+
+        val releases = JSONArray(body)
+        var newest: JSONObject? = null
+        for (index in 0 until releases.length()) {
+            val candidate = releases.optJSONObject(index) ?: continue
+            if (candidate.optBoolean("draft") || !candidate.optBoolean("prerelease")) continue
+            if (newest == null || compareBrowserVersions(
+                    candidate.optString("tag_name"),
+                    newest.optString("tag_name")
+                ) > 0
+            ) {
+                newest = candidate
+            }
+        }
+        return newest
+    }
+
+    fun downloadUpdate(channel: UpdateChannel) {
+        val update = pendingUpdates[channel] ?: return
+        if (state(channel).isDownloading) return
+
+        updateState(channel) {
+            it.copy(
+                isDownloading = true,
+                progress = 0,
+                error = false,
+                message = "Đang tải " + channel.label + "…"
+            )
+        }
         executor.execute {
-            val temporary = File(appContext.cacheDir, "cat-browser-update.apk.part")
+            val temporary = File(appContext.cacheDir, fileName(channel) + ".part")
             try {
-                val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                val connection = (URL(update.downloadUrl).openConnection() as HttpURLConnection).apply {
                     connectTimeout = 20_000
                     readTimeout = 30_000
                     instanceFollowRedirects = true
                     setRequestProperty("User-Agent", "Cat-Browser-Android")
                 }
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    throw IllegalStateException("Máy chủ tải xuống trả về lỗi ${connection.responseCode}.")
+                    throw IllegalStateException("Máy chủ tải xuống trả về lỗi " + connection.responseCode + ".")
                 }
+
                 val total = connection.contentLengthLong
                 val sha = MessageDigest.getInstance("SHA-256")
-                connection.inputStream.buffered().use { input ->
-                    temporary.outputStream().buffered().use { output ->
-                        val buffer = ByteArray(64 * 1024)
-                        var received = 0L
-                        while (true) {
-                            val count = input.read(buffer)
-                            if (count < 0) break
-                            output.write(buffer, 0, count)
-                            sha.update(buffer, 0, count)
-                            received += count
-                            if (total > 0) {
-                                val percent = ((received * 100) / total).toInt().coerceIn(0, 99)
-                                post { state = state.copy(progress = percent) }
+                try {
+                    connection.inputStream.buffered().use { input ->
+                        temporary.outputStream().buffered().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var received = 0L
+                            while (true) {
+                                val count = input.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                                sha.update(buffer, 0, count)
+                                received += count
+                                if (total > 0) {
+                                    val percent = ((received * 100) / total).toInt().coerceIn(0, 99)
+                                    post { updateState(channel) { it.copy(progress = percent) } }
+                                }
                             }
                         }
                     }
+                } finally {
+                    connection.disconnect()
                 }
-                connection.disconnect()
+
                 val actual = sha.digest().joinToString("") { "%02x".format(it) }
-                if (!actual.equals(digest, ignoreCase = true)) {
+                if (!actual.equals(update.expectedSha256, ignoreCase = true)) {
                     throw SecurityException("SHA-256 không khớp. Tệp tải xuống đã bị từ chối.")
                 }
-                val destination = File(appContext.cacheDir, "cat-browser-update.apk")
-                if (destination.exists()) destination.delete()
+
+                val destination = File(appContext.cacheDir, fileName(channel))
+                if (destination.exists() && !destination.delete()) {
+                    throw IllegalStateException("Không thể thay thế APK cũ trong bộ nhớ tạm.")
+                }
                 if (!temporary.renameTo(destination)) {
                     throw IllegalStateException("Không thể lưu APK đã tải.")
                 }
-                apkFile = destination
                 post {
-                    state = state.copy(
-                        isDownloading = false,
-                        progress = 100,
-                        downloaded = true,
-                        message = "Đã tải và xác minh APK. Sẵn sàng cài đặt."
-                    )
+                    updateState(channel) {
+                        it.copy(
+                            isDownloading = false,
+                            progress = 100,
+                            downloaded = true,
+                            message = "Đã tải và xác minh APK " + state(channel).version + ". Sẵn sàng cài đặt."
+                        )
+                    }
                 }
             } catch (error: Exception) {
                 temporary.delete()
                 post {
-                    state = state.copy(
-                        isDownloading = false,
-                        error = true,
-                        message = error.message ?: "Tải cập nhật thất bại."
-                    )
+                    updateState(channel) {
+                        it.copy(
+                            isDownloading = false,
+                            error = true,
+                            message = error.message ?: "Tải " + channel.label + " thất bại."
+                        )
+                    }
                 }
             }
         }
     }
 
-    fun installDownloadedApk(): Boolean {
-        val file = apkFile?.takeIf { it.isFile } ?: return false
+    fun installDownloadedApk(channel: UpdateChannel): Boolean {
+        val file = File(appContext.cacheDir, fileName(channel)).takeIf { it.isFile } ?: return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !appContext.packageManager.canRequestPackageInstalls()) {
+            !appContext.packageManager.canRequestPackageInstalls()
+        ) {
             val settingsIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${appContext.packageName}")
+                Uri.parse("package:" + appContext.packageName)
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             appContext.startActivity(settingsIntent)
-            state = state.copy(message = "Hãy cho phép Cat Browser cài ứng dụng, sau đó quay lại và nhấn Cài đặt.")
+            updateState(channel) {
+                it.copy(message = "Hãy cho phép Cat Browser cài ứng dụng, sau đó quay lại và nhấn Cài đặt.")
+            }
             return false
         }
 
         return try {
             val contentUri = FileProvider.getUriForFile(
                 appContext,
-                "${appContext.packageName}.fileprovider",
+                appContext.packageName + ".fileprovider",
                 file
             )
             val installIntent = Intent(Intent.ACTION_VIEW).apply {
@@ -214,26 +328,76 @@ class BrowserUpdateManager(context: Context) {
             appContext.startActivity(installIntent)
             true
         } catch (error: Exception) {
-            state = state.copy(error = true, message = error.message ?: "Không thể mở trình cài đặt Android.")
+            updateState(channel) {
+                it.copy(error = true, message = error.message ?: "Không thể mở trình cài đặt Android.")
+            }
             false
         }
     }
 
-    private fun compareVersions(first: String, second: String): Int {
-        val left = first.split(".").map { it.toIntOrNull() ?: 0 }
-        val right = second.removePrefix("v").split(".").map { it.toIntOrNull() ?: 0 }
-        for (index in 0 until maxOf(left.size, right.size)) {
-            val comparison = (left.getOrElse(index) { 0 }).compareTo(right.getOrElse(index) { 0 })
-            if (comparison != 0) return comparison
-        }
-        return 0
-    }
+    private fun fileName(channel: UpdateChannel): String =
+        "cat-browser-" + channel.name.lowercase() + "-update.apk"
 
-    private fun post(action: () -> Unit) = mainHandler.post { action() }
+    private fun post(action: () -> Unit) {
+        mainHandler.post(action)
+    }
 
     private companion object {
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/snowgemm/Cat-Browser/releases/latest"
+        const val RELEASES_URL =
+            "https://api.github.com/repos/snowgemm/Cat-Browser/releases?per_page=100"
         val SUPPORTED_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64")
     }
 }
+
+private data class ParsedBrowserVersion(
+    val major: Long,
+    val minor: Long,
+    val patch: Long,
+    val prerelease: List<String>
+)
+
+internal fun compareBrowserVersions(first: String, second: String): Int {
+    val left = parseBrowserVersion(first) ?: return first.compareTo(second, ignoreCase = true)
+    val right = parseBrowserVersion(second) ?: return first.compareTo(second, ignoreCase = true)
+
+    compareValues(left.major, right.major).takeIf { it != 0 }?.let { return it }
+    compareValues(left.minor, right.minor).takeIf { it != 0 }?.let { return it }
+    compareValues(left.patch, right.patch).takeIf { it != 0 }?.let { return it }
+
+    if (left.prerelease.isEmpty() && right.prerelease.isEmpty()) return 0
+    if (left.prerelease.isEmpty()) return 1
+    if (right.prerelease.isEmpty()) return -1
+
+    for (index in 0 until maxOf(left.prerelease.size, right.prerelease.size)) {
+        val a = left.prerelease.getOrNull(index) ?: return -1
+        val b = right.prerelease.getOrNull(index) ?: return 1
+        val aNumber = a.toLongOrNull()
+        val bNumber = b.toLongOrNull()
+        val comparison = when {
+            aNumber != null && bNumber != null -> aNumber.compareTo(bNumber)
+            aNumber != null -> -1
+            bNumber != null -> 1
+            else -> a.compareTo(b)
+        }
+        if (comparison != 0) return comparison
+    }
+    return 0
+}
+
+private fun parseBrowserVersion(value: String): ParsedBrowserVersion? {
+    val normalized = value.removePrefix("v")
+    val match = Regex(
+        """^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$"""
+    ).matchEntire(normalized) ?: return null
+
+    val major = match.groupValues[1].toLongOrNull() ?: return null
+    val minor = match.groupValues[2].toLongOrNull() ?: return null
+    val patch = match.groupValues[3].toLongOrNull() ?: return null
+    val prerelease = match.groupValues[4].takeIf { it.isNotBlank() }?.split(".") ?: emptyList()
+    return ParsedBrowserVersion(major, minor, patch, prerelease)
+}
+
+private val UpdateChannel.label: String
+    get() = if (this == UpdateChannel.STABLE) "Stable" else "Beta"
