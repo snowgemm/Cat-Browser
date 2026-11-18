@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import io.github.snowgemm.catbrowser.R
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
@@ -241,6 +242,7 @@ private fun BrowserMainScreen(
     }
 
     val tab = controller.activeTab ?: return
+    val extensionActions = controller.extensionsManager.actionsFor(tab.session)
     var address by remember(tab.id) {
         mutableStateOf(TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty()))
     }
@@ -624,6 +626,48 @@ private fun BrowserMainScreen(
             }
 
             if (!addressFocused) {
+                if (extensionActions.isNotEmpty()) {
+                    Row(
+                        Modifier.widthIn(max = 118.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        extensionActions.take(3).forEach { action ->
+                            Surface(
+                                onClick = { action.action.click() },
+                                modifier = Modifier.size(38.dp).semantics {
+                                    contentDescription = action.title
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        action.extensionName.firstOrNull()?.uppercase() ?: "E",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
+                                        Surface(
+                                            modifier = Modifier.align(Alignment.TopEnd),
+                                            color = Color(action.badgeBackgroundColor ?: 0xFF59616D.toInt()),
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                badge.take(4),
+                                                Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
+                                                color = MaterialTheme.colorScheme.onPrimary,
+                                                fontSize = 8.sp,
+                                                lineHeight = 9.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 TabSwitcherAction(controller.tabs.size, onOpenTabs)
                 DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
             }
@@ -806,6 +850,60 @@ private fun BrowserMainScreen(
                 }
             }
         )
+    }
+
+    controller.extensionsManager.popup?.let { popupState ->
+        Dialog(
+            onDismissRequest = {
+                controller.extensionsManager.closePopup(popupState.session)
+            }
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.96f).heightIn(min = 300.dp, max = 560.dp),
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            popupState.extensionName,
+                            Modifier.weight(1f),
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        IconButton(
+                            onClick = {
+                                controller.extensionsManager.closePopup(popupState.session)
+                            }
+                        ) {
+                            BrowserGlyph(BrowserGlyphType.CLOSE)
+                        }
+                    }
+                    AndroidView(
+                        factory = { context ->
+                            GeckoView(context).apply {
+                                setSession(popupState.session)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        update = { view ->
+                            if (view.getSession() !== popupState.session && popupState.session.isOpen) {
+                                view.releaseSession()
+                                view.setSession(popupState.session)
+                            }
+                        },
+                        onRelease = { view ->
+                            view.releaseSession()
+                        }
+                    )
+                }
+            }
+        }
     }
 
     controller.mediaPermissionPrompt?.let { prompt ->
