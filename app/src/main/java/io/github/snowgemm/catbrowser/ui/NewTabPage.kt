@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -266,14 +268,23 @@ internal fun AddressSuggestionsPanel(
     query: String,
     suggestions: List<BrowserAddressSuggestion>,
     onSelect: (BrowserAddressSuggestion) -> Unit,
-    onSearch: () -> Unit
+    onSearch: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    Column(
+    Box(
         Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            )
     ) {
+        Column(
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
         Text(
             if (query.isBlank()) "Gần đây và đang mở" else "Gợi ý",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -325,6 +336,7 @@ internal fun AddressSuggestionsPanel(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(8.dp)
             )
+        }
         }
     }
 }
