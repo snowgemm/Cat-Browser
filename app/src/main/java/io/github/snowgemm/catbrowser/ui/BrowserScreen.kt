@@ -1,6 +1,9 @@
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -41,6 +44,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +60,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
+import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -168,7 +173,8 @@ fun BrowserScreen(controller: BrowserController) {
                 controller = controller,
                 onOpenTabs = { destination = BrowserDestination.TABS },
                 onOpenExtensions = { destination = BrowserDestination.EXTENSIONS },
-                onOpenSettings = { destination = BrowserDestination.SETTINGS }
+                onOpenSettings = { destination = BrowserDestination.SETTINGS },
+                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS }
             )
             BrowserDestination.TABS -> TabsOverview(
                 controller = controller,
@@ -188,22 +194,28 @@ fun BrowserScreen(controller: BrowserController) {
             BrowserDestination.SETTINGS -> SettingsScreen(controller) {
                 destination = BrowserDestination.BROWSER
             }
+            BrowserDestination.DOWNLOADS -> BrowserDownloadsScreen(controller.downloadManager) {
+                destination = BrowserDestination.BROWSER
+            }
         }
     }
 }
 
-private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS }
+private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
 
 @Composable
 private fun BrowserMainScreen(
     controller: BrowserController,
     onOpenTabs: () -> Unit,
     onOpenExtensions: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenDownloads: () -> Unit
 ) {
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showFind by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
 
     LaunchedEffect(showHistory) {
         if (showHistory) controller.loadHistory()
@@ -231,7 +243,47 @@ private fun BrowserMainScreen(
         }
     }
 
-    BackHandler(enabled = tab.canGoBack) { controller.goBack() }
+    BackHandler(enabled = showFind || tab.canGoBack) {
+        if (showFind) {
+            showFind = false
+            findQuery = ""
+            controller.clearFindInPage()
+        } else {
+            controller.goBack()
+        }
+    }
+
+    val context = LocalContext.current
+    val androidPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        controller.resolveAndroidPermissionRequest(
+            results.isNotEmpty() && results.values.all { it }
+        )
+    }
+
+    LaunchedEffect(controller.pendingAndroidPermissionRequest?.id) {
+        val request = controller.pendingAndroidPermissionRequest ?: return@LaunchedEffect
+        val alreadyGranted = request.permissions.all { permission ->
+            context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+        }
+        if (alreadyGranted) {
+            controller.resolveAndroidPermissionRequest(true)
+        } else {
+            androidPermissionLauncher.launch(request.permissions.toTypedArray())
+        }
+    }
+
+    LaunchedEffect(showFind, findQuery, tab.id) {
+        if (showFind) {
+            if (findQuery.isBlank()) {
+                controller.clearFindInPage()
+            } else {
+                delay(250)
+                controller.findInPage(findQuery)
+            }
+        }
+    }
 
     Column(
         Modifier.fillMaxSize()
