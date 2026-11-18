@@ -97,9 +97,20 @@ class BrowserUpdateManager(context: Context) {
                 val tag = release.optString("tag_name").removePrefix("v")
                 if (tag.isBlank()) throw IllegalStateException("Bản phát hành không có tag phiên bản.")
 
-                val currentVersion = appContext.packageManager
-                    .getPackageInfo(appContext.packageName, 0).versionName.orEmpty()
-                if (compareBrowserVersions(tag, currentVersion) <= 0) {
+                val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
+                val currentVersion = packageInfo.versionName.orEmpty()
+                val currentVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    packageInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageInfo.versionCode.toLong()
+                }
+                val candidateVersionCode = browserVersionCodeFromTag(tag)
+                val versionComparison = compareBrowserVersions(tag, currentVersion)
+                val isNewer = versionComparison > 0 ||
+                    (versionComparison == 0 && candidateVersionCode != null &&
+                        candidateVersionCode > currentVersionCode)
+                if (!isNewer) {
                     pendingUpdates.remove(channel)
                     post {
                         setState(
@@ -357,6 +368,25 @@ private data class ParsedBrowserVersion(
     val patch: Long,
     val prerelease: List<String>
 )
+
+internal fun browserVersionCodeFromTag(value: String): Long? {
+    val normalized = value.removePrefix("v")
+    val match = Regex("""^(\\d+)\\.(\\d+)\\.(\\d+)(?:-beta\\.(\\d+))?$""")
+        .matchEntire(normalized) ?: return null
+
+    val major = match.groupValues[1].toLongOrNull() ?: return null
+    val minor = match.groupValues[2].toLongOrNull() ?: return null
+    val patch = match.groupValues[3].toLongOrNull() ?: return null
+    if (major > 2099 || minor > 99 || patch > 99) return null
+
+    val betaSequence = match.groupValues[4].takeIf { it.isNotBlank() }?.toLongOrNull()
+    if (match.groupValues[4].isNotBlank() && (betaSequence == null || betaSequence !in 1L..98L)) {
+        return null
+    }
+
+    val patchStage = betaSequence ?: 99L
+    return major * 1_000_000L + minor * 10_000L + patch * 100L + patchStage
+}
 
 internal fun compareBrowserVersions(first: String, second: String): Int {
     val left = parseBrowserVersion(first) ?: return first.compareTo(second, ignoreCase = true)
