@@ -40,7 +40,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     SettingsChoice("Theo hệ thống", "Tự đổi theo giao diện điện thoại",
-                        controller.themeMode == "system") { controller.setThemeMode("system") }
+                        controller.themeMode == "system") { controller.updateThemeMode("system") }
                     SettingsChoice("Sáng", "Nền sáng, chữ tối", controller.themeMode == "light") {
                         controller.setThemeMode("light")
                     }
@@ -61,7 +61,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     listOf("google" to "Google", "duckduckgo" to "DuckDuckGo",
                         "bing" to "Bing", "brave" to "Brave Search").forEach { (id, label) ->
                         SettingsChoice(label, null, controller.searchEngine == id) {
-                            controller.setSearchEngine(id)
+                            controller.updateSearchEngine(id)
                         }
                     }
                 }
@@ -89,7 +89,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 SettingsSectionTitle("KHI MỞ CAT BROWSER")
                 SettingsCard {
                     SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
-                        controller.startupMode == "continue") { controller.setStartupMode("continue") }
+                        controller.startupMode == "continue") { controller.updateStartupMode("continue") }
                     SettingsChoice("Mở trang chủ", "Bắt đầu bằng một tab trang chủ mới",
                         controller.startupMode == "home") { controller.setStartupMode("home") }
                 }
