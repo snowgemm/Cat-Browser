@@ -15,6 +15,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoWebExecutor
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
 import java.io.File
@@ -74,6 +75,7 @@ data class ExtensionPopupState(
 class BrowserExtensionsManager(
     private val runtime: GeckoRuntime,
     private val context: Context,
+    private val downloadManager: BrowserDownloadManager,
     private val sessionProvider: () -> List<GeckoSession>,
     private val onCreateTabFromExtension: (Boolean) -> GeckoSession?,
     private val onActivateSession: (GeckoSession) -> Unit,
@@ -81,8 +83,14 @@ class BrowserExtensionsManager(
     private val onOpenOptionsPage: (String) -> Unit
 ) {
     private val controller = runtime.webExtensionController
+    private val webExecutor = GeckoWebExecutor(runtime)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor = Executors.newSingleThreadExecutor()
+    private val downloadIdPreferences = context.getSharedPreferences(
+        "cat_extension_download_ids",
+        Context.MODE_PRIVATE
+    )
+    private val downloadIdLock = Any()
 
     val installed = mutableStateListOf<WebExtension>()
     val catalog = mutableStateListOf<ExtensionCatalogEntry>()
@@ -210,6 +218,7 @@ class BrowserExtensionsManager(
 
     private fun attachExtension(extension: WebExtension) {
         extension.setActionDelegate(createActionDelegate(extension))
+        extension.setDownloadDelegate(createDownloadDelegate())
         extension.setTabDelegate(object : WebExtension.TabDelegate {
             override fun onNewTab(
                 source: WebExtension,
@@ -588,6 +597,124 @@ class BrowserExtensionsManager(
         }
     }
 
+    private fun nextDownloadId(): Int = synchronized(downloadIdLock) {
+        val previous = downloadIdPreferences.getInt(KEY_NEXT_DOWNLOAD_ID, 0).coerceAtLeast(0)
+        val next = if (previous >= Int.MAX_VALUE - 1) 1 else previous + 1
+        downloadIdPreferences.edit().putInt(KEY_NEXT_DOWNLOAD_ID, next).apply()
+        next
+    }
+
+    private fun createDownloadDelegate(): WebExtension.DownloadDelegate =
+        object : WebExtension.DownloadDelegate {
+            override fun onDownload(
+                source: WebExtension,
+                request: WebExtension.DownloadRequest
+            ): GeckoResult<WebExtension.DownloadInitData>? {
+                if (request.saveAs) {
+                    mainHandler.post {
+                        statusMessage =
+                            "Yêu cầu chọn nơi lưu chưa được hỗ trợ; Cat sẽ không tự đổi lựa chọn này."
+                    }
+                    return null
+                }
+
+                val result = GeckoResult<WebExtension.DownloadInitData>()
+                mainHandler.post {
+                    val download = runCatching {
+                        controller.createDownload(nextDownloadId())
+                    }.getOrElse { error ->
+                        result.completeExceptionally(error)
+                        return@post
+                    }
+
+                    webExecutor.fetch(request.request, request.downloadFlags).accept(
+                        { response ->
+                            mainHandler.post {
+                                if (!request.allowHttpErrors && response.statusCode >= 400) {
+                                    runCatching { response.body?.close() }
+                                    result.completeExceptionally(
+                                        IllegalStateException(
+                                            "Máy chủ trả về HTTP ${response.statusCode}."
+                                        )
+                                    )
+                                    return@post
+                                }
+
+                                val privateMode =
+                                    (request.downloadFlags and GeckoWebExecutor.FETCH_FLAGS_PRIVATE) != 0
+                                val item = downloadManager.enqueue(
+                                    response = response,
+                                    privateMode = privateMode,
+                                    requestedFileName = request.filename
+                                ) { changed ->
+                                    download.update(
+                                        extensionDownloadInfo(changed, request.request.referrer)
+                                    )
+                                }
+
+                                if (item == null) {
+                                    runCatching { response.body?.close() }
+                                    result.completeExceptionally(
+                                        IllegalStateException("Không nhận được dữ liệu tải xuống.")
+                                    )
+                                    return@post
+                                }
+
+                                result.complete(
+                                    WebExtension.DownloadInitData(
+                                        download,
+                                        extensionDownloadInfo(item, request.request.referrer)
+                                    )
+                                )
+                            }
+                        },
+                        { error ->
+                            mainHandler.post { result.completeExceptionally(error) }
+                        }
+                    )
+                }
+                return result
+            }
+        }
+
+    private fun extensionDownloadInfo(
+        item: BrowserDownloadItem,
+        referrer: String?
+    ): WebExtension.Download.Info {
+        val isTerminal = item.status == BrowserDownloadStatus.COMPLETE ||
+            item.status == BrowserDownloadStatus.FAILED ||
+            item.status == BrowserDownloadStatus.CANCELLED
+
+        return object : WebExtension.Download.Info {
+            override fun bytesReceived(): Long = item.receivedBytes
+            override fun canResume(): Boolean = false
+            override fun endTime(): Long? = if (isTerminal) System.currentTimeMillis() else null
+            override fun error(): Int? = when (item.status) {
+                BrowserDownloadStatus.FAILED -> WebExtension.Download.INTERRUPT_REASON_NETWORK_FAILED
+                BrowserDownloadStatus.CANCELLED -> WebExtension.Download.INTERRUPT_REASON_USER_CANCELED
+                else -> null
+            }
+            override fun fileExists(): Boolean =
+                item.status == BrowserDownloadStatus.COMPLETE &&
+                    (item.outputFile?.isFile == true || item.outputUri != null)
+            override fun filename(): String =
+                item.outputFile?.absolutePath ?: item.outputUri?.toString() ?: item.fileName
+            override fun fileSize(): Long =
+                if (item.status == BrowserDownloadStatus.COMPLETE) item.receivedBytes else -1L
+            override fun mime(): String = item.mimeType
+            override fun paused(): Boolean = false
+            override fun referrer(): String = referrer.orEmpty()
+            override fun startTime(): Long = item.createdAt
+            override fun state(): Int = when (item.status) {
+                BrowserDownloadStatus.COMPLETE -> WebExtension.Download.STATE_COMPLETE
+                BrowserDownloadStatus.FAILED, BrowserDownloadStatus.CANCELLED ->
+                    WebExtension.Download.STATE_INTERRUPTED
+                else -> WebExtension.Download.STATE_IN_PROGRESS
+            }
+            override fun totalBytes(): Long = item.totalBytes
+        }
+    }
+
     private fun localizedField(item: JSONObject, field: String, fallbackLocale: String): String {
         val value = item.opt(field) ?: return ""
         if (value is String) return value
@@ -774,5 +901,6 @@ class BrowserExtensionsManager(
     private companion object {
         const val AMO_SEARCH_URL = "https://addons.mozilla.org/api/v5/addons/search/"
         const val MAX_XPI_SIZE = 50L * 1024L * 1024L
+        const val KEY_NEXT_DOWNLOAD_ID = "next_download_id"
     }
 }
