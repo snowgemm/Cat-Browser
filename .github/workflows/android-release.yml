@@ -30,13 +30,13 @@ jobs:
           import sys
 
           tag = os.environ["RELEASE_TAG"]
-          match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?", tag)
+          match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-beta(?:\.(\d+))?)?", tag)
           if not match:
-              sys.exit("Release tags must use vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-beta.N")
+              sys.exit("Release tags must use vMAJOR.MINOR.PATCH, vMAJOR.MINOR.PATCH-beta, or vMAJOR.MINOR.PATCH-beta.N")
 
           major, minor, patch = (int(match.group(i)) for i in range(1, 4))
           beta_text = match.group(4)
-          stage = int(beta_text) if beta_text else 99
+          is_beta = "-beta" in tag\nstage = int(beta_text) if beta_text else (0 if is_beta else 99)
           if major > 2099 or minor > 99 or patch > 99:
               sys.exit("Version components exceed the supported Android versionCode range")
           if beta_text and not 1 <= stage <= 98:
@@ -145,7 +145,7 @@ jobs:
         run: |
           release_create_flags=()
           release_edit_flags=()
-          if [[ "$GITHUB_REF_NAME" == *-beta.* ]]; then
+          if [[ "$GITHUB_REF_NAME" == *-beta* ]]; then
             release_create_flags+=(--prerelease)
             release_edit_flags+=(--prerelease)
           fi
