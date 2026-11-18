@@ -1,6 +1,7 @@
 package io.github.snowgemm.catbrowser.browser
 
 import android.content.Context
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
@@ -37,10 +38,13 @@ data class SitePermissionPrompt(
 
 data class MediaPermissionPrompt(
     val origin: String,
-    val hasCamera: Boolean,
-    val hasMicrophone: Boolean,
+    val videoSources: List<GeckoSession.PermissionDelegate.MediaSource>,
+    val audioSources: List<GeckoSession.PermissionDelegate.MediaSource>,
     val isPrivate: Boolean
-)
+) {
+    val hasCamera: Boolean get() = videoSources.isNotEmpty()
+    val hasMicrophone: Boolean get() = audioSources.isNotEmpty()
+}
 
 data class AndroidPermissionRequest(
     val id: String,
@@ -459,6 +463,241 @@ class BrowserController(
 
     fun openEntry(url: String) {
         navigate(url)
+    }
+
+    fun resolveSitePermission(allow: Boolean) {
+        val result = pendingContentPermissionResult
+        pendingContentPermissionResult = null
+        sitePermissionPrompt = null
+        result?.complete(
+            if (allow) {
+                GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+            } else {
+                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+            }
+        )
+        loadSitePermissions()
+    }
+
+    fun resolveMediaPermission(allow: Boolean) {
+        val prompt = mediaPermissionPrompt ?: return
+        val callback = pendingMediaPermissionCallback
+        pendingMediaPermissionCallback = null
+        mediaPermissionPrompt = null
+        if (allow && callback != null) {
+            callback.grant(
+                prompt.videoSources.firstOrNull(),
+                prompt.audioSources.firstOrNull()
+            )
+        } else {
+            callback?.reject()
+        }
+    }
+
+    fun resolveAndroidPermissionRequest(granted: Boolean) {
+        val callback = pendingAndroidPermissionCallback
+        pendingAndroidPermissionCallback = null
+        pendingAndroidPermissionRequest = null
+        if (granted) callback?.grant() else callback?.reject()
+    }
+
+    fun loadSitePermissions() {
+        if (isSitePermissionsLoading) return
+        isSitePermissionsLoading = true
+        sitePermissionsMessage = null
+        dataExecutor.execute {
+            storageController.getAllPermissions().accept(
+                { permissions ->
+                    val entries = permissions.orEmpty().map { permission ->
+                        val host = runCatching { Uri.parse(permission.uri).host }.getOrNull()
+                        SitePermissionEntry(
+                            permission = permission,
+                            origin = host ?: permission.uri,
+                            permissionLabel = permissionLabel(permission.permission),
+                            stateLabel = when (permission.value) {
+                                GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW -> "Được phép"
+                                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY -> "Bị chặn"
+                                else -> "Mặc định"
+                            },
+                            isPrivate = permission.privateMode,
+                            canReset = permission.permission !=
+                                GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE
+                        )
+                    }.sortedWith(compareBy<SitePermissionEntry>({ it.origin }, { it.permissionLabel }))
+
+                    dataHandler.post {
+                        sitePermissions.clear()
+                        sitePermissions.addAll(entries)
+                        isSitePermissionsLoading = false
+                    }
+                },
+                { error ->
+                    dataHandler.post {
+                        isSitePermissionsLoading = false
+                        sitePermissionsMessage = error?.message ?: "Không thể tải quyền website."
+                    }
+                }
+            )
+        }
+    }
+
+    fun resetSitePermission(entry: SitePermissionEntry) {
+        if (!entry.canReset) return
+        dataExecutor.execute {
+            runCatching {
+                storageController.setPermission(
+                    entry.permission,
+                    GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT
+                )
+            }.onSuccess {
+                dataHandler.post {
+                    loadSitePermissions()
+                    sitePermissionsMessage = "Đã đặt lại quyền cho " + entry.origin + "."
+                }
+            }.onFailure { error ->
+                dataHandler.post {
+                    sitePermissionsMessage = error.message ?: "Không thể đặt lại quyền website."
+                }
+            }
+        }
+    }
+
+    private fun permissionLabel(permission: Int): String = when (permission) {
+        GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION -> "Vị trí"
+        GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION -> "Thông báo"
+        GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE -> "Lưu trữ lâu dài"
+        GeckoSession.PermissionDelegate.PERMISSION_XR -> "Thực tế ảo / XR"
+        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE -> "Tự phát âm thanh"
+        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE -> "Tự phát video"
+        GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS -> "Phát nội dung DRM"
+        GeckoSession.PermissionDelegate.PERMISSION_TRACKING -> "Cho phép trình theo dõi"
+        GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS -> "Truy cập cookie bên thứ ba"
+        GeckoSession.PermissionDelegate.PERMISSION_LOCAL_DEVICE_ACCESS -> "Truy cập thiết bị cục bộ"
+        GeckoSession.PermissionDelegate.PERMISSION_LOCAL_NETWORK_ACCESS -> "Truy cập mạng cục bộ"
+        else -> "Quyền website ($permission)"
+    }
+
+    fun clearBrowsingData(
+        clearHistory: Boolean,
+        clearCookiesAndSiteData: Boolean,
+        clearCache: Boolean,
+        clearSitePermissions: Boolean
+    ) {
+        if (isClearingData) return
+        if (!clearHistory && !clearCookiesAndSiteData && !clearCache && !clearSitePermissions) {
+            clearDataMessage = "Chọn ít nhất một loại dữ liệu cần xóa."
+            clearDataError = true
+            return
+        }
+
+        var flags = 0L
+        if (clearCookiesAndSiteData) {
+            flags = flags or StorageController.ClearFlags.COOKIES
+            flags = flags or StorageController.ClearFlags.DOM_STORAGES
+            flags = flags or StorageController.ClearFlags.AUTH_SESSIONS
+        }
+        if (clearCache) flags = flags or StorageController.ClearFlags.ALL_CACHES
+        if (clearSitePermissions) flags = flags or StorageController.ClearFlags.PERMISSIONS
+
+        isClearingData = true
+        clearDataError = false
+        clearDataMessage = "Đang xóa dữ liệu duyệt web…"
+
+        if (clearHistory) {
+            tabs.forEach { it.session?.purgeHistory() }
+            history.clear()
+            isHistoryLoaded = true
+            isHistoryLoading = false
+            preferences.edit().remove(KEY_HISTORY).apply()
+        }
+
+        if (flags == 0L) {
+            dataHandler.post {
+                isClearingData = false
+                clearDataMessage = "Đã xóa lịch sử duyệt web."
+            }
+            return
+        }
+
+        // Close every GeckoSession first. GeckoView warns that open sessions can
+        // recreate data while the storage clear operation is running.
+        tabs.forEach(::destroySession)
+
+        dataExecutor.execute {
+            storageController.clearData(flags).accept(
+                {
+                    dataHandler.post {
+                        if (clearSitePermissions) {
+                            sitePermissions.clear()
+                            loadSitePermissions()
+                        }
+                        isClearingData = false
+                        clearDataError = false
+                        clearDataMessage = "Đã xóa dữ liệu đã chọn. Tab hiện tại sẽ tải lại."
+                        persistTabs()
+                        activateSelectedTab()
+                    }
+                },
+                { error ->
+                    dataHandler.post {
+                        isClearingData = false
+                        clearDataError = true
+                        clearDataMessage = error?.message ?: "Không thể xóa một phần dữ liệu website."
+                        persistTabs()
+                        activateSelectedTab()
+                    }
+                }
+            )
+        }
+    }
+
+    fun findInPage(query: String, forward: Boolean = true) {
+        val session = activeTab?.session ?: return
+        val value = query.trim()
+        if (value.isEmpty()) {
+            clearFindInPage()
+            return
+        }
+
+        val finder = session.getFinder()
+        finder.setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL)
+        finder.find(
+            value,
+            if (forward) GeckoSession.FINDER_FIND_FORWARD
+            else GeckoSession.FINDER_FIND_BACKWARDS
+        ).accept(
+            { result ->
+                dataHandler.post {
+                    findInPageResult = FindInPageState(result.found, result.current, result.total)
+                }
+            },
+            {
+                dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+            }
+        )
+    }
+
+    fun findNextInPage(forward: Boolean) {
+        val finder = activeTab?.session?.getFinder() ?: return
+        finder.find(
+            null,
+            if (forward) GeckoSession.FINDER_FIND_FORWARD
+            else GeckoSession.FINDER_FIND_BACKWARDS
+        ).accept(
+            { result ->
+                dataHandler.post {
+                    findInPageResult = FindInPageState(result.found, result.current, result.total)
+                }
+            },
+            {
+                dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+            }
+        )
+    }
+
+    fun clearFindInPage() {
+        activeTab?.session?.getFinder()?.clear()
+        findInPageResult = null
     }
 
     private fun activateSelectedTab() {
