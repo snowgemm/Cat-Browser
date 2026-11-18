@@ -13,6 +13,8 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.StorageController
+import org.mozilla.geckoview.WebResponse
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -23,6 +25,41 @@ data class BrowserEntry(
     val title: String,
     val url: String,
     val timestamp: Long
+)
+
+data class SitePermissionPrompt(
+    val origin: String,
+    val permission: Int,
+    val permissionLabel: String,
+    val isPrivate: Boolean,
+    val isIrreversible: Boolean
+)
+
+data class MediaPermissionPrompt(
+    val origin: String,
+    val hasCamera: Boolean,
+    val hasMicrophone: Boolean,
+    val isPrivate: Boolean
+)
+
+data class AndroidPermissionRequest(
+    val id: String,
+    val permissions: List<String>
+)
+
+data class SitePermissionEntry(
+    val permission: GeckoSession.PermissionDelegate.ContentPermission,
+    val origin: String,
+    val permissionLabel: String,
+    val stateLabel: String,
+    val isPrivate: Boolean,
+    val canReset: Boolean
+)
+
+data class FindInPageState(
+    val found: Boolean,
+    val current: Int,
+    val total: Int
 )
 
 class BrowserTab internal constructor(
@@ -78,6 +115,8 @@ class BrowserController(
         private set
 
     val extensionsManager = BrowserExtensionsManager(runtime)
+    val downloadManager = BrowserDownloadManager(context.applicationContext)
+    private val storageController = runtime.getStorageController()
 
     val tabs = mutableStateListOf<BrowserTab>()
     val history = mutableStateListOf<BrowserEntry>()
@@ -92,6 +131,30 @@ class BrowserController(
     var isBookmarksLoaded by mutableStateOf(false)
         private set
 
+    val sitePermissions = mutableStateListOf<SitePermissionEntry>()
+    var isSitePermissionsLoading by mutableStateOf(false)
+        private set
+    var sitePermissionsMessage by mutableStateOf<String?>(null)
+        private set
+
+    var sitePermissionPrompt by mutableStateOf<SitePermissionPrompt?>(null)
+        private set
+    var mediaPermissionPrompt by mutableStateOf<MediaPermissionPrompt?>(null)
+        private set
+    var pendingAndroidPermissionRequest by mutableStateOf<AndroidPermissionRequest?>(null)
+        private set
+    var findInPageResult by mutableStateOf<FindInPageState?>(null)
+        private set
+    var isClearingData by mutableStateOf(false)
+        private set
+    var clearDataMessage by mutableStateOf<String?>(null)
+        private set
+    var clearDataError by mutableStateOf(false)
+        private set
+
+    private var pendingContentPermissionResult: GeckoResult<Int>? = null
+    private var pendingMediaPermissionCallback: GeckoSession.PermissionDelegate.MediaCallback? = null
+    private var pendingAndroidPermissionCallback: GeckoSession.PermissionDelegate.Callback? = null
     private val dataHandler = Handler(Looper.getMainLooper())
     private val dataExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "CatBrowserData").apply { isDaemon = true }
