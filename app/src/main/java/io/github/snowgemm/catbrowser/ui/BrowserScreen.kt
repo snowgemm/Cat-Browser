@@ -32,23 +32,34 @@ import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
 
-private val CatColorScheme = darkColorScheme(
-    primary = Color(0xFF55C98A),
-    onPrimary = Color(0xFF082417),
-    secondary = Color(0xFFE6B35A),
-    onSecondary = Color(0xFF241A08),
-    background = Color(0xFF101612),
-    onBackground = Color(0xFFE8EEE9),
-    surface = Color(0xFF171F1A),
-    onSurface = Color(0xFFE8EEE9),
-    surfaceVariant = Color(0xFF222C26),
-    onSurfaceVariant = Color(0xFFB2BDB5),
+private val CatDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF55C98A), onPrimary = Color(0xFF082417),
+    secondary = Color(0xFFE6B35A), onSecondary = Color(0xFF241A08),
+    background = Color(0xFF101612), onBackground = Color(0xFFE8EEE9),
+    surface = Color(0xFF171F1A), onSurface = Color(0xFFE8EEE9),
+    surfaceVariant = Color(0xFF222C26), onSurfaceVariant = Color(0xFFB2BDB5),
     outline = Color(0xFF39483E)
 )
 
+private val CatLightColorScheme = lightColorScheme(
+    primary = Color(0xFF167548), onPrimary = Color.White,
+    primaryContainer = Color(0xFFB9F1D0), onPrimaryContainer = Color(0xFF002111),
+    secondary = Color(0xFF8A5A00), onSecondary = Color.White,
+    background = Color(0xFFF7F9F7), onBackground = Color(0xFF191D1A),
+    surface = Color.White, onSurface = Color(0xFF191D1A),
+    surfaceVariant = Color(0xFFE8EEE9), onSurfaceVariant = Color(0xFF414B44),
+    outline = Color(0xFFBBC8BE)
+)
+
 @Composable
-fun CatBrowserTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = CatColorScheme, content = content)
+fun CatBrowserTheme(themeMode: String = "system", content: @Composable () -> Unit) {
+    val systemDark = isSystemInDarkTheme()
+    val useDark = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> systemDark
+    }
+    MaterialTheme(colorScheme = if (useDark) CatDarkColorScheme else CatLightColorScheme, content = content)
 }
 
 @Composable
@@ -57,6 +68,7 @@ fun BrowserScreen(controller: BrowserController) {
     var showTabs by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
     if (showExtensions) {
@@ -68,6 +80,10 @@ fun BrowserScreen(controller: BrowserController) {
             controller.newTab()
             showTabs = false
         })
+        return
+    }
+    if (showSettings) {
+        SettingsScreen(controller) { showSettings = false }
         return
     }
 
@@ -195,6 +211,8 @@ fun BrowserScreen(controller: BrowserController) {
                         onClick = { showMenu = false; showHistory = true })
                     DropdownMenuItem(text = { Text("Tab mới") },
                         onClick = { showMenu = false; controller.newTab() })
+                    DropdownMenuItem(text = { Text("Cài đặt") },
+                        onClick = { showMenu = false; showSettings = true })
                 }
             }
         }

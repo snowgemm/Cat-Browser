@@ -7,24 +7,20 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 object BrowserUrlResolver {
-    private const val SEARCH_URL = "https://duckduckgo.com/?q="
-
-    fun resolve(input: String): String? {
+    fun resolve(input: String, searchEngine: String = "duckduckgo"): String? {
         val value = input.trim()
         if (value.isEmpty()) return null
+        return resolveAddress(value) ?: search(value, searchEngine)
+    }
 
+    fun resolveAddress(input: String): String? {
+        val value = input.trim()
+        if (value.isEmpty()) return null
         if (value.startsWith("https://", ignoreCase = true) ||
             value.startsWith("http://", ignoreCase = true)
-        ) {
-            normalizeWebUrl(value)?.let { return it }
-            return search(value)
-        }
-
-        if (!value.any(Char::isWhitespace)) {
-            normalizeBareAddress(value)?.let { return it }
-        }
-
-        return search(value)
+        ) return normalizeWebUrl(value)
+        if (!value.any(Char::isWhitespace)) return normalizeBareAddress(value)
+        return null
     }
 
     private fun normalizeWebUrl(value: String): String? {
@@ -159,9 +155,15 @@ object BrowserUrlResolver {
         }
     }
 
-    private fun search(value: String): String {
+    private fun search(value: String, searchEngine: String): String {
+        val baseUrl = when (searchEngine) {
+            "google" -> "https://www.google.com/search?q="
+            "bing" -> "https://www.bing.com/search?q="
+            "brave" -> "https://search.brave.com/search?q="
+            else -> "https://duckduckgo.com/?q="
+        }
         val encodedQuery = URLEncoder.encode(value, StandardCharsets.UTF_8.name())
             .replace("+", "%20")
-        return SEARCH_URL + encodedQuery
+        return baseUrl + encodedQuery
     }
 }

@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         intent?.dataString?.let(browserController::openExternalUrl)
 
         setContent {
-            CatBrowserTheme {
+            CatBrowserTheme(themeMode = browserController.themeMode) {
                 BrowserScreen(controller = browserController)
             }
         }

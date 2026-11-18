@@ -54,6 +54,23 @@ class BrowserUrlResolverTest {
     }
 
     @Test
+    fun supportsConfigurableSearchEngines() {
+        assertEquals("https://www.google.com/search?q=cat%20browser",
+            BrowserUrlResolver.resolve("cat browser", "google"))
+        assertEquals("https://www.bing.com/search?q=cat%20browser",
+            BrowserUrlResolver.resolve("cat browser", "bing"))
+        assertEquals("https://search.brave.com/search?q=cat%20browser",
+            BrowserUrlResolver.resolve("cat browser", "brave"))
+    }
+
+    @Test
+    fun validatesCustomHomepageAsWebAddress() {
+        assertEquals("https://example.com", BrowserUrlResolver.resolveAddress("example.com"))
+        assertEquals("https://example.com/path", BrowserUrlResolver.resolveAddress("https://example.com/path"))
+        assertNull(BrowserUrlResolver.resolveAddress("search for cats"))
+    }
+
+    @Test
     fun treatsNonWebSchemesAsSearchText() {
         assertEquals(
             "https://duckduckgo.com/?q=javascript%3Aalert%281%29",

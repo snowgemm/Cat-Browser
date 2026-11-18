@@ -13,6 +13,7 @@ import org.mozilla.geckoview.GeckoSession
 import java.util.UUID
 
 const val START_PAGE_URL = "https://duckduckgo.com/"
+const val DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
 data class BrowserEntry(
     val title: String,
@@ -58,6 +59,15 @@ class BrowserController(
         Context.MODE_PRIVATE
     )
 
+    var themeMode by mutableStateOf(preferences.getString(KEY_THEME_MODE, THEME_SYSTEM) ?: THEME_SYSTEM)
+        private set
+    var searchEngine by mutableStateOf(preferences.getString(KEY_SEARCH_ENGINE, SEARCH_DUCKDUCKGO) ?: SEARCH_DUCKDUCKGO)
+        private set
+    var homePage by mutableStateOf(preferences.getString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL) ?: DEFAULT_HOME_PAGE_URL)
+        private set
+    var startupMode by mutableStateOf(preferences.getString(KEY_STARTUP_MODE, STARTUP_CONTINUE) ?: STARTUP_CONTINUE)
+        private set
+
     val extensionsManager = BrowserExtensionsManager(runtime)
 
     val tabs = mutableStateListOf<BrowserTab>()
@@ -72,10 +82,10 @@ class BrowserController(
 
     init {
         restoreCollections()
-        restoreTabs()
+        if (startupMode == STARTUP_CONTINUE) restoreTabs()
 
         if (tabs.isEmpty()) {
-            tabs.add(BrowserTab())
+            tabs.add(BrowserTab(initialUrl = homePage))
         }
 
         if (tabs.none { it.id == selectedTabId }) {
@@ -89,7 +99,7 @@ class BrowserController(
     fun newTab() {
         if (tabs.size >= MAX_TABS) return
 
-        val tab = BrowserTab()
+        val tab = BrowserTab(initialUrl = homePage)
         tabs.add(tab)
         selectTab(tab.id)
     }
@@ -138,7 +148,7 @@ class BrowserController(
     }
 
     fun navigate(input: String) {
-        val destination = BrowserUrlResolver.resolve(input) ?: return
+        val destination = BrowserUrlResolver.resolve(input, searchEngine) ?: return
         navigateToUrl(destination, input.trim())
     }
 
@@ -190,7 +200,7 @@ class BrowserController(
     }
 
     fun goHome() {
-        navigate(START_PAGE_URL)
+        navigate(homePage)
     }
 
     fun stopOrReload() {
@@ -249,6 +259,31 @@ class BrowserController(
     fun clearHistory() {
         history.clear()
         persistHistory()
+    }
+
+    fun setThemeMode(mode: String) {
+        if (mode !in setOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)) return
+        themeMode = mode
+        preferences.edit().putString(KEY_THEME_MODE, mode).apply()
+    }
+
+    fun setSearchEngine(engine: String) {
+        if (engine !in setOf(SEARCH_GOOGLE, SEARCH_DUCKDUCKGO, SEARCH_BING, SEARCH_BRAVE)) return
+        searchEngine = engine
+        preferences.edit().putString(KEY_SEARCH_ENGINE, engine).apply()
+    }
+
+    fun setHomePage(input: String): Boolean {
+        val normalized = BrowserUrlResolver.resolveAddress(input) ?: return false
+        homePage = normalized
+        preferences.edit().putString(KEY_HOME_PAGE, normalized).apply()
+        return true
+    }
+
+    fun setStartupMode(mode: String) {
+        if (mode !in setOf(STARTUP_CONTINUE, STARTUP_HOME)) return
+        startupMode = mode
+        preferences.edit().putString(KEY_STARTUP_MODE, mode).apply()
     }
 
     fun openEntry(url: String) {
@@ -334,7 +369,7 @@ class BrowserController(
             ): GeckoResult<GeckoSession>? {
                 if (tabs.size >= MAX_TABS) return null
 
-                val safeUrl = if (isWebUrl(uri)) uri else START_PAGE_URL
+                val safeUrl = if (isWebUrl(uri)) uri else homePage
                 val newTab = BrowserTab(
                     initialUrl = safeUrl,
                     initialTitle = "New tab"
@@ -445,7 +480,7 @@ class BrowserController(
 
         for (index in 0 until minOf(saved.length(), MAX_TABS)) {
             val item = saved.optJSONObject(index) ?: continue
-            val url = item.optString("url", START_PAGE_URL)
+            val url = item.optString("url", homePage)
             if (!isWebUrl(url)) continue
 
             tabs.add(
@@ -496,7 +531,7 @@ class BrowserController(
             array.put(
                 JSONObject()
                     .put("id", tab.id)
-                    .put("url", if (isWebUrl(tab.url)) tab.url else START_PAGE_URL)
+                    .put("url", if (isWebUrl(tab.url)) tab.url else homePage)
                     .put("title", tab.title.take(200))
             )
         }
@@ -538,6 +573,19 @@ class BrowserController(
         const val KEY_ACTIVE_TAB = "active_tab"
         const val KEY_HISTORY = "history"
         const val KEY_BOOKMARKS = "bookmarks"
+        const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_SEARCH_ENGINE = "search_engine"
+        const val KEY_HOME_PAGE = "home_page"
+        const val KEY_STARTUP_MODE = "startup_mode"
+        const val THEME_SYSTEM = "system"
+        const val THEME_LIGHT = "light"
+        const val THEME_DARK = "dark"
+        const val SEARCH_GOOGLE = "google"
+        const val SEARCH_DUCKDUCKGO = "duckduckgo"
+        const val SEARCH_BING = "bing"
+        const val SEARCH_BRAVE = "brave"
+        const val STARTUP_CONTINUE = "continue"
+        const val STARTUP_HOME = "home"
         const val MAX_TABS = 20
         const val MAX_HISTORY = 200
     }
