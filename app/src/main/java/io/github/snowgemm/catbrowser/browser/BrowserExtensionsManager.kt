@@ -1,8 +1,10 @@
 package io.github.snowgemm.catbrowser.browser
 
+import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.provider.OpenableColumns
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,10 +13,14 @@ import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
+import java.io.File
+import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 import java.util.concurrent.Executors
 
 data class ExtensionCatalogEntry(
@@ -44,14 +50,42 @@ data class ExtensionPermissionPrompt(
     }
 }
 
-/** Owns installed WebExtensions and the Mozilla Add-ons catalog. */
-class BrowserExtensionsManager(runtime: GeckoRuntime) {
+data class ExtensionToolbarAction(
+    val extensionId: String,
+    val extensionName: String,
+    val title: String,
+    val isPageAction: Boolean,
+    val enabled: Boolean,
+    val badgeText: String?,
+    val badgeBackgroundColor: Int?,
+    val sessionIdentity: Int?,
+    val action: WebExtension.Action
+)
+
+data class ExtensionPopupState(
+    val extensionId: String,
+    val extensionName: String,
+    val session: GeckoSession
+)
+
+/** Owns installed WebExtensions, browser actions and the Mozilla Add-ons catalog. */
+class BrowserExtensionsManager(
+    runtime: GeckoRuntime,
+    private val context: Context,
+    private val sessionProvider: () -> List<GeckoSession>,
+    private val onCreateTabFromExtension: () -> GeckoSession?,
+    private val onOpenOptionsPage: (String) -> Unit
+) {
     private val controller = runtime.webExtensionController
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor = Executors.newSingleThreadExecutor()
 
     val installed = mutableStateListOf<WebExtension>()
     val catalog = mutableStateListOf<ExtensionCatalogEntry>()
+    val toolbarActions = mutableStateListOf<ExtensionToolbarAction>()
+
+    var popup by mutableStateOf<ExtensionPopupState?>(null)
+        private set
 
     var isLoadingInstalled by mutableStateOf(false)
         private set
@@ -153,12 +187,15 @@ class BrowserExtensionsManager(runtime: GeckoRuntime) {
         isLoadingInstalled = true
         controller.list().accept(
             { extensions ->
+                val available = extensions.orEmpty()
                 installed.clear()
                 installed.addAll(
-                    extensions.orEmpty().sortedBy {
+                    available.sortedBy {
                         it.metaData.name?.lowercase().orEmpty().ifBlank { it.id.lowercase() }
                     }
                 )
+                available.forEach(::attachExtension)
+                sessionProvider().forEach(::attachSession)
                 isLoadingInstalled = false
             },
             { error ->
