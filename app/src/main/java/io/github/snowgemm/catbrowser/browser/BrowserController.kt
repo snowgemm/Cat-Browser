@@ -143,13 +143,19 @@ class BrowserController(
     var startupMode by mutableStateOf(preferences.getString(KEY_STARTUP_MODE, STARTUP_CONTINUE) ?: STARTUP_CONTINUE)
         private set
 
-    val extensionsManager = BrowserExtensionsManager(runtime)
     val downloadManager = BrowserDownloadManager(context.applicationContext)
     private val storageController = runtime.getStorageController()
 
     val tabs = mutableStateListOf<BrowserTab>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
+    val extensionsManager = BrowserExtensionsManager(
+        runtime = runtime,
+        context = context.applicationContext,
+        sessionProvider = { tabs.mapNotNull { it.session } },
+        onCreateTabFromExtension = ::createExtensionTab,
+        onOpenOptionsPage = ::openExtensionOptionsPage
+    )
     // Kept in memory only; private tabs are never added here.
     val recentlyClosedTabs = mutableStateListOf<BrowserEntry>()
 
@@ -226,6 +232,7 @@ class BrowserController(
 
         persistTabs()
         activateSelectedTab()
+        extensionsManager.refreshInstalled()
     }
 
     fun newTab() {
@@ -824,6 +831,37 @@ class BrowserController(
         findInPageResult = null
     }
 
+    private fun createExtensionTab(): GeckoSession? {
+        if (tabs.size >= MAX_TABS) return null
+        val tab = BrowserTab(initialUrl = START_PAGE_URL, initialTitle = "Tab tiện ích")
+        tabs.add(tab)
+        ensureSession(tab, loadCurrentUrl = false)
+        selectTab(tab.id)
+        persistTabs()
+        return tab.session
+    }
+
+    private fun openExtensionOptionsPage(url: String) {
+        val requested = Uri.parse(url)
+        val belongsToInstalledExtension = extensionsManager.installed.any { extension ->
+            val base = Uri.parse(extension.metaData.baseUrl)
+            requested.scheme == "moz-extension" &&
+                requested.host != null && requested.host == base.host
+        }
+        if (!belongsToInstalledExtension) {
+            extensionsManager.statusMessage = "Đã chặn trang tuỳ chọn không thuộc tiện ích đã cài."
+            return
+        }
+        if (tabs.size >= MAX_TABS) {
+            extensionsManager.statusMessage = "Đã đạt giới hạn 20 tab."
+            return
+        }
+        val tab = BrowserTab(initialUrl = url, initialTitle = "Tuỳ chọn tiện ích")
+        tabs.add(tab)
+        selectTab(tab.id)
+        persistTabs()
+    }
+
     private fun activateSelectedTab() {
         val selected = activeTab ?: return
         tabs.forEach { tab ->
@@ -1074,6 +1112,7 @@ class BrowserController(
         }
 
         session.open(runtime)
+        extensionsManager.attachSession(session)
         val isSelected = tab.id == selectedTabId
         session.setActive(isSelected)
         session.setFocused(isSelected && tab.isViewAttached)
