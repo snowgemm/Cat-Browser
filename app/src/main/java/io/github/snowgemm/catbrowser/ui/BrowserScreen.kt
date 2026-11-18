@@ -428,7 +428,15 @@ private fun BrowserMainScreen(
                         onClick = { showMenu = false; onOpenExtensions() }
                     )
                     DropdownMenuItem(
-                        text = { Text("Dấu trang (" + controller.bookmarks.size + ")") },
+                        text = {
+                            Text(
+                                if (controller.isBookmarksLoaded) {
+                                    "Dấu trang (" + controller.bookmarks.size + ")"
+                                } else {
+                                    "Dấu trang"
+                                }
+                            )
+                        },
                         leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKS) },
                         onClick = { showMenu = false; showBookmarks = true }
                     )
@@ -455,7 +463,8 @@ private fun BrowserMainScreen(
             "Chưa có lịch sử duyệt web.",
             { showHistory = false },
             { controller.openEntry(it.url); showHistory = false },
-            { controller.clearHistory() }
+            { controller.clearHistory() },
+            isLoading = !controller.isHistoryLoaded || controller.isHistoryLoading
         )
     }
     if (showBookmarks) {
@@ -464,7 +473,8 @@ private fun BrowserMainScreen(
             controller.bookmarks,
             "Bạn chưa lưu trang nào.",
             { showBookmarks = false },
-            { controller.openEntry(it.url); showBookmarks = false }
+            { controller.openEntry(it.url); showBookmarks = false },
+            isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading
         )
     }
 }
