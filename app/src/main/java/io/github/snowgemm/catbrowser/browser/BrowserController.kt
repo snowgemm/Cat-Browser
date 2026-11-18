@@ -666,6 +666,7 @@ class BrowserController(
         }
 
         val finder = session.getFinder()
+        findInPageResult = null
         finder.setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL)
         finder.find(
             value,
