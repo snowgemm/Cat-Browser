@@ -33,12 +33,18 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     var homePage by remember(controller.homePage) { mutableStateOf(controller.homePage) }
     var homePageError by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showClearDataDialog by remember { mutableStateOf(false) }
     var historyCleared by remember { mutableStateOf(false) }
+    var clearHistorySelected by remember { mutableStateOf(true) }
+    var clearCookiesSelected by remember { mutableStateOf(true) }
+    var clearCacheSelected by remember { mutableStateOf(true) }
+    var clearPermissionsSelected by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         updateManager.checkForUpdates(UpdateChannel.STABLE)
         controller.loadHistory()
         controller.loadBookmarks()
+        controller.loadSitePermissions()
     }
 
     Column(
@@ -210,6 +216,95 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
+                    OutlinedButton(
+                        onClick = { showClearDataDialog = true },
+                        enabled = !controller.isClearingData,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(if (controller.isClearingData) "Đang xóa dữ liệu…" else "Xóa dữ liệu duyệt web")
+                    }
+                    controller.clearDataMessage?.let { message ->
+                        Text(
+                            message,
+                            color = if (controller.clearDataError) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+            item {
+                SettingsSectionTitle("QUYỀN WEBSITE")
+                SettingsCard {
+                    Text(
+                        "Quyền đã được lưu theo website. Tab ẩn danh dùng quyền tạm thời của phiên riêng.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (controller.isSitePermissionsLoading) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(Modifier.size(19.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(9.dp))
+                            Text("Đang tải quyền website…", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else if (controller.sitePermissions.isEmpty()) {
+                        Text(
+                            controller.sitePermissionsMessage ?: "Chưa có website nào lưu quyền.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    } else {
+                        controller.sitePermissions.take(30).forEach { entry ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(
+                                        entry.origin,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        entry.permissionLabel + " · " + entry.stateLabel +
+                                            if (entry.isPrivate) " · Ẩn danh" else "",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    if (!entry.canReset) {
+                                        Text(
+                                            "Quyền này có giới hạn thu hồi theo GeckoView.",
+                                            color = MaterialTheme.colorScheme.error,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                                TextButton(
+                                    onClick = { controller.resetSitePermission(entry) },
+                                    enabled = entry.canReset
+                                ) { Text("Đặt lại") }
+                            }
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                            )
+                        }
+                        if (controller.sitePermissions.size > 30) {
+                            Text(
+                                "Đang hiển thị 30 trên " + controller.sitePermissions.size + " quyền.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                    controller.sitePermissionsMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             item {
@@ -242,6 +337,83 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = { showClearHistoryDialog = false }) { Text("Hủy") } }
     )
+
+    if (showClearDataDialog) AlertDialog(
+        onDismissRequest = { if (!controller.isClearingData) showClearDataDialog = false },
+        title = { Text("Xóa dữ liệu duyệt web") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ClearDataOption(
+                    "Lịch sử duyệt web",
+                    "Xóa danh sách trang đã truy cập và lịch sử quay lại của tab.",
+                    clearHistorySelected
+                ) { clearHistorySelected = it }
+                ClearDataOption(
+                    "Cookie và dữ liệu website",
+                    "Có thể đăng xuất khỏi các website và xóa dữ liệu đăng nhập cục bộ.",
+                    clearCookiesSelected
+                ) { clearCookiesSelected = it }
+                ClearDataOption(
+                    "Cache và ảnh đã lưu",
+                    "Xóa tệp tạm để giải phóng bộ nhớ; website có thể tải lại chậm hơn lần đầu.",
+                    clearCacheSelected
+                ) { clearCacheSelected = it }
+                ClearDataOption(
+                    "Quyền website",
+                    "Đặt lại các quyền vị trí, thông báo và quyền nội dung đã lưu.",
+                    clearPermissionsSelected
+                ) { clearPermissionsSelected = it }
+                Text(
+                    "Các tab đang mở sẽ được tải lại sau khi xóa. Dấu trang và tệp đã tải xuống không bị xóa.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    controller.clearBrowsingData(
+                        clearHistory = clearHistorySelected,
+                        clearCookiesAndSiteData = clearCookiesSelected,
+                        clearCache = clearCacheSelected,
+                        clearSitePermissions = clearPermissionsSelected
+                    )
+                    showClearDataDialog = false
+                },
+                enabled = !controller.isClearingData
+            ) { Text("Xóa dữ liệu đã chọn") }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { showClearDataDialog = false },
+                enabled = !controller.isClearingData
+            ) { Text("Hủy") }
+        }
+    )
+}
+
+@Composable
+private fun ClearDataOption(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Column(Modifier.weight(1f).padding(start = 6.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(
+                description,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
 }
 
 @Composable
