@@ -328,15 +328,7 @@ class BrowserDownloadManager(context: Context) {
             runCatching { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }.getOrNull()
         } ?: plainName ?: pathName ?: "download"
 
-        val safe = rawName
-            .substringAfterLast('/')
-            .substringAfterLast('\\')
-            .replace(Regex("[\\u0000-\\u001F<>:\"/\\\\|?*]"), "_")
-            .trim()
-            .trim('.')
-            .take(120)
-            .ifBlank { "download" }
-        return safe
+        return sanitizeDownloadFileName(rawName)
     }
 
     private fun uniqueFile(directory: File, fileName: String): File {
@@ -357,3 +349,13 @@ class BrowserDownloadManager(context: Context) {
         }
     }
 }
+
+
+internal fun sanitizeDownloadFileName(rawName: String): String =
+    rawName.substringAfterLast('/')
+        .substringAfterLast('\\')
+        .replace(Regex("[\\u0000-\\u001F<>:\"/\\\\|?*]"), "_")
+        .trim()
+        .trim('.')
+        .take(120)
+        .ifBlank { "download" }
