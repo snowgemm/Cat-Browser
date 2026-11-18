@@ -274,7 +274,7 @@ private fun BrowserMainScreen(
         }
     }
 
-    LaunchedEffect(showFind, findQuery, tab.id) {
+    LaunchedEffect(showFind, findQuery, tab.id, tab.url) {
         if (showFind) {
             if (findQuery.isBlank()) {
                 controller.clearFindInPage()
