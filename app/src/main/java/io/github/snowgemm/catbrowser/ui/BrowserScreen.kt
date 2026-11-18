@@ -16,6 +16,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,6 +43,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalContext
@@ -58,10 +61,12 @@ import androidx.compose.ui.res.painterResource
 import io.github.snowgemm.catbrowser.R
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.snowgemm.catbrowser.browser.BrowserController
+import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import org.mozilla.geckoview.GeckoView
 import kotlinx.coroutines.delay
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -218,6 +223,11 @@ private fun BrowserMainScreen(
     var showFind by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
 
+    LaunchedEffect(Unit) {
+        controller.loadHistory()
+        controller.loadBookmarks()
+    }
+
     LaunchedEffect(showHistory) {
         if (showHistory) controller.loadHistory()
     }
@@ -226,14 +236,41 @@ private fun BrowserMainScreen(
     }
 
     val tab = controller.activeTab ?: return
-    var address by remember(tab.id) { mutableStateOf(TextFieldValue(tab.url)) }
+    var address by remember(tab.id) {
+        mutableStateOf(TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty()))
+    }
     var addressFocused by remember(tab.id) { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val tabSwipeThreshold = with(LocalDensity.current) { 44.dp.toPx() }
 
     LaunchedEffect(tab.id, tab.url) {
-        if (!addressFocused) address = TextFieldValue(tab.url)
+        if (!addressFocused) {
+            address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
+        }
     }
+
+    val addressSuggestions = buildList {
+        val query = address.text.trim()
+        fun matches(title: String, url: String): Boolean =
+            query.isBlank() || title.contains(query, ignoreCase = true) ||
+                url.contains(query, ignoreCase = true)
+
+        controller.tabs
+            .filter { it.id != tab.id && it.isPrivate == tab.isPrivate && it.url.startsWith("http", true) }
+            .filter { matches(it.title, it.url) }
+            .forEach {
+                add(BrowserAddressSuggestion(it.title.ifBlank { it.url }, it.url, "Tab đang mở", it.id))
+            }
+        controller.bookmarks
+            .filter { matches(it.title, it.url) }
+            .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Dấu trang")) }
+        if (!tab.isPrivate) {
+            controller.history
+                .filter { matches(it.title, it.url) }
+                .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Lịch sử")) }
+        }
+    }.distinctBy { it.url }.take(8)
 
     fun navigate() {
         val input = address.text.trim()
@@ -244,13 +281,19 @@ private fun BrowserMainScreen(
         }
     }
 
-    BackHandler(enabled = showFind || tab.canGoBack) {
-        if (showFind) {
-            showFind = false
-            findQuery = ""
-            controller.clearFindInPage()
-        } else {
-            controller.goBack()
+    BackHandler(enabled = showFind || addressFocused || tab.canGoBack) {
+        when {
+            showFind -> {
+                showFind = false
+                findQuery = ""
+                controller.clearFindInPage()
+            }
+            addressFocused -> {
+                addressFocused = false
+                focusManager.clearFocus()
+                keyboard?.hide()
+            }
+            tab.canGoBack -> controller.goBack()
         }
     }
 
@@ -411,33 +454,54 @@ private fun BrowserMainScreen(
             Modifier.fillMaxWidth().weight(1f),
             color = MaterialTheme.colorScheme.background
         ) {
-            val session = tab.session
-            if (session == null) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Đang khởi tạo trang…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when {
+                addressFocused -> AddressSuggestionsPanel(
+                    query = address.text,
+                    suggestions = addressSuggestions,
+                    onSelect = { suggestion ->
+                        if (suggestion.tabId != null) controller.selectTab(suggestion.tabId)
+                        else controller.openEntry(suggestion.url)
+                        keyboard?.hide()
+                        focusManager.clearFocus()
+                    },
+                    onSearch = ::navigate
+                )
+                tab.url == START_PAGE_URL -> NewTabPage(
+                    isPrivate = tab.isPrivate,
+                    bookmarks = controller.bookmarks.toList(),
+                    recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
+                    onOpenUrl = controller::openEntry,
+                    onAddShortcut = if (tab.isPrivate) { _, _ -> false } else controller::addBookmark
+                )
+                tab.session == null -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Đang khởi tạo trang…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            } else {
-                key(tab.id) {
-                    AndroidView(
-                        factory = { context ->
-                            GeckoView(context).apply {
-                                setSession(session)
-                                controller.onSessionViewAttached(tab.id, session)
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                        update = { view ->
-                            if (view.getSession() !== session) {
+                else -> {
+                    val session = tab.session
+                    key(tab.id) {
+                        AndroidView(
+                            factory = { context ->
+                                GeckoView(context).apply {
+                                    setSession(session)
+                                    controller.onSessionViewAttached(tab.id, session)
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            update = { view ->
+                                if (view.getSession() !== session) {
+                                    view.releaseSession()
+                                    view.setSession(session)
+                                    controller.onSessionViewAttached(tab.id, session)
+                                }
+                            },
+                            onRelease = { view ->
+                                controller.onSessionViewDetached(tab.id, session)
                                 view.releaseSession()
-                                view.setSession(session)
-                                controller.onSessionViewAttached(tab.id, session)
                             }
-                        },
-                        onRelease = { view ->
-                            controller.onSessionViewDetached(tab.id, session)
-                            view.releaseSession()
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -450,12 +514,26 @@ private fun BrowserMainScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            DockAction(BrowserGlyphType.BACK, "Quay lại", tab.canGoBack) { controller.goBack() }
-            DockAction(BrowserGlyphType.FORWARD, "Tiến", tab.canGoForward) { controller.goForward() }
-
             Surface(
-                modifier = Modifier.weight(1f).height(46.dp)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+                modifier = Modifier.weight(1f)
+                    .height(if (addressFocused) 52.dp else 46.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+                    .pointerInput(tab.id, addressFocused, controller.tabs.size) {
+                        if (!addressFocused && controller.tabs.size > 1) {
+                            var dragDistance = 0f
+                            detectHorizontalDragGestures(
+                                onDragStart = { dragDistance = 0f },
+                                onHorizontalDrag = { _, amount -> dragDistance += amount },
+                                onDragEnd = {
+                                    if (abs(dragDistance) >= tabSwipeThreshold) {
+                                        controller.selectAdjacentTab(if (dragDistance < 0f) 1 else -1)
+                                    }
+                                    dragDistance = 0f
+                                },
+                                onDragCancel = { dragDistance = 0f }
+                            )
+                        }
+                    },
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             ) {
@@ -464,10 +542,10 @@ private fun BrowserMainScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     BrowserGlyph(
-                        if (tab.url.startsWith("https://", ignoreCase = true)) {
-                            BrowserGlyphType.LOCK
-                        } else {
-                            BrowserGlyphType.GLOBE
+                        when {
+                            addressFocused -> BrowserGlyphType.SEARCH
+                            tab.url.startsWith("https://", ignoreCase = true) -> BrowserGlyphType.LOCK
+                            else -> BrowserGlyphType.GLOBE
                         },
                         modifier = Modifier.size(17.dp),
                         tint = MaterialTheme.colorScheme.primary
@@ -477,12 +555,10 @@ private fun BrowserMainScreen(
                         value = address,
                         onValueChange = { address = it },
                         modifier = Modifier.weight(1f).onFocusChanged { state ->
-                            if (state.isFocused && !addressFocused) {
-                                address = address.copy(
-                                    selection = TextRange(0, address.text.length)
-                                )
+                            if (state.isFocused && !addressFocused && address.text.isNotEmpty()) {
+                                address = address.copy(selection = TextRange(0, address.text.length))
                             } else if (!state.isFocused && addressFocused) {
-                                address = TextFieldValue(tab.url)
+                                address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
                             }
                             addressFocused = state.isFocused
                         },
@@ -509,128 +585,135 @@ private fun BrowserMainScreen(
                         }
                     )
                     if (addressFocused) {
+                        if (address.text.isNotBlank()) {
+                            DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
+                        }
                         DockAction(
                             BrowserGlyphType.CLEAR,
                             "Xoá nội dung",
                             address.text.isNotEmpty()
-                        ) {
-                            address = TextFieldValue("")
-                        }
+                        ) { address = TextFieldValue("") }
                     } else if (tab.isLoading) {
-                        Text(
-                            tab.progress.toString() + "%",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Text(tab.progress.toString() + "%",
+                            color = MaterialTheme.colorScheme.primary, fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold)
                     } else {
                         DockAction(BrowserGlyphType.GO, "Truy cập", true) { navigate() }
                     }
                 }
             }
 
-            TabSwitcherAction(controller.tabs.size) { onOpenTabs() }
-            Box {
-                DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier.width(248.dp)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Tab mới") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB) },
-                        onClick = { showMenu = false; controller.newTab() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Trang chủ") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.HOME) },
-                        onClick = { showMenu = false; controller.goHome() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (tab.isLoading) "Dừng tải" else "Tải lại") },
-                        leadingIcon = {
-                            BrowserGlyph(
-                                if (tab.isLoading) BrowserGlyphType.CLEAR else BrowserGlyphType.RELOAD
-                            )
-                        },
-                        onClick = { showMenu = false; controller.stopOrReload() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Tìm trong trang") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) },
-                        onClick = {
-                            showMenu = false
-                            showFind = true
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Tải xuống") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.DOWNLOAD) },
-                        onClick = {
-                            showMenu = false
-                            onOpenDownloads()
-                        }
-                    )
-                    MenuDivider()
-                    DropdownMenuItem(
-                        text = { Text("Tab ẩn danh mới") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO) },
-                        onClick = { showMenu = false; controller.newPrivateTab() },
-                        enabled = controller.tabs.size < 20
-                    )
-                    if (controller.privateTabCount > 0) {
+            if (!addressFocused) {
+                TabSwitcherAction(controller.tabs.size, onOpenTabs)
+                Box {
+                    DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.width(248.dp)
+                    ) {
                         DropdownMenuItem(
-                            text = { Text("Đóng tất cả tab ẩn danh (" + controller.privateTabCount + ")") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE) },
-                            onClick = { showMenu = false; controller.closeAllPrivateTabs() }
+                            text = { Text("Quay lại") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BACK) },
+                            enabled = tab.canGoBack,
+                            onClick = { showMenu = false; controller.goBack() }
                         )
-                    }
-                    if (!tab.isPrivate) {
                         DropdownMenuItem(
-                            text = {
-                                Text(
-                                    if (controller.isBookmarked(tab.url)) {
-                                        "Bỏ dấu trang"
-                                    } else {
-                                        "Thêm dấu trang"
-                                    }
-                                )
+                            text = { Text("Tiến tới") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.FORWARD) },
+                            enabled = tab.canGoForward,
+                            onClick = { showMenu = false; controller.goForward() }
+                        )
+                        MenuDivider()
+                        DropdownMenuItem(
+                            text = { Text("Tab mới") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB) },
+                            enabled = controller.tabs.size < 20,
+                            onClick = { showMenu = false; controller.newTab() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Trang chủ") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.HOME) },
+                            onClick = { showMenu = false; controller.goHome() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (tab.isLoading) "Dừng tải" else "Tải lại") },
+                            leadingIcon = {
+                                BrowserGlyph(if (tab.isLoading) BrowserGlyphType.CLEAR else BrowserGlyphType.RELOAD)
                             },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKMARK) },
-                            onClick = { showMenu = false; controller.toggleBookmark() }
+                            onClick = { showMenu = false; controller.stopOrReload() }
                         )
-                    }
-                    MenuDivider()
-                    DropdownMenuItem(
-                        text = { Text("Tiện ích mở rộng") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.EXTENSIONS) },
-                        onClick = { showMenu = false; onOpenExtensions() }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (controller.isBookmarksLoaded) {
-                                    "Dấu trang (" + controller.bookmarks.size + ")"
-                                } else {
-                                    "Dấu trang"
+                        DropdownMenuItem(
+                            text = { Text("Tìm trong trang") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) },
+                            onClick = { showMenu = false; showFind = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Tải xuống") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.DOWNLOAD) },
+                            onClick = { showMenu = false; onOpenDownloads() }
+                        )
+                        MenuDivider()
+                        if (controller.recentlyClosedTabs.isNotEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Mở lại tab vừa đóng") },
+                                leadingIcon = { BrowserGlyph(BrowserGlyphType.RELOAD) },
+                                enabled = controller.tabs.size < 20,
+                                onClick = {
+                                    showMenu = false
+                                    controller.restoreRecentlyClosedTab()
                                 }
                             )
-                        },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKS) },
-                        onClick = { showMenu = false; showBookmarks = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Lịch sử") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.HISTORY) },
-                        onClick = { showMenu = false; showHistory = true }
-                    )
-                    MenuDivider()
-                    DropdownMenuItem(
-                        text = { Text("Cài đặt") },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.SETTINGS) },
-                        onClick = { showMenu = false; onOpenSettings() }
-                    )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Tab ẩn danh mới") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO) },
+                            enabled = controller.tabs.size < 20,
+                            onClick = { showMenu = false; controller.newPrivateTab() }
+                        )
+                        if (controller.privateTabCount > 0) {
+                            DropdownMenuItem(
+                                text = { Text("Đóng tất cả tab ẩn danh (" + controller.privateTabCount + ")") },
+                                leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE) },
+                                onClick = { showMenu = false; controller.closeAllPrivateTabs() }
+                            )
+                        }
+                        if (!tab.isPrivate) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(if (controller.isBookmarked(tab.url)) "Bỏ dấu trang" else "Thêm dấu trang")
+                                },
+                                leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKMARK) },
+                                onClick = { showMenu = false; controller.toggleBookmark() }
+                            )
+                        }
+                        MenuDivider()
+                        DropdownMenuItem(
+                            text = { Text("Tiện ích mở rộng") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.EXTENSIONS) },
+                            onClick = { showMenu = false; onOpenExtensions() }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(if (controller.isBookmarksLoaded) {
+                                    "Dấu trang (" + controller.bookmarks.size + ")"
+                                } else "Dấu trang")
+                            },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKS) },
+                            onClick = { showMenu = false; showBookmarks = true }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Lịch sử") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.HISTORY) },
+                            onClick = { showMenu = false; showHistory = true }
+                        )
+                        MenuDivider()
+                        DropdownMenuItem(
+                            text = { Text("Cài đặt") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.SETTINGS) },
+                            onClick = { showMenu = false; onOpenSettings() }
+                        )
+                    }
                 }
             }
         }
@@ -1042,6 +1125,11 @@ private fun TabsOverview(
     onNewTab: () -> Unit,
     onNewPrivateTab: () -> Unit
 ) {
+    var tabSearch by remember { mutableStateOf("") }
+    val visibleTabs = controller.tabs.filter { tab ->
+        tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
+            tab.url.contains(tabSearch, ignoreCase = true)
+    }
     Column(
         Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
@@ -1076,6 +1164,15 @@ private fun TabsOverview(
             }
         }
 
+        OutlinedTextField(
+            value = tabSearch,
+            onValueChange = { tabSearch = it },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
+            singleLine = true,
+            placeholder = { Text("Tìm trong các tab") },
+            leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) }
+        )
+
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 154.dp),
             modifier = Modifier.weight(1f),
@@ -1083,7 +1180,7 @@ private fun TabsOverview(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            gridItems(controller.tabs, key = { it.id }) { tab ->
+            gridItems(visibleTabs, key = { it.id }) { tab ->
                 val domain = tab.url
                     .removePrefix("https://")
                     .removePrefix("http://")

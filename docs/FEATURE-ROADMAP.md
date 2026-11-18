@@ -18,6 +18,10 @@ This is an implementation-status audit of the Android app, not a promise that ev
 - Settings screen for reviewing stored website permissions and resetting supported permissions.
 - Clear browsing data controls for history, cookies/DOM storage/auth sessions, cache and site permissions. Open GeckoSessions are closed before the GeckoView storage clear call and the selected tab is recreated afterward.
 - Find in Page with debounced search, highlight-all, previous/next match, match count when available and clear/close behavior.
+- Native New Tab Page with bookmark shortcuts, recent normal-mode visits, and user-added website shortcuts.
+- Local address-bar suggestions from same-mode open tabs, bookmarks and (normal mode only) history; no remote search suggestions are sent while typing.
+- Swipe left/right on the unfocused address bar to switch adjacent tabs; Back/Forward navigation actions live in the overflow menu.
+- Tab overview search and in-memory restoration of recently closed normal tabs (last URL only).
 
 ## Priority 0 — Browser essentials
 
@@ -34,6 +38,9 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Feature | Current status | Acceptance requirements |
 |---|---|---|
 | Find in page | Implemented; physical-device validation pending | Debounced search, highlight all matches, previous/next, match count when GeckoView has it, clear and close. |
+| New Tab Page and address suggestions | Implemented; physical-device UX validation pending | Native start page with shortcuts and recent visits; suggestions use local tabs, bookmarks and normal-mode history only. |
+| Address-bar tab switching | Implemented; physical-device gesture validation pending | Horizontal swipes switch adjacent tabs only while the address field is not focused. |
+| Tab search and recently closed | Basic implementation | Search current tab titles/URLs; restore one of the last 10 closed normal tabs by its last URL (not full session state). |
 | Desktop-site mode | Missing | Per-tab toggle, correct viewport configuration and persisted preference for regular tabs only. |
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
 | Bookmark manager | Basic | Edit titles, folders or collections, sort, import/export and duplicate handling. |

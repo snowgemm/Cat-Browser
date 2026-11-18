@@ -150,6 +150,8 @@ class BrowserController(
     val tabs = mutableStateListOf<BrowserTab>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
+    // Kept in memory only; private tabs are never added here.
+    val recentlyClosedTabs = mutableStateListOf<BrowserEntry>()
 
     var isHistoryLoading by mutableStateOf(false)
         private set
@@ -249,7 +251,7 @@ class BrowserController(
     fun selectTab(tabId: String) {
         val target = tabs.firstOrNull { it.id == tabId } ?: return
         if (selectedTabId == tabId) {
-            ensureSession(target)
+            if (target.url == START_PAGE_URL) destroySession(target) else ensureSession(target)
             return
         }
 
@@ -259,12 +261,27 @@ class BrowserController(
         }
 
         selectedTabId = target.id
-        ensureSession(target)
-        target.session?.let { session ->
-            session.setActive(true)
-            session.setFocused(target.isViewAttached)
+        if (target.url == START_PAGE_URL) {
+            destroySession(target)
+        } else {
+            ensureSession(target)
+            target.session?.let { session ->
+                session.setActive(true)
+                session.setFocused(target.isViewAttached)
+            }
         }
         persistTabs()
+    }
+
+    fun selectAdjacentTab(direction: Int): Boolean {
+        if (direction == 0 || tabs.size < 2) return false
+        val currentIndex = tabs.indexOfFirst { it.id == selectedTabId }
+        if (currentIndex < 0) return false
+        val step = if (direction < 0) -1 else 1
+        val targetIndex = (currentIndex + step).coerceIn(0, tabs.lastIndex)
+        if (targetIndex == currentIndex) return false
+        selectTab(tabs[targetIndex].id)
+        return true
     }
 
     fun closeTab(tabId: String) {
@@ -273,13 +290,26 @@ class BrowserController(
 
         val wasSelected = selectedTabId == tabId
         val removed = tabs.removeAt(index)
+        if (shouldPersistBrowserTab(removed) && isWebUrl(removed.url)) {
+            recentlyClosedTabs.add(
+                0,
+                BrowserEntry(
+                    title = removed.title.ifBlank { removed.url },
+                    url = removed.url,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+            while (recentlyClosedTabs.size > MAX_RECENTLY_CLOSED) {
+                recentlyClosedTabs.removeAt(recentlyClosedTabs.lastIndex)
+            }
+        }
         destroySession(removed)
 
         if (tabs.isEmpty()) {
             val replacement = BrowserTab(initialUrl = homePage)
             tabs.add(replacement)
             selectedTabId = replacement.id
-            ensureSession(replacement)
+            activateSelectedTab()
         } else if (wasSelected) {
             val replacementIndex = index.coerceAtMost(tabs.lastIndex)
             selectedTabId = tabs[replacementIndex].id
@@ -287,6 +317,16 @@ class BrowserController(
         }
 
         persistTabs()
+    }
+
+    fun restoreRecentlyClosedTab(): Boolean {
+        val entry = recentlyClosedTabs.firstOrNull() ?: return false
+        if (tabs.size >= MAX_TABS || !isWebUrl(entry.url)) return false
+        recentlyClosedTabs.removeAt(0)
+        val restored = BrowserTab(initialUrl = entry.url, initialTitle = entry.title)
+        tabs.add(restored)
+        selectTab(restored.id)
+        return true
     }
 
     fun closeAllPrivateTabs() {
@@ -301,7 +341,7 @@ class BrowserController(
             val replacement = BrowserTab(initialUrl = homePage)
             tabs.add(replacement)
             selectedTabId = replacement.id
-            ensureSession(replacement)
+            activateSelectedTab()
         } else if (selectedWasPrivate || tabs.none { it.id == selectedTabId }) {
             selectedTabId = tabs.first().id
             activateSelectedTab()
@@ -363,7 +403,22 @@ class BrowserController(
     }
 
     fun goHome() {
-        navigate(homePage)
+        if (homePage != START_PAGE_URL) {
+            navigate(homePage)
+            return
+        }
+        val tab = activeTab ?: return
+        destroySession(tab)
+        tab.url = START_PAGE_URL
+        tab.title = "Cat Browser"
+        tab.isLoading = false
+        tab.progress = 0
+        tab.canGoBack = false
+        tab.canGoForward = false
+        tab.error = null
+        tab.loadPendingUntilAttached = false
+        tab.pendingOriginalInput = null
+        persistTabs()
     }
 
     fun stopOrReload() {
@@ -459,6 +514,25 @@ class BrowserController(
             )
         }
         persistBookmarks()
+    }
+
+    fun addBookmark(title: String, inputUrl: String): Boolean {
+        if (!isBookmarksLoaded) {
+            loadBookmarks()
+            return false
+        }
+        val url = BrowserUrlResolver.resolveAddress(inputUrl) ?: return false
+        if (!isWebUrl(url)) return false
+        val cleanTitle = title.trim().take(100).ifBlank {
+            Uri.parse(url).host ?: url
+        }
+        bookmarks.removeAll { it.url == url }
+        bookmarks.add(
+            0,
+            BrowserEntry(cleanTitle, url, System.currentTimeMillis())
+        )
+        persistBookmarks()
+        return true
     }
 
     fun isBookmarked(url: String): Boolean = bookmarks.any { it.url == url }
@@ -760,9 +834,13 @@ class BrowserController(
                 session.setFocused(active && tab.isViewAttached)
             }
         }
-        ensureSession(selected)
-        selected.session?.setActive(true)
-        selected.session?.setFocused(selected.isViewAttached)
+        if (selected.url == START_PAGE_URL) {
+            destroySession(selected)
+        } else {
+            ensureSession(selected)
+            selected.session?.setActive(true)
+            selected.session?.setFocused(selected.isViewAttached)
+        }
     }
 
     fun onSessionViewAttached(tabId: String, session: GeckoSession) {
@@ -1188,6 +1266,7 @@ class BrowserController(
         const val STARTUP_HOME = "home"
         const val MAX_TABS = 20
         const val MAX_HISTORY = 200
+        const val MAX_RECENTLY_CLOSED = 10
         val SUPPORTED_ANDROID_PERMISSIONS = setOf(
             android.Manifest.permission.ACCESS_COARSE_LOCATION,
             android.Manifest.permission.ACCESS_FINE_LOCATION,

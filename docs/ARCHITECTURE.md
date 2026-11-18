@@ -7,7 +7,7 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 ## Current implementation
 
 - `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
-- New tabs and the default startup page use `about:blank`; a custom HTTP(S) home page remains configurable. Existing installs that still have the old DuckDuckGo default are migrated to `about:blank` without overwriting a user-defined home page.
+- New tabs and the default startup page use a native Compose New Tab Page while retaining `about:blank` as the internal start-page marker; no GeckoSession is created until the user navigates. The page shows bookmark shortcuts and recent normal-mode visits. A custom HTTP(S) home page remains configurable.
 - `BrowserController` owns tab metadata, GeckoSession instances, tab selection, normal-mode history and bookmarks.
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
@@ -54,7 +54,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | Address input, tab switcher, navigation controls, bookmark/history dialogs, download manager, find-in-page and permission prompts |
+| Browser UI | Native New Tab Page, local address suggestions, address-bar tab gestures, tab search, navigation overflow menu, bookmark/history dialogs, download manager, find-in-page and permission prompts |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
 | BrowserController | GeckoSession collection, active tab, navigation, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
 | BrowserTab | Per-tab UI state, privacy mode and GeckoSession reference |
@@ -70,7 +70,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 - The clear-data flow clears history, cookies, DOM storage, auth sessions, caches and stored site permissions by separate selections. Full coverage of every GeckoView storage type, especially IndexedDB, has not been verified on device.
 - The browser does not yet provide a full website-permission dashboard with search, bulk editing or granular control for every permission type.
 - Extension action/popup toolbar integration, options-page routing, local XPI import, private-browsing extension permissions and full compatibility reporting are not implemented.
-- No complete GeckoSession state restore.
+- No complete GeckoSession state restore; recently closed tabs restore their last URL only and are held in memory for the current app process.
 - Find-in-page is implemented but requires real-device validation; desktop-site toggle, reader mode and built-in translation UI are not implemented.
 - No built-in password manager/autofill UI or bookmark import/export.
 - Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.
