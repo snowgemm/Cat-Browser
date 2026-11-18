@@ -121,9 +121,17 @@ jobs:
             gh release edit "$GITHUB_REF_NAME" \
               --title "Cat Browser $GITHUB_REF_NAME"
           else
-            gh release create "$GITHUB_REF_NAME" \
-              dist/abi-apks/*-release.apk \
-              dist/abi-apks/SHA256SUMS \
-              --title "Cat Browser $GITHUB_REF_NAME" \
-              --generate-notes
+            if [[ -f ".github/release-notes/$GITHUB_REF_NAME.md" ]]; then
+              gh release create "$GITHUB_REF_NAME" \
+                dist/abi-apks/*-release.apk \
+                dist/abi-apks/SHA256SUMS \
+                --title "Cat Browser $GITHUB_REF_NAME" \
+                --notes-file ".github/release-notes/$GITHUB_REF_NAME.md"
+            else
+              gh release create "$GITHUB_REF_NAME" \
+                dist/abi-apks/*-release.apk \
+                dist/abi-apks/SHA256SUMS \
+                --title "Cat Browser $GITHUB_REF_NAME" \
+                --generate-notes
+            fi
           fi
