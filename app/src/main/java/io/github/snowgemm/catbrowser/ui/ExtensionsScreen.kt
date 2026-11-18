@@ -383,8 +383,16 @@ private fun ExtensionPermissionDialog(prompt: ExtensionPermissionPrompt, onDecis
                     }
                 }
                 item {
-                    Text("Cat không cấp quyền chạy trong chế độ riêng tư.", Modifier.padding(top = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Text(
+                        if (prompt.kind == ExtensionPermissionPrompt.Kind.INSTALL) {
+                            "Quyền chạy trong tab ẩn danh mặc định tắt. Bạn có thể xem xét cấp quyền riêng sau khi cài đặt."
+                        } else {
+                            "Yêu cầu này không thay đổi quyền chạy trong tab ẩn danh; quyền đó được quản lý riêng."
+                        },
+                        Modifier.padding(top = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
                 }
             }
         },
