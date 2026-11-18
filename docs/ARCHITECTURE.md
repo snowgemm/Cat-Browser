@@ -11,7 +11,9 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
 - Each tab has a separate GeckoSession. The controller handles new-session requests from web content and retains the returned session.
-- `BrowserScreen` renders the active tab and sends user actions to the controller.
+- `BrowserScreen` renders the active tab, the find-in-page bar, download manager, and GeckoView permission prompts.
+- `BrowserDownloadManager` consumes GeckoView's original `WebResponse.body` stream, writes files to MediaStore Downloads on Android 10+ or app-scoped Downloads on Android 8/9, and tracks progress/cancel/open/share/delete in memory.
+- `BrowserController` owns the GeckoView `StorageController` workflow for site permission inspection/reset and browsing-data clearing; storage clearing closes all sessions before clearing and recreates the selected tab afterward.
 - `BrowserUrlResolver` validates HTTP(S) addresses, hostnames, IPv4/IPv6 and ports; plain text becomes a DuckDuckGo search.
 - HTTP(S) external intents are accepted by `MainActivity`.
 
@@ -51,21 +53,23 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | Address input, tab switcher, navigation controls, bookmark/history dialogs |
+| Browser UI | Address input, tab switcher, navigation controls, bookmark/history dialogs, download manager, find-in-page and permission prompts |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
-| BrowserController | GeckoSession collection, active tab, navigation, normal/private data boundaries, local state persistence |
+| BrowserController | GeckoSession collection, active tab, navigation, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
 | BrowserTab | Per-tab UI state, privacy mode and GeckoSession reference |
-| Site permissions | Explicit prompts and persisted per-origin decisions; not implemented |
+| Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
 | Extension manager | GeckoView WebExtensionController, AMO Android catalog, install prompts and lifecycle actions |
-| Downloads | Safe download destination, progress and file handling; not implemented |
-| Privacy controls | Tracking protection and per-site controls; not fully implemented |
+| Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped destination, progress, cancellation, open/share/delete; task list remains in-memory |
+| Privacy controls | Private-mode sessions, private-data exclusion, site permissions and selective browsing-data clearing; tracking-protection UI is not fully implemented |
 
 ## Current limitations
 
-- No complete website permission prompt or per-site permission manager.
-- No downloads UI or file management flow.
+- Download tasks are not persisted across process death; the downloaded files remain in the selected Android/app Downloads destination. Pause/resume and retry are not implemented.
+- Site permission handling covers GeckoView content/media requests and Android location/camera/microphone/notification runtime permissions; uncommon permission types and real-device behavior still need validation.
+- The clear-data flow clears history, cookies, DOM storage, auth sessions, caches and stored site permissions by separate selections. Full coverage of every GeckoView storage type, especially IndexedDB, has not been verified on device.
+- The browser does not yet provide a full website-permission dashboard with search, bulk editing or granular control for every permission type.
 - Extension action/popup toolbar integration, options-page routing, local XPI import, private-browsing extension permissions and full compatibility reporting are not implemented.
 - No complete GeckoSession state restore.
-- No find-in-page, desktop-site toggle, reader mode or built-in translation UI.
+- Find-in-page is implemented but requires real-device validation; desktop-site toggle, reader mode and built-in translation UI are not implemented.
 - No built-in password manager/autofill UI or bookmark import/export.
 - Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.
