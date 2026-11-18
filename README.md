@@ -47,10 +47,12 @@ The browser has a working foundation, but these areas are still incomplete or re
 
 - Full GeckoSession state restoration, including back/forward stacks, scroll position, form state and in-page state.
 - Recently closed tabs restore the last URL only and are kept in memory; they do not restore the complete session.
-- Firefox WebExtension browser/page actions with icons and badges, popup windows, options-page routing, and supported tabs.create / tabs.update / tabs.remove integration.
+- Firefox WebExtension browser/page actions with icons and badges, popup windows, options-page routing, and supported `tabs.create` / `tabs.update` / `tabs.remove` integration.
+- Basic `downloads.download()` integration through GeckoView and Cat's download manager, including progress and completion/error notifications.
 - Local XPI import through Android's document picker, limited to 50 MB and validated by GeckoView; Mozilla signature checks remain enforced.
 - Per-extension private-browsing access is disabled by default and requires explicit user confirmation. Chrome Web Store compatibility and full API parity are not provided.
-- Persistent download-task restoration, pause/resume and retry.
+- The WebExtensions downloads API is partial: `saveAs`, full conflict-action behavior, extension-driven cancel/pause/resume and persistent task restoration are not implemented.
+- The app's own download task list is in-memory; saved files remain in device storage.
 - Complete website-permission coverage and physical-device validation of permission prompts and private-session boundaries.
 - Desktop-site mode, reader mode, built-in translation and a complete tracking-protection dashboard.
 
