@@ -160,6 +160,7 @@ class BrowserController(
         private set
     var sitePermissionsMessage by mutableStateOf<String?>(null)
         private set
+    private var sitePermissionsLoadVersion = 0
 
     var sitePermissionPrompt by mutableStateOf<SitePermissionPrompt?>(null)
         private set
@@ -533,6 +534,7 @@ class BrowserController(
         if (isSitePermissionsLoading) return
         isSitePermissionsLoading = true
         sitePermissionsMessage = null
+        val requestVersion = ++sitePermissionsLoadVersion
         storageHandler.post {
             storageController.getAllPermissions().accept(
                 { permissions ->
@@ -554,6 +556,7 @@ class BrowserController(
                     }.sortedWith(compareBy<SitePermissionEntry>({ it.origin }, { it.permissionLabel }))
 
                     dataHandler.post {
+                        if (requestVersion != sitePermissionsLoadVersion) return@post
                         sitePermissions.clear()
                         sitePermissions.addAll(entries)
                         isSitePermissionsLoading = false
@@ -561,6 +564,7 @@ class BrowserController(
                 },
                 { error ->
                     dataHandler.post {
+                        if (requestVersion != sitePermissionsLoadVersion) return@post
                         isSitePermissionsLoading = false
                         sitePermissionsMessage = error?.message ?: "Không thể tải quyền website."
                     }
@@ -656,6 +660,8 @@ class BrowserController(
                 {
                     dataHandler.post {
                         if (clearSitePermissions) {
+                            sitePermissionsLoadVersion++
+                            isSitePermissionsLoading = false
                             sitePermissions.clear()
                             loadSitePermissions()
                         }
