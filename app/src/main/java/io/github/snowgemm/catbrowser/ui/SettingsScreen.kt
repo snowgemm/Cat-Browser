@@ -1,6 +1,7 @@
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,29 +10,137 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
+import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 
 @Composable
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val updateManager = remember { BrowserUpdateManager(context) }
+    val updateState = updateManager.state
     var homePage by remember(controller.homePage) { mutableStateOf(controller.homePage) }
     var homePageError by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var historyCleared by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-        .statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+    LaunchedEffect(Unit) { updateManager.checkForUpdates() }
+
+    Column(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding().navigationBarsPadding()
+    ) {
+        Row(
+            Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             TextButton(onClick = onBack) { Text("‹  Quay lại") }
-            Text("Cài đặt", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+            Text(
+                "Cài đặt",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
         }
-        LazyColumn(Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 30.dp),
+            verticalArrangement = Arrangement.spacedBy(17.dp)
+        ) {
+            item {
+                SettingsSectionTitle("CAT BROWSER")
+                SettingsCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text("猫", Modifier.padding(horizontal = 15.dp, vertical = 11.dp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Cat Browser", style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold)
+                            Text("Riêng tư · Nhanh · Linh hoạt",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
+                            Text("GECKOVIEW", Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
+                        }
+                    }
+                }
+            }
+            item {
+                SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
+                SettingsCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Phiên bản mới", style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text(updateState.message, color = if (updateState.error) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        if (updateState.isChecking) {
+                            CircularProgressIndicator(Modifier.size(23.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("↻", color = MaterialTheme.colorScheme.secondary, fontSize = 25.sp)
+                        }
+                    }
+                    if (updateState.isDownloading) {
+                        LinearProgressIndicator(
+                            progress = { updateState.progress / 100f },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Text("${updateState.progress}%",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (updateState.updateAvailable) {
+                        Text("Phiên bản ${updateState.version}",
+                            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.secondary)
+                        if (updateState.releaseNotes.isNotBlank()) {
+                            Text(updateState.releaseNotes.take(700),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            when {
+                                updateState.downloaded -> updateManager.installDownloadedApk()
+                                updateState.updateAvailable -> updateManager.downloadUpdate()
+                                else -> updateManager.checkForUpdates()
+                            }
+                        },
+                        enabled = !updateState.isChecking && !updateState.isDownloading,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            when {
+                                updateState.isDownloading -> "Đang tải…"
+                                updateState.downloaded -> "Cài đặt bản cập nhật"
+                                updateState.updateAvailable -> "Tải bản cập nhật"
+                                else -> "Kiểm tra cập nhật"
+                            }
+                        )
+                    }
+                    Text("APK được tải từ GitHub Releases và kiểm tra SHA-256 trước khi mở trình cài đặt Android.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+            }
             item {
                 SettingsSectionTitle("GIAO DIỆN")
                 SettingsCard {
@@ -116,10 +225,12 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 }
             }
             item {
-                SettingsSectionTitle("VỀ CAT BROWSER")
+                SettingsSectionTitle("THÔNG TIN")
                 SettingsCard {
-                    Text("Cat Browser", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Phiên bản 0.2.0 · GeckoView", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Text("Cat Browser", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text("Phiên bản ứng dụng được đọc trực tiếp từ Android.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
                     Text("Chủ đề chỉ thay đổi giao diện trình duyệt, không tự ép màu các trang web.",
                         modifier = Modifier.padding(top = 8.dp),
@@ -147,17 +258,22 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Text(title, Modifier.padding(start = 4.dp, bottom = 8.dp),
-        color = MaterialTheme.colorScheme.primary, fontSize = 12.sp,
-        fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+    Text(title, Modifier.padding(start = 4.dp, bottom = 7.dp),
+        color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp,
+        fontWeight = FontWeight.Bold, letterSpacing = 1.15.sp)
 }
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface, tonalElevation = 1.dp) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 15.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp), content = content)
+    Surface(
+        Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+            RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp), content = content)
     }
 }
 
