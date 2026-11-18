@@ -42,10 +42,10 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     SettingsChoice("Theo hệ thống", "Tự đổi theo giao diện điện thoại",
                         controller.themeMode == "system") { controller.updateThemeMode("system") }
                     SettingsChoice("Sáng", "Nền sáng, chữ tối", controller.themeMode == "light") {
-                        controller.setThemeMode("light")
+                        controller.updateThemeMode("light")
                     }
                     SettingsChoice("Tối", "Nền tối dịu mắt", controller.themeMode == "dark") {
-                        controller.setThemeMode("dark")
+                        controller.updateThemeMode("dark")
                     }
                 }
             }
@@ -91,7 +91,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
                         controller.startupMode == "continue") { controller.updateStartupMode("continue") }
                     SettingsChoice("Mở trang chủ", "Bắt đầu bằng một tab trang chủ mới",
-                        controller.startupMode == "home") { controller.setStartupMode("home") }
+                        controller.startupMode == "home") { controller.updateStartupMode("home") }
                 }
             }
             item {
