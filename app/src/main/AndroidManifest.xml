@@ -24,6 +24,7 @@
         </provider>
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.CatBrowser.Starting"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
