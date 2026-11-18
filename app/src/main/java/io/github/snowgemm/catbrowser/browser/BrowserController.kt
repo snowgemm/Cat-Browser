@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.browser
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -11,6 +13,7 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import java.util.UUID
+import java.util.concurrent.Executors
 
 const val START_PAGE_URL = "https://duckduckgo.com/"
 const val DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
@@ -74,6 +77,21 @@ class BrowserController(
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
 
+    var isHistoryLoading by mutableStateOf(false)
+        private set
+    var isHistoryLoaded by mutableStateOf(false)
+        private set
+    var isBookmarksLoading by mutableStateOf(false)
+        private set
+    var isBookmarksLoaded by mutableStateOf(false)
+        private set
+
+    private val dataHandler = Handler(Looper.getMainLooper())
+    private val dataExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "CatBrowserData").apply { isDaemon = true }
+    }
+    private var pendingBookmarkToggle = false
+
     var selectedTabId by mutableStateOf("")
         private set
 
@@ -81,7 +99,6 @@ class BrowserController(
         get() = tabs.firstOrNull { it.id == selectedTabId }
 
     init {
-        restoreCollections()
         if (startupMode == STARTUP_CONTINUE) restoreTabs()
 
         if (tabs.isEmpty()) {
@@ -234,7 +251,51 @@ class BrowserController(
         }
     }
 
+    fun loadHistory() {
+        if (isHistoryLoaded || isHistoryLoading) return
+        isHistoryLoading = true
+        dataExecutor.execute {
+            val entries = runCatching {
+                readEntries(KEY_HISTORY)
+                    .sortedByDescending { it.timestamp }
+                    .take(MAX_HISTORY)
+            }.getOrDefault(emptyList())
+
+            dataHandler.post {
+                if (!isHistoryLoaded) history.addAll(entries)
+                isHistoryLoaded = true
+                isHistoryLoading = false
+            }
+        }
+    }
+
+    fun loadBookmarks() {
+        if (isBookmarksLoaded || isBookmarksLoading) return
+        isBookmarksLoading = true
+        dataExecutor.execute {
+            val entries = runCatching {
+                readEntries(KEY_BOOKMARKS).sortedByDescending { it.timestamp }
+            }.getOrDefault(emptyList())
+
+            dataHandler.post {
+                if (!isBookmarksLoaded) bookmarks.addAll(entries)
+                isBookmarksLoaded = true
+                isBookmarksLoading = false
+                if (pendingBookmarkToggle) {
+                    pendingBookmarkToggle = false
+                    toggleBookmark()
+                }
+            }
+        }
+    }
+
     fun toggleBookmark() {
+        if (!isBookmarksLoaded) {
+            pendingBookmarkToggle = true
+            loadBookmarks()
+            return
+        }
+
         val tab = activeTab ?: return
         if (!isWebUrl(tab.url)) return
 
@@ -258,6 +319,8 @@ class BrowserController(
 
     fun clearHistory() {
         history.clear()
+        isHistoryLoaded = true
+        isHistoryLoading = false
         persistHistory()
     }
 
@@ -458,17 +521,26 @@ class BrowserController(
     private fun recordVisit(tab: BrowserTab) {
         if (!isWebUrl(tab.url)) return
 
-        history.removeAll { it.url == tab.url }
-        history.add(
-            0,
-            BrowserEntry(
-                title = tab.title.ifBlank { tab.url },
-                url = tab.url,
-                timestamp = System.currentTimeMillis()
-            )
+        val visit = BrowserEntry(
+            title = tab.title.ifBlank { tab.url },
+            url = tab.url,
+            timestamp = System.currentTimeMillis()
         )
-        while (history.size > MAX_HISTORY) history.removeAt(history.lastIndex)
-        persistHistory()
+        if (isHistoryLoaded) {
+            history.removeAll { it.url == tab.url }
+            history.add(0, visit)
+            while (history.size > MAX_HISTORY) history.removeAt(history.lastIndex)
+            persistHistory()
+        } else {
+            // Preserve the existing history without loading it into the startup UI.
+            dataExecutor.execute {
+                val saved = runCatching { readEntries(KEY_HISTORY).toMutableList() }
+                    .getOrDefault(mutableListOf())
+                saved.removeAll { it.url == visit.url }
+                saved.add(0, visit)
+                writeEntries(KEY_HISTORY, saved.sortedByDescending { it.timestamp }.take(MAX_HISTORY))
+            }
+        }
     }
 
     private fun restoreTabs() {
@@ -492,14 +564,6 @@ class BrowserController(
             )
         }
         selectedTabId = preferences.getString(KEY_ACTIVE_TAB, "").orEmpty()
-    }
-
-    private fun restoreCollections() {
-        val savedHistory = readEntries(KEY_HISTORY)
-        history.addAll(savedHistory.sortedByDescending { it.timestamp }.take(MAX_HISTORY))
-
-        val savedBookmarks = readEntries(KEY_BOOKMARKS)
-        bookmarks.addAll(savedBookmarks.sortedByDescending { it.timestamp })
     }
 
     private fun readEntries(key: String): List<BrowserEntry> {
@@ -547,7 +611,14 @@ class BrowserController(
     }
 
     private fun persistBookmarks() {
-        preferences.edit().putString(KEY_BOOKMARKS, entriesToJson(bookmarks).toString()).apply()
+        val snapshot = bookmarks.toList()
+        dataExecutor.execute {
+            writeEntries(KEY_BOOKMARKS, snapshot)
+        }
+    }
+
+    private fun writeEntries(key: String, entries: List<BrowserEntry>) {
+        preferences.edit().putString(key, entriesToJson(entries).toString()).apply()
     }
 
     private fun entriesToJson(entries: List<BrowserEntry>): JSONArray {
