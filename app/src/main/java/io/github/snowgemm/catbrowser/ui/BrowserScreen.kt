@@ -223,6 +223,11 @@ private fun BrowserMainScreen(
     LaunchedEffect(showBookmarks) {
         if (showBookmarks) controller.loadBookmarks()
     }
+    LaunchedEffect(controller.sitePermissionPrompt?.permission) {
+        val permission = controller.sitePermissionPrompt?.permission ?: return@LaunchedEffect
+        withFrameNanos { }
+        permission.notifyShown()
+    }
 
     val tab = controller.activeTab ?: return
     var address by remember(tab.id) { mutableStateOf(TextFieldValue(tab.url)) }
