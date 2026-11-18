@@ -34,7 +34,8 @@ class BrowserDownloadItem internal constructor(
     val sourceUrl: String,
     val mimeType: String,
     val totalBytes: Long,
-    val isPrivate: Boolean
+    val isPrivate: Boolean,
+    val createdAt: Long = System.currentTimeMillis()
 ) {
     var status by mutableStateOf(BrowserDownloadStatus.QUEUED)
         internal set
@@ -75,9 +76,13 @@ class BrowserDownloadManager(context: Context) {
 
     val downloads = mutableStateListOf<BrowserDownloadItem>()
 
-    fun enqueue(response: WebResponse, privateMode: Boolean) {
-        val body = response.body
-        if (body == null) return
+    fun enqueue(
+        response: WebResponse,
+        privateMode: Boolean,
+        requestedFileName: String? = null,
+        onChanged: ((BrowserDownloadItem) -> Unit)? = null
+    ): BrowserDownloadItem? {
+        val body = response.body ?: return null
 
         val mimeType = response.headers.entries
             .firstOrNull { it.key.equals("content-type", ignoreCase = true) }
@@ -94,7 +99,10 @@ class BrowserDownloadManager(context: Context) {
             ?.coerceAtLeast(0L)
             ?: -1L
 
-        val fileName = resolveFileName(response)
+        val fileName = requestedFileName
+            ?.takeIf(String::isNotBlank)
+            ?.let(::sanitizeDownloadFileName)
+            ?: resolveFileName(response)
         val item = BrowserDownloadItem(
             id = UUID.randomUUID().toString(),
             fileName = fileName,
@@ -106,8 +114,9 @@ class BrowserDownloadManager(context: Context) {
         downloads.add(0, item)
 
         executor.execute {
-            copyResponse(item, body)
+            copyResponse(item, body, onChanged)
         }
+        return item
     }
 
     fun cancel(item: BrowserDownloadItem) {
@@ -172,7 +181,11 @@ class BrowserDownloadManager(context: Context) {
         completed.forEach { remove(it, deleteFile = deleteFiles) }
     }
 
-    private fun copyResponse(item: BrowserDownloadItem, input: InputStream) {
+    private fun copyResponse(
+        item: BrowserDownloadItem,
+        input: InputStream,
+        onChanged: ((BrowserDownloadItem) -> Unit)?
+    ) {
         item.inputStream = input
         var output: java.io.OutputStream? = null
         var pendingMediaStoreUri: Uri? = null
@@ -209,7 +222,7 @@ class BrowserDownloadManager(context: Context) {
                 output = temporaryFile.outputStream().buffered()
             }
 
-            updateOnMain(item) { it.status = BrowserDownloadStatus.DOWNLOADING }
+            updateOnMain(item, onChanged) { it.status = BrowserDownloadStatus.DOWNLOADING }
 
             val buffer = ByteArray(64 * 1024)
             var received = 0L
@@ -231,7 +244,10 @@ class BrowserDownloadManager(context: Context) {
                         }
                         if (percent != lastPercent || received - item.receivedBytes >= 512 * 1024) {
                             lastPercent = percent
-                            mainHandler.post { item.receivedBytes = received }
+                            mainHandler.post {
+                                item.receivedBytes = received
+                                onChanged?.invoke(item)
+                            }
                         }
                     }
                     destination.flush()
@@ -254,7 +270,7 @@ class BrowserDownloadManager(context: Context) {
                 }
             }
 
-            updateOnMain(item) {
+            updateOnMain(item, onChanged) {
                 it.receivedBytes = received
                 it.status = BrowserDownloadStatus.COMPLETE
                 it.errorMessage = null
@@ -262,14 +278,14 @@ class BrowserDownloadManager(context: Context) {
         } catch (error: InterruptedException) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
             temporaryFile?.delete()
-            updateOnMain(item) {
+            updateOnMain(item, onChanged) {
                 it.status = BrowserDownloadStatus.CANCELLED
                 it.errorMessage = "Đã hủy tải xuống."
             }
         } catch (error: Exception) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
             temporaryFile?.delete()
-            updateOnMain(item) {
+            updateOnMain(item, onChanged) {
                 if (item.isCancelled) {
                     it.status = BrowserDownloadStatus.CANCELLED
                     it.errorMessage = "Đã hủy tải xuống."
@@ -287,9 +303,13 @@ class BrowserDownloadManager(context: Context) {
 
     private fun updateOnMain(
         item: BrowserDownloadItem,
+        onChanged: ((BrowserDownloadItem) -> Unit)? = null,
         update: (BrowserDownloadItem) -> Unit
     ) {
-        mainHandler.post { update(item) }
+        mainHandler.post {
+            update(item)
+            onChanged?.invoke(item)
+        }
     }
 
     private fun outputContentUri(item: BrowserDownloadItem): Uri? {
