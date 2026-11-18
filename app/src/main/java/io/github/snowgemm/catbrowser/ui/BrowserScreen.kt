@@ -1,6 +1,14 @@
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,6 +36,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
@@ -41,6 +50,8 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
+import io.github.snowgemm.catbrowser.R
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
@@ -81,28 +92,120 @@ fun CatBrowserTheme(themeMode: String = "system", content: @Composable () -> Uni
 }
 
 @Composable
+fun BrowserStartupScreen(errorMessage: String?, onRetry: () -> Unit) {
+    val infiniteTransition = rememberInfiniteTransition(label = "startup-logo")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "startup-logo-rotation"
+    )
+
+    Box(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(13.dp)
+        ) {
+            androidx.compose.foundation.Image(
+                painter = painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = "Cat Browser",
+                modifier = Modifier.size(76.dp).graphicsLayer { rotationZ = rotation }
+            )
+            Text(
+                "Cat Browser",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            if (errorMessage == null) {
+                Text(
+                    "Đang khởi tạo trình duyệt…",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                LinearProgressIndicator(
+                    Modifier.width(116.dp).padding(top = 4.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text(
+                    errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Button(onClick = onRetry, shape = RoundedCornerShape(14.dp)) {
+                    Text("Thử lại")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun BrowserScreen(controller: BrowserController) {
-    var showExtensions by remember { mutableStateOf(false) }
-    var showTabs by remember { mutableStateOf(false) }
+    var destination by remember { mutableStateOf(BrowserDestination.BROWSER) }
+
+    BackHandler(enabled = destination != BrowserDestination.BROWSER) {
+        destination = BrowserDestination.BROWSER
+    }
+
+    AnimatedContent(
+        targetState = destination,
+        transitionSpec = {
+            (fadeIn(tween(190)) + slideInVertically(tween(190)) { it / 24 }) togetherWith
+                (fadeOut(tween(130)) + slideOutVertically(tween(130)) { -it / 24 })
+        },
+        label = "browser-navigation"
+    ) { target ->
+        when (target) {
+            BrowserDestination.BROWSER -> BrowserMainScreen(
+                controller = controller,
+                onOpenTabs = { destination = BrowserDestination.TABS },
+                onOpenExtensions = { destination = BrowserDestination.EXTENSIONS },
+                onOpenSettings = { destination = BrowserDestination.SETTINGS }
+            )
+            BrowserDestination.TABS -> TabsOverview(
+                controller = controller,
+                onBack = { destination = BrowserDestination.BROWSER },
+                onNewTab = {
+                    controller.newTab()
+                    destination = BrowserDestination.BROWSER
+                }
+            )
+            BrowserDestination.EXTENSIONS -> ExtensionsScreen(controller.extensionsManager) {
+                destination = BrowserDestination.BROWSER
+            }
+            BrowserDestination.SETTINGS -> SettingsScreen(controller) {
+                destination = BrowserDestination.BROWSER
+            }
+        }
+    }
+}
+
+private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS }
+
+@Composable
+private fun BrowserMainScreen(
+    controller: BrowserController,
+    onOpenTabs: () -> Unit,
+    onOpenExtensions: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
-    if (showExtensions) {
-        ExtensionsScreen(controller.extensionsManager) { showExtensions = false }
-        return
+    LaunchedEffect(showHistory) {
+        if (showHistory) controller.loadHistory()
     }
-    if (showTabs) {
-        TabsOverview(controller, { showTabs = false }, {
-            controller.newTab()
-            showTabs = false
-        })
-        return
-    }
-    if (showSettings) {
-        SettingsScreen(controller) { showSettings = false }
-        return
+    LaunchedEffect(showBookmarks) {
+        if (showBookmarks) controller.loadBookmarks()
     }
 
     val tab = controller.activeTab ?: return
@@ -133,20 +236,26 @@ fun BrowserScreen(controller: BrowserController) {
             .navigationBarsPadding()
             .imePadding()
     ) {
-        tab.error?.let { message ->
-            Row(
-                Modifier.fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(start = 15.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    message,
-                    Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp
-                )
-                TextButton(onClick = { controller.stopOrReload() }) { Text("Thử lại") }
+        AnimatedVisibility(
+            visible = tab.error != null,
+            enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
+            exit = fadeOut(tween(100))
+        ) {
+            tab.error?.let { message ->
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(start = 15.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        message,
+                        Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    TextButton(onClick = { controller.stopOrReload() }) { Text("Thử lại") }
+                }
             }
         }
 
@@ -272,7 +381,7 @@ fun BrowserScreen(controller: BrowserController) {
                 }
             }
 
-            TabSwitcherAction(controller.tabs.size) { showTabs = true }
+            TabSwitcherAction(controller.tabs.size) { onOpenTabs() }
             Box {
                 DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
                 DropdownMenu(
@@ -316,7 +425,7 @@ fun BrowserScreen(controller: BrowserController) {
                     DropdownMenuItem(
                         text = { Text("Tiện ích mở rộng") },
                         leadingIcon = { BrowserGlyph(BrowserGlyphType.EXTENSIONS) },
-                        onClick = { showMenu = false; showExtensions = true }
+                        onClick = { showMenu = false; onOpenExtensions() }
                     )
                     DropdownMenuItem(
                         text = { Text("Dấu trang (" + controller.bookmarks.size + ")") },
@@ -332,7 +441,7 @@ fun BrowserScreen(controller: BrowserController) {
                     DropdownMenuItem(
                         text = { Text("Cài đặt") },
                         leadingIcon = { BrowserGlyph(BrowserGlyphType.SETTINGS) },
-                        onClick = { showMenu = false; showSettings = true }
+                        onClick = { showMenu = false; onOpenSettings() }
                     )
                 }
             }
@@ -681,7 +790,7 @@ private fun TabsOverview(
                         if (selected) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
                     ),
-                    modifier = Modifier.fillMaxWidth().height(164.dp)
+                    modifier = Modifier.fillMaxWidth().height(164.dp).animateItem()
                 ) {
                     Column(
                         Modifier.fillMaxSize().padding(11.dp),
@@ -793,13 +902,24 @@ private fun EntryDialog(
     emptyMessage: String,
     onDismiss: () -> Unit,
     onSelect: (BrowserEntry) -> Unit,
-    onClear: (() -> Unit)? = null
+    onClear: (() -> Unit)? = null,
+    isLoading: Boolean = false
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            if (entries.isEmpty()) {
+            if (isLoading) {
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Đang tải dữ liệu…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else if (entries.isEmpty()) {
                 Text(emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(Modifier.heightIn(max = 380.dp)) {
