@@ -371,7 +371,7 @@ private data class ParsedBrowserVersion(
 
 internal fun browserVersionCodeFromTag(value: String): Long? {
     val normalized = value.removePrefix("v")
-    val match = Regex("""^(\\d+)\\.(\\d+)\\.(\\d+)(?:-beta\\.(\\d+))?$""")
+    val match = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$""")
         .matchEntire(normalized) ?: return null
 
     val major = match.groupValues[1].toLongOrNull() ?: return null
