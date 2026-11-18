@@ -56,6 +56,8 @@ class BrowserTab internal constructor(
 }
 
 internal fun shouldPersistBrowserTab(tab: BrowserTab): Boolean = !tab.isPrivate
+internal fun shouldRecordBrowserHistory(tab: BrowserTab): Boolean = !tab.isPrivate
+internal fun shouldAllowBookmark(tab: BrowserTab): Boolean = !tab.isPrivate
 
 class BrowserController(
     context: Context,
@@ -340,7 +342,7 @@ class BrowserController(
         }
 
         val tab = activeTab ?: return
-        if (tab.isPrivate || !isWebUrl(tab.url)) return
+        if (!shouldAllowBookmark(tab) || !isWebUrl(tab.url)) return
 
         val existing = bookmarks.indexOfFirst { it.url == tab.url }
         if (existing >= 0) {
@@ -567,7 +569,7 @@ class BrowserController(
     }
 
     private fun recordVisit(tab: BrowserTab) {
-        if (tab.isPrivate || !isWebUrl(tab.url)) return
+        if (!shouldRecordBrowserHistory(tab) || !isWebUrl(tab.url)) return
 
         val visit = BrowserEntry(
             title = tab.title.ifBlank { tab.url },
