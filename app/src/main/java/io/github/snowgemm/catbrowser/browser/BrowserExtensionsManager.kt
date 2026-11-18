@@ -182,6 +182,180 @@ class BrowserExtensionsManager(
         decision?.invoke(approved, allowDataCollection)
     }
 
+    private fun attachExtension(extension: WebExtension) {
+        extension.setActionDelegate(createActionDelegate(extension))
+        extension.setTabDelegate(object : WebExtension.TabDelegate {
+            override fun onNewTab(
+                source: WebExtension,
+                createDetails: WebExtension.CreateTabDetails
+            ): GeckoResult<GeckoSession>? {
+                val session = onCreateTabFromExtension() ?: return null
+                return GeckoResult.fromValue(session)
+            }
+
+            override fun onOpenOptionsPage(source: WebExtension) {
+                val optionsUrl = source.metaData.optionsPageUrl.orEmpty()
+                val optionsUri = Uri.parse(optionsUrl)
+                val baseUri = Uri.parse(source.metaData.baseUrl)
+                if (optionsUri.scheme == "moz-extension" &&
+                    optionsUri.host != null &&
+                    optionsUri.host == baseUri.host
+                ) {
+                    onOpenOptionsPage(optionsUrl)
+                } else {
+                    statusMessage = "Trang tuỳ chọn chưa sẵn sàng hoặc không có trong tiện ích này."
+                }
+            }
+        })
+    }
+
+    fun attachSession(session: GeckoSession) {
+        installed.filter { it.metaData.enabled }.forEach { extension ->
+            session.getWebExtensionController().setActionDelegate(
+                extension,
+                createActionDelegate(extension, session)
+            )
+        }
+    }
+
+    private fun createActionDelegate(
+        extension: WebExtension,
+        boundSession: GeckoSession? = null
+    ): WebExtension.ActionDelegate = object : WebExtension.ActionDelegate {
+        override fun onBrowserAction(
+            extension: WebExtension,
+            session: GeckoSession?,
+            action: WebExtension.Action
+        ) {
+            updateAction(extension, session ?: boundSession, action, isPageAction = false)
+        }
+
+        override fun onPageAction(
+            extension: WebExtension,
+            session: GeckoSession?,
+            action: WebExtension.Action
+        ) {
+            updateAction(extension, session ?: boundSession, action, isPageAction = true)
+        }
+
+        override fun onOpenPopup(
+            extension: WebExtension,
+            action: WebExtension.Action
+        ): GeckoResult<GeckoSession>? = openPopup(extension)
+
+        override fun onTogglePopup(
+            extension: WebExtension,
+            action: WebExtension.Action
+        ): GeckoResult<GeckoSession>? {
+            if (popup?.extensionId == extension.id) {
+                closePopup()
+                return null
+            }
+            return openPopup(extension)
+        }
+    }
+
+    private fun updateAction(
+        extension: WebExtension,
+        session: GeckoSession?,
+        action: WebExtension.Action,
+        isPageAction: Boolean
+    ) {
+        val identity = session?.let { System.identityHashCode(it) }
+        toolbarActions.removeAll {
+            it.extensionId == extension.id &&
+                it.isPageAction == isPageAction &&
+                it.sessionIdentity == identity
+        }
+        toolbarActions.add(
+            ExtensionToolbarAction(
+                extensionId = extension.id,
+                extensionName = extension.metaData.name ?: extension.id,
+                title = action.title?.takeIf(String::isNotBlank)
+                    ?: extension.metaData.name ?: extension.id,
+                isPageAction = isPageAction,
+                enabled = action.enabled ?: !isPageAction,
+                badgeText = action.badgeText,
+                badgeBackgroundColor = action.badgeBackgroundColor,
+                sessionIdentity = identity,
+                action = action
+            )
+        )
+    }
+
+    fun actionsFor(session: GeckoSession?): List<ExtensionToolbarAction> {
+        val sessionIdentity = session?.let { System.identityHashCode(it) }
+        val defaults = toolbarActions.filter { it.sessionIdentity == null }
+        val overrides = toolbarActions.filter {
+            sessionIdentity != null && it.sessionIdentity == sessionIdentity
+        }
+        val merged = defaults.map { default ->
+            val override = overrides.firstOrNull {
+                it.extensionId == default.extensionId &&
+                    it.isPageAction == default.isPageAction
+            }
+            if (override == null) default else override.copy(
+                title = override.title.ifBlank { default.title },
+                action = override.action.withDefault(default.action)
+            )
+        }
+        return (merged + overrides.filter { override ->
+            defaults.none {
+                it.extensionId == override.extensionId &&
+                    it.isPageAction == override.isPageAction
+            }
+        }).filter { it.enabled }.sortedBy { it.extensionName.lowercase() }
+    }
+
+    private fun openPopup(extension: WebExtension): GeckoResult<GeckoSession>? {
+        if (popup != null) closePopup()
+        val session = GeckoSession()
+        session.contentDelegate = object : GeckoSession.ContentDelegate {
+            override fun onCloseRequest(session: GeckoSession) {
+                closePopup(session)
+            }
+        }
+        session.open(runtime)
+        session.setActive(true)
+        session.setFocused(true)
+        popup = ExtensionPopupState(
+            extensionId = extension.id,
+            extensionName = extension.metaData.name ?: extension.id,
+            session = session
+        )
+        return GeckoResult.fromValue(session)
+    }
+
+    fun closePopup(expectedSession: GeckoSession? = null) {
+        val current = popup ?: return
+        if (expectedSession != null && current.session !== expectedSession) return
+        popup = null
+        current.session.contentDelegate = null
+        current.session.setFocused(false)
+        current.session.setActive(false)
+        if (current.session.isOpen) current.session.close()
+    }
+
+    fun setAllowedInPrivateBrowsing(extension: WebExtension, allowed: Boolean) {
+        if (isWorking) return
+        isWorking = true
+        controller.setAllowedInPrivateBrowsing(extension, allowed).accept(
+            { updated ->
+                isWorking = false
+                statusMessage = if (allowed) {
+                    "Đã cho phép ${updated?.metaData?.name ?: extension.id} chạy trong tab ẩn danh."
+                } else {
+                    "Đã tắt quyền chạy trong tab ẩn danh."
+                }
+                refreshInstalled()
+            },
+            { error ->
+                isWorking = false
+                statusMessage = "Không thể đổi quyền ẩn danh: ${error?.message ?: "GeckoView từ chối yêu cầu"}"
+            }
+        )
+    }
+
     fun refreshInstalled() {
         if (isLoadingInstalled) return
         isLoadingInstalled = true
