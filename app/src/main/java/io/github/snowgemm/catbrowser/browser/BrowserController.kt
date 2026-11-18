@@ -134,7 +134,7 @@ class BrowserController(
         destroySession(removed)
 
         if (tabs.isEmpty()) {
-            val replacement = BrowserTab()
+            val replacement = BrowserTab(initialUrl = homePage)
             tabs.add(replacement)
             selectedTabId = replacement.id
             ensureSession(replacement)
