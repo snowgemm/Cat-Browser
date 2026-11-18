@@ -152,6 +152,7 @@ class BrowserController(
     val extensionsManager = BrowserExtensionsManager(
         runtime = runtime,
         context = context.applicationContext,
+        downloadManager = downloadManager,
         sessionProvider = { tabs.mapNotNull { it.session } },
         onCreateTabFromExtension = ::createExtensionTab,
         onActivateSession = ::activateExtensionTab,
