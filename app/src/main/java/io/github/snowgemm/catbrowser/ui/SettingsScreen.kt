@@ -20,19 +20,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
+import io.github.snowgemm.catbrowser.update.UpdateChannel
+import io.github.snowgemm.catbrowser.update.UpdateUiState
 
 @Composable
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = remember { BrowserUpdateManager(context) }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
-    val updateState = updateManager.state
+    val stableUpdateState = updateManager.stableState
+    val betaUpdateState = updateManager.betaState
     var homePage by remember(controller.homePage) { mutableStateOf(controller.homePage) }
     var homePageError by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var historyCleared by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { updateManager.checkForUpdates() }
+    LaunchedEffect(Unit) {
+        updateManager.checkForUpdates(UpdateChannel.STABLE)
+        controller.loadHistory()
+        controller.loadBookmarks()
+    }
 
     Column(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -87,65 +94,26 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
             }
             item {
                 SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
-                SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Phiên bản mới", style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold)
-                            Text(updateState.message, color = if (updateState.error) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (updateState.isChecking) {
-                            CircularProgressIndicator(Modifier.size(23.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text("↻", color = MaterialTheme.colorScheme.secondary, fontSize = 25.sp)
-                        }
-                    }
-                    if (updateState.isDownloading) {
-                        LinearProgressIndicator(
-                            progress = { updateState.progress / 100f },
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                        Text("${updateState.progress}%",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (updateState.updateAvailable) {
-                        Text("Phiên bản ${updateState.version}",
-                            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.secondary)
-                        if (updateState.releaseNotes.isNotBlank()) {
-                            Text(updateState.releaseNotes.take(700),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Button(
-                        onClick = {
-                            when {
-                                updateState.downloaded -> updateManager.installDownloadedApk()
-                                updateState.updateAvailable -> updateManager.downloadUpdate()
-                                else -> updateManager.checkForUpdates()
-                            }
-                        },
-                        enabled = !updateState.isChecking && !updateState.isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text(
-                            when {
-                                updateState.isDownloading -> "Đang tải…"
-                                updateState.downloaded -> "Cài đặt bản cập nhật"
-                                updateState.updateAvailable -> "Tải bản cập nhật"
-                                else -> "Kiểm tra cập nhật"
-                            }
-                        )
-                    }
-                    Text("APK được tải từ GitHub Releases và kiểm tra SHA-256 trước khi mở trình cài đặt Android.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall)
-                }
+                UpdateChannelCard(
+                    title = "Stable",
+                    description = "Bản ổn định dành cho sử dụng hằng ngày.",
+                    channel = UpdateChannel.STABLE,
+                    state = stableUpdateState,
+                    manager = updateManager
+                )
+                UpdateChannelCard(
+                    title = "Beta · pre-release",
+                    description = "Bản thử nghiệm mới nhất. Có thể còn lỗi hoặc thay đổi chưa hoàn thiện.",
+                    channel = UpdateChannel.BETA,
+                    state = betaUpdateState,
+                    manager = updateManager
+                )
+                Text(
+                    "Mỗi kênh tải APK đúng kiến trúc thiết bị và xác minh SHA-256 trước khi mở trình cài đặt Android.",
+                    Modifier.padding(horizontal = 4.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
             item {
                 SettingsSectionTitle("GIAO DIỆN")
@@ -215,19 +183,33 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("Lịch sử duyệt web", fontWeight = FontWeight.SemiBold)
-                            Text("${controller.history.size} mục đã lưu",
+                            Text(
+                                if (controller.isHistoryLoaded) {
+                                    controller.history.size.toString() + " mục đã lưu"
+                                } else {
+                                    "Đang tải lịch sử…"
+                                },
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
-                        TextButton(onClick = { showClearHistoryDialog = true },
-                            enabled = controller.history.isNotEmpty()) { Text("Xóa") }
+                        TextButton(
+                            onClick = { showClearHistoryDialog = true },
+                            enabled = controller.isHistoryLoaded && controller.history.isNotEmpty()
+                        ) { Text("Xóa") }
                     }
                     if (historyCleared) Text("Đã xóa lịch sử.",
                         color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-                    Text("Dấu trang: ${controller.bookmarks.size}",
+                    Text(
+                        if (controller.isBookmarksLoaded) {
+                            "Dấu trang: " + controller.bookmarks.size
+                        } else {
+                            "Đang tải dấu trang…"
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
             item {
@@ -260,6 +242,93 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
         },
         dismissButton = { TextButton(onClick = { showClearHistoryDialog = false }) { Text("Hủy") } }
     )
+}
+
+@Composable
+private fun UpdateChannelCard(
+    title: String,
+    description: String,
+    channel: UpdateChannel,
+    state: UpdateUiState,
+    manager: BrowserUpdateManager
+) {
+    SettingsCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    description,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (state.isChecking || state.isDownloading) {
+                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+            }
+        }
+        Text(
+            state.message,
+            color = if (state.error) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+        if (state.isDownloading) {
+            LinearProgressIndicator(
+                progress = { state.progress / 100f },
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Text(
+                state.progress.toString() + "%",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        if (state.updateAvailable) {
+            Text(
+                "Phiên bản " + state.version,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            if (state.releaseNotes.isNotBlank()) {
+                Text(
+                    state.releaseNotes,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+        val onAction = {
+            when {
+                state.downloaded -> manager.installDownloadedApk(channel)
+                state.updateAvailable -> manager.downloadUpdate(channel)
+                else -> manager.checkForUpdates(channel)
+            }
+        }
+        val buttonEnabled = !state.isChecking && !state.isDownloading
+        val buttonText = when {
+            state.isDownloading -> "Đang tải…"
+            state.downloaded -> "Cài đặt " + title
+            state.updateAvailable -> "Tải " + title
+            channel == UpdateChannel.BETA -> "Kiểm tra Beta"
+            else -> "Kiểm tra Stable"
+        }
+        if (channel == UpdateChannel.BETA) {
+            OutlinedButton(
+                onClick = onAction,
+                enabled = buttonEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(buttonText) }
+        } else {
+            Button(
+                onClick = onAction,
+                enabled = buttonEnabled,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(buttonText) }
+        }
+    }
 }
 
 @Composable
