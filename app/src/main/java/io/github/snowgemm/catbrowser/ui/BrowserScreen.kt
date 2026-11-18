@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,6 +45,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -642,12 +644,21 @@ private fun BrowserMainScreen(
                                 color = MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        action.extensionName.firstOrNull()?.uppercase() ?: "E",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    val iconBitmap = action.iconBitmap
+                                    if (iconBitmap != null) {
+                                        Image(
+                                            bitmap = iconBitmap.asImageBitmap(),
+                                            contentDescription = action.title,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            action.extensionName.firstOrNull()?.uppercase() ?: "E",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                     action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
                                         Surface(
                                             modifier = Modifier.align(Alignment.TopEnd),
