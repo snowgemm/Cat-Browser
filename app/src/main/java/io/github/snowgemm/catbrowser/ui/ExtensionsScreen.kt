@@ -364,9 +364,22 @@ private fun ExtensionPermissionDialog(prompt: ExtensionPermissionPrompt, onDecis
                 if (prompt.dataCollectionPermissions.isNotEmpty()) item {
                     Text("Thu thập dữ liệu", Modifier.padding(top = 12.dp, bottom = 4.dp), fontWeight = FontWeight.SemiBold)
                     prompt.dataCollectionPermissions.forEach { Text("• " + it, fontSize = 12.sp) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = allowDataCollection, onCheckedChange = { allowDataCollection = it })
-                        Text("Cho phép quyền thu thập dữ liệu này", fontSize = 12.sp)
+                    if (prompt.kind == ExtensionPermissionPrompt.Kind.INSTALL &&
+                        "technicalAndInteraction" in prompt.dataCollectionPermissions
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = allowDataCollection, onCheckedChange = { allowDataCollection = it })
+                            Text("Cho phép gửi dữ liệu kỹ thuật và tương tác", fontSize = 12.sp)
+                        }
+                    } else if (prompt.kind != ExtensionPermissionPrompt.Kind.INSTALL) {
+                        Text(
+                            "Đồng ý sẽ chấp thuận toàn bộ quyền dữ liệu được liệt kê cùng yêu cầu này. " +
+                                "GeckoView không cung cấp lựa chọn tách riêng ở bước này.",
+                            Modifier.padding(top = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
                     }
                 }
                 item {
