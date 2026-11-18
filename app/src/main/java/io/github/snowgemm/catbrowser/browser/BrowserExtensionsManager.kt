@@ -70,7 +70,7 @@ data class ExtensionPopupState(
 
 /** Owns installed WebExtensions, browser actions and the Mozilla Add-ons catalog. */
 class BrowserExtensionsManager(
-    runtime: GeckoRuntime,
+    private val runtime: GeckoRuntime,
     private val context: Context,
     private val sessionProvider: () -> List<GeckoSession>,
     private val onCreateTabFromExtension: () -> GeckoSession?,
