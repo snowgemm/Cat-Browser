@@ -11,7 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -370,9 +370,9 @@ private fun BrowserGlyph(
     type: BrowserGlyphType,
     modifier: Modifier = Modifier,
     tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    size: androidx.compose.ui.unit.Dp = 20.dp
+    iconSize: androidx.compose.ui.unit.Dp = 20.dp
 ) {
-    Canvas(modifier.size(size)) {
+    Canvas(modifier.size(iconSize)) {
         val unit = size.minDimension / 24f
         val strokeWidth = 1.8f * unit
 
@@ -603,7 +603,7 @@ private fun TabSwitcherAction(count: Int, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            BrowserGlyph(BrowserGlyphType.TABS, size = 18.dp)
+            BrowserGlyph(BrowserGlyphType.TABS, iconSize = 18.dp)
             Text(count.toString(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
     }
@@ -660,7 +660,7 @@ private fun TabsOverview(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(controller.tabs, key = { it.id }) { tab ->
+            gridItems(controller.tabs, key = { it.id }) { tab ->
                 val domain = tab.url
                     .removePrefix("https://")
                     .removePrefix("http://")
@@ -718,7 +718,7 @@ private fun TabsOverview(
                             ) {
                                 BrowserGlyph(
                                     BrowserGlyphType.CLEAR,
-                                    size = 17.dp,
+                                    iconSize = 17.dp,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
