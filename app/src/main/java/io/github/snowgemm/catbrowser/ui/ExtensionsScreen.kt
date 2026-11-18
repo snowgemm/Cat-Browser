@@ -1,5 +1,7 @@
 package io.github.snowgemm.catbrowser.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -28,6 +30,10 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var section by remember { mutableStateOf("discover") }
     var pendingRemoval by remember { mutableStateOf<WebExtension?>(null) }
+    var pendingPrivateAccess by remember { mutableStateOf<WebExtension?>(null) }
+    val xpiPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(manager::installFromFile)
+    }
 
     LaunchedEffect(Unit) {
         manager.refreshInstalled()
@@ -62,8 +68,19 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                 fontSize = 25.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold)
             Text("Tìm và quản lý Firefox WebExtensions tương thích với GeckoView.",
                 Modifier.padding(top = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 4.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { xpiPicker.launch(arrayOf("*/*")) },
+                    enabled = !manager.isWorking
+                ) {
+                    Text("Cài từ tệp XPI")
+                }
+            }
 
-            Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 14.dp)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp)
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp)).padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 ExtensionTab("Khám phá", section == "discover", Modifier.weight(1f)) { section = "discover" }
@@ -142,7 +159,14 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                                 extension, manager.isWorking,
                                 { manager.setEnabled(extension, it) },
                                 { manager.update(extension) },
-                                { pendingRemoval = extension }
+                                { pendingRemoval = extension },
+                                { allowed ->
+                                    if (allowed && !extension.metaData.allowedInPrivateBrowsing) {
+                                        pendingPrivateAccess = extension
+                                    } else {
+                                        manager.setAllowedInPrivateBrowsing(extension, allowed)
+                                    }
+                                }
                             )
                         }
                     }
@@ -159,6 +183,29 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
         ExtensionPermissionDialog(prompt) { approved, allowData ->
             manager.resolvePermissionPrompt(approved, allowData)
         }
+    }
+
+    pendingPrivateAccess?.let { extension ->
+        AlertDialog(
+            onDismissRequest = { pendingPrivateAccess = null },
+            title = { Text("Cho phép tiện ích chạy trong tab ẩn danh?") },
+            text = {
+                Text(
+                    (extension.metaData.name ?: extension.id) +
+                        " có thể đọc hoặc thay đổi dữ liệu trên các trang được cấp quyền khi bạn duyệt riêng tư. " +
+                        "Chỉ bật khi bạn tin tưởng tiện ích này."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingPrivateAccess = null
+                    manager.setAllowedInPrivateBrowsing(extension, true)
+                }) { Text("Cho phép") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPrivateAccess = null }) { Text("Không cho phép") }
+            }
+        )
     }
 
     pendingRemoval?.let { extension ->
@@ -228,7 +275,8 @@ private fun InstalledExtensionCard(
     busy: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onUpdate: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onPrivateChange: (Boolean) -> Unit
 ) {
     val metadata = extension.metaData
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
@@ -255,7 +303,25 @@ private fun InstalledExtensionCard(
                 Text(it, Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-            Row(Modifier.fillMaxWidth().padding(top = 9.dp), horizontalArrangement = Arrangement.End) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = 9.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Cho phép trong tab ẩn danh", fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        if (metadata.allowedInPrivateBrowsing) "Đã cấp quyền" else "Mặc định đang tắt",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 10.sp
+                    )
+                }
+                Switch(
+                    checked = metadata.allowedInPrivateBrowsing,
+                    onCheckedChange = onPrivateChange,
+                    enabled = !busy
+                )
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onUpdate, enabled = !busy) { Text("Cập nhật") }
                 TextButton(onClick = onRemove, enabled = !busy) { Text("Gỡ") }
             }
