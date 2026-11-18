@@ -157,8 +157,11 @@ class BrowserController(
         private set
 
     private var pendingContentPermissionResult: GeckoResult<Int>? = null
+    private var pendingContentPermissionSession: GeckoSession? = null
     private var pendingMediaPermissionCallback: GeckoSession.PermissionDelegate.MediaCallback? = null
+    private var pendingMediaPermissionSession: GeckoSession? = null
     private var pendingAndroidPermissionCallback: GeckoSession.PermissionDelegate.Callback? = null
+    private var pendingAndroidPermissionSession: GeckoSession? = null
     private val dataHandler = Handler(Looper.getMainLooper())
     private val dataExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "CatBrowserData").apply { isDaemon = true }
@@ -468,6 +471,7 @@ class BrowserController(
     fun resolveSitePermission(allow: Boolean) {
         val result = pendingContentPermissionResult
         pendingContentPermissionResult = null
+        pendingContentPermissionSession = null
         sitePermissionPrompt = null
         result?.complete(
             if (allow) {
@@ -483,6 +487,7 @@ class BrowserController(
         val prompt = mediaPermissionPrompt ?: return
         val callback = pendingMediaPermissionCallback
         pendingMediaPermissionCallback = null
+        pendingMediaPermissionSession = null
         mediaPermissionPrompt = null
         if (allow && callback != null) {
             callback.grant(
@@ -497,6 +502,7 @@ class BrowserController(
     fun resolveAndroidPermissionRequest(granted: Boolean) {
         val callback = pendingAndroidPermissionCallback
         pendingAndroidPermissionCallback = null
+        pendingAndroidPermissionSession = null
         pendingAndroidPermissionRequest = null
         if (granted) callback?.grant() else callback?.reject()
     }
@@ -823,6 +829,7 @@ class BrowserController(
                     permissions = requested
                 )
                 pendingAndroidPermissionCallback = callback
+                pendingAndroidPermissionSession = session
                 pendingAndroidPermissionRequest = request
             }
 
@@ -841,6 +848,7 @@ class BrowserController(
                 }
 
                 pendingContentPermissionResult = result
+                pendingContentPermissionSession = session
                 val origin = runCatching { Uri.parse(perm.uri).host }.getOrNull() ?: perm.uri
                 sitePermissionPrompt = SitePermissionPrompt(
                     origin = origin,
@@ -877,6 +885,7 @@ class BrowserController(
                 }
                 pendingMediaPermissionCallback?.reject()
                 pendingMediaPermissionCallback = callback
+                pendingMediaPermissionSession = session
                 val origin = runCatching { Uri.parse(uri).host }.getOrNull() ?: uri
                 mediaPermissionPrompt = MediaPermissionPrompt(
                     origin = origin,
@@ -956,6 +965,28 @@ class BrowserController(
 
     private fun destroySession(tab: BrowserTab) {
         val session = tab.session ?: return
+
+        if (pendingContentPermissionSession === session) {
+            pendingContentPermissionResult?.complete(
+                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+            )
+            pendingContentPermissionResult = null
+            pendingContentPermissionSession = null
+            sitePermissionPrompt = null
+        }
+        if (pendingMediaPermissionSession === session) {
+            pendingMediaPermissionCallback?.reject()
+            pendingMediaPermissionCallback = null
+            pendingMediaPermissionSession = null
+            mediaPermissionPrompt = null
+        }
+        if (pendingAndroidPermissionSession === session) {
+            pendingAndroidPermissionCallback?.reject()
+            pendingAndroidPermissionCallback = null
+            pendingAndroidPermissionSession = null
+            pendingAndroidPermissionRequest = null
+        }
+
         session.setFocused(false)
         session.setActive(false)
         session.navigationDelegate = null
@@ -1120,7 +1151,8 @@ class BrowserController(
             android.Manifest.permission.ACCESS_COARSE_LOCATION,
             android.Manifest.permission.ACCESS_FINE_LOCATION,
             android.Manifest.permission.CAMERA,
-            android.Manifest.permission.RECORD_AUDIO
+            android.Manifest.permission.RECORD_AUDIO,
+            android.Manifest.permission.POST_NOTIFICATIONS
         )
     }
 }
