@@ -55,6 +55,8 @@ class BrowserTab internal constructor(
         internal set
 }
 
+internal fun shouldPersistBrowserTab(tab: BrowserTab): Boolean = !tab.isPrivate
+
 class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
@@ -637,7 +639,7 @@ class BrowserController(
 
     private fun persistTabs() {
         // Private-tab URLs and titles must never enter app-owned persistent storage.
-        val persistentTabs = tabs.filterNot { it.isPrivate }
+        val persistentTabs = tabs.filter(::shouldPersistBrowserTab)
         val persistentSelectedTabId = selectedTabId
             .takeIf { id -> persistentTabs.any { it.id == id } }
             ?: persistentTabs.firstOrNull()?.id.orEmpty()
