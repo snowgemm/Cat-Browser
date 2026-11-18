@@ -10,7 +10,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 - Multiple tabs, tab overview, tab closing and URL-level restore for regular tabs.
 - Local browsing history and bookmarks.
 - Configurable home page, startup behavior, four search engines and light/dark/system themes.
-- Firefox WebExtension manager with AMO search/install, local signed XPI import, enable/disable/update/uninstall, action buttons and badges, popup sessions, options-page routing, selected tab API callbacks, and explicit per-extension private-browsing permission. Full API compatibility reporting and physical-device validation are not complete.
+- Firefox WebExtension manager with AMO search/install, local signed XPI import, enable/disable/update/uninstall, action buttons and badges, popup sessions, options-page routing, supported tab lifecycle callbacks, basic `downloads.download()` and explicit per-extension private-browsing permission. Full API compatibility reporting and physical-device validation are not complete.
 - Stable and Beta (GitHub pre-release) update channels with ABI selection and SHA-256 verification.
 - Private tabs backed by GeckoView private-mode sessions. Private tabs are not persisted, private visits are not added to app history, and private tabs cannot add bookmarks.
 - GeckoView download interception with a download list, progress, cancellation, filename sanitization, open/share/delete, and Android Downloads storage on Android 10+.
@@ -44,7 +44,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Desktop-site mode | Missing | Per-tab toggle, correct viewport configuration and persisted preference for regular tabs only. |
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
 | Bookmark manager | Basic | Edit titles, folders or collections, sort, import/export and duplicate handling. |
-| Extension toolbar and popup | Implemented in app; device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, and supported `tabs.create` / `tabs.update` / `tabs.remove` callbacks. Chrome Store compatibility and full API coverage remain unsupported or unverified. |
+| Extension toolbar, tabs, popup and downloads | Implemented in app; device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, supported `tabs.create` / `tabs.update` / `tabs.remove` callbacks, and basic `downloads.download()` with progress/terminal updates. `saveAs`, conflict flags, extension-driven cancel/pause/resume, Chrome Store compatibility and full API coverage remain unsupported or unverified. |
 | Autofill/password management | Missing | Secure storage, Android autofill integration, user consent and biometric/device-authentication safeguards where appropriate. |
 
 ## Priority 2 — Reading and advanced controls
