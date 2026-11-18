@@ -176,6 +176,10 @@ fun BrowserScreen(controller: BrowserController) {
                 onNewTab = {
                     controller.newTab()
                     destination = BrowserDestination.BROWSER
+                },
+                onNewPrivateTab = {
+                    controller.newPrivateTab()
+                    destination = BrowserDestination.BROWSER
                 }
             )
             BrowserDestination.EXTENSIONS -> ExtensionsScreen(controller.extensionsManager) {
@@ -236,6 +240,39 @@ private fun BrowserMainScreen(
             .navigationBarsPadding()
             .imePadding()
     ) {
+        AnimatedVisibility(
+            visible = tab.isPrivate,
+            enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 4 },
+            exit = fadeOut(tween(120))
+        ) {
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(Color(0xFF292431))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BrowserGlyph(
+                    BrowserGlyphType.INCOGNITO,
+                    tint = Color(0xFFE6DDF0),
+                    iconSize = 19.dp
+                )
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(
+                        "Chế độ ẩn danh",
+                        color = Color(0xFFF2EDF7),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Cat Browser không lưu lịch sử hoặc dấu trang của tab này.",
+                        color = Color(0xFFC9C0D2),
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+
         AnimatedVisibility(
             visible = tab.error != null,
             enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
@@ -409,18 +446,33 @@ private fun BrowserMainScreen(
                         onClick = { showMenu = false; controller.stopOrReload() }
                     )
                     DropdownMenuItem(
-                        text = {
-                            Text(
-                                if (controller.isBookmarked(tab.url)) {
-                                    "Bỏ dấu trang"
-                                } else {
-                                    "Thêm dấu trang"
-                                }
-                            )
-                        },
-                        leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKMARK) },
-                        onClick = { showMenu = false; controller.toggleBookmark() }
+                        text = { Text("Tab ẩn danh mới") },
+                        leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO) },
+                        onClick = { showMenu = false; controller.newPrivateTab() },
+                        enabled = controller.tabs.size < 20
                     )
+                    if (controller.privateTabCount > 0) {
+                        DropdownMenuItem(
+                            text = { Text("Đóng tất cả tab ẩn danh (" + controller.privateTabCount + ")") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE) },
+                            onClick = { showMenu = false; controller.closeAllPrivateTabs() }
+                        )
+                    }
+                    if (!tab.isPrivate) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    if (controller.isBookmarked(tab.url)) {
+                                        "Bỏ dấu trang"
+                                    } else {
+                                        "Thêm dấu trang"
+                                    }
+                                )
+                            },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.BOOKMARK) },
+                            onClick = { showMenu = false; controller.toggleBookmark() }
+                        )
+                    }
                     MenuDivider()
                     DropdownMenuItem(
                         text = { Text("Tiện ích mở rộng") },
@@ -480,7 +532,7 @@ private fun BrowserMainScreen(
 }
 
 private enum class BrowserGlyphType {
-    BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE,
+    BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE, INCOGNITO,
     HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS
 }
 
@@ -547,6 +599,30 @@ private fun BrowserGlyph(
             BrowserGlyphType.CLEAR, BrowserGlyphType.CLOSE -> {
                 line(6f, 6f, 18f, 18f)
                 line(18f, 6f, 6f, 18f)
+            }
+            BrowserGlyphType.INCOGNITO -> {
+                // Hat brim and glasses create a recognizable private-browsing mark.
+                line(3f, 9f, 21f, 9f)
+                line(7f, 9f, 9f, 5f)
+                line(9f, 5f, 15f, 5f)
+                line(15f, 5f, 17f, 9f)
+                drawRoundRect(
+                    tint,
+                    topLeft = point(4f, 12f),
+                    size = Size(6f * unit, 5f * unit),
+                    cornerRadius = CornerRadius(2f * unit),
+                    style = Stroke(strokeWidth)
+                )
+                drawRoundRect(
+                    tint,
+                    topLeft = point(14f, 12f),
+                    size = Size(6f * unit, 5f * unit),
+                    cornerRadius = CornerRadius(2f * unit),
+                    style = Stroke(strokeWidth)
+                )
+                line(10f, 14.5f, 14f, 14.5f)
+                line(7f, 18f, 12f, 21f)
+                line(12f, 21f, 17f, 18f)
             }
             BrowserGlyphType.TABS -> {
                 drawRoundRect(
@@ -742,7 +818,8 @@ private fun MenuDivider() {
 private fun TabsOverview(
     controller: BrowserController,
     onBack: () -> Unit,
-    onNewTab: () -> Unit
+    onNewTab: () -> Unit,
+    onNewPrivateTab: () -> Unit
 ) {
     Column(
         Modifier.fillMaxSize()
@@ -762,10 +839,16 @@ private fun TabsOverview(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    controller.tabs.size.toString() + "/20 tab đang mở",
+                    controller.regularTabCount.toString() + " thường · " +
+                        controller.privateTabCount + " ẩn danh · " + controller.tabs.size + "/20",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+            if (controller.privateTabCount > 0) {
+                TextButton(onClick = controller::closeAllPrivateTabs) {
+                    Text("Đóng tab ẩn danh")
+                }
             }
             IconButton(onClick = onBack) {
                 BrowserGlyph(BrowserGlyphType.CLOSE, tint = MaterialTheme.colorScheme.onSurface)
@@ -787,6 +870,12 @@ private fun TabsOverview(
                     .ifBlank { "Trang mới" }
                 val mark = domain.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
                 val selected = tab.id == controller.selectedTabId
+                val cardBackground = if (tab.isPrivate) Color(0xFF292431)
+                    else MaterialTheme.colorScheme.surface
+                val cardText = if (tab.isPrivate) Color(0xFFF2EDF7)
+                    else MaterialTheme.colorScheme.onSurface
+                val cardMuted = if (tab.isPrivate) Color(0xFFC9C0D2)
+                    else MaterialTheme.colorScheme.onSurfaceVariant
 
                 Surface(
                     onClick = {
@@ -794,10 +883,11 @@ private fun TabsOverview(
                         onBack()
                     },
                     shape = RoundedCornerShape(19.dp),
-                    color = MaterialTheme.colorScheme.surface,
+                    color = cardBackground,
                     border = androidx.compose.foundation.BorderStroke(
                         if (selected) 1.25.dp else 1.dp,
                         if (selected) MaterialTheme.colorScheme.primary
+                        else if (tab.isPrivate) Color(0xFF776B86)
                         else MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
                     ),
                     modifier = Modifier.fillMaxWidth().height(164.dp).animateItem()
@@ -809,7 +899,8 @@ private fun TabsOverview(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 shape = CircleShape,
-                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer
+                                color = if (tab.isPrivate) Color(0xFF443B50)
+                                else if (selected) MaterialTheme.colorScheme.secondaryContainer
                                 else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.size(30.dp)
                             ) {
@@ -826,7 +917,7 @@ private fun TabsOverview(
                             Text(
                                 domain,
                                 Modifier.weight(1f),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = cardMuted,
                                 fontSize = 11.sp,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -843,9 +934,26 @@ private fun TabsOverview(
                             }
                         }
 
+                        if (tab.isPrivate) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                BrowserGlyph(
+                                    BrowserGlyphType.INCOGNITO,
+                                    tint = Color(0xFFE6DDF0),
+                                    iconSize = 14.dp
+                                )
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    "Tab ẩn danh",
+                                    color = Color(0xFFE6DDF0),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
                         Text(
                             tab.title.ifBlank { "Tab mới" },
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = cardText,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
@@ -868,7 +976,7 @@ private fun TabsOverview(
                             } else {
                                 Text(
                                     "Chuyển đến tab",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = cardMuted,
                                     fontSize = 10.sp
                                 )
                             }
@@ -884,21 +992,38 @@ private fun TabsOverview(
             tonalElevation = 2.dp
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.Center
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Button(
                     onClick = onNewTab,
                     enabled = controller.tabs.size < 20,
-                    shape = RoundedCornerShape(15.dp)
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(15.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
                 ) {
                     BrowserGlyph(
                         BrowserGlyphType.NEW_TAB,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(17.dp),
                         tint = MaterialTheme.colorScheme.onPrimary
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (controller.tabs.size < 20) "Tab mới" else "Đã đủ 20 tab")
+                    Spacer(Modifier.width(5.dp))
+                    Text("Tab thường", maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = onNewPrivateTab,
+                    enabled = controller.tabs.size < 20,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(15.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                ) {
+                    BrowserGlyph(
+                        BrowserGlyphType.INCOGNITO,
+                        modifier = Modifier.size(17.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text("Ẩn danh", maxLines = 1)
                 }
             }
         }
