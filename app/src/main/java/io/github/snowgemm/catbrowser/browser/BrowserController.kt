@@ -797,6 +797,92 @@ class BrowserController(
             }
         }
 
+        session.permissionDelegate = object : GeckoSession.PermissionDelegate {
+            override fun onAndroidPermissionsRequest(
+                session: GeckoSession,
+                permissions: Array<String>?,
+                callback: GeckoSession.PermissionDelegate.Callback
+            ) {
+                val requested = permissions?.distinct().orEmpty()
+                if (requested.isEmpty()) {
+                    callback.grant()
+                    return
+                }
+                if (requested.any { it !in SUPPORTED_ANDROID_PERMISSIONS }) {
+                    callback.reject()
+                    return
+                }
+
+                pendingAndroidPermissionCallback?.reject()
+                val request = AndroidPermissionRequest(
+                    id = UUID.randomUUID().toString(),
+                    permissions = requested
+                )
+                pendingAndroidPermissionCallback = callback
+                pendingAndroidPermissionRequest = request
+            }
+
+            override fun onContentPermissionRequest(
+                session: GeckoSession,
+                perm: GeckoSession.PermissionDelegate.ContentPermission
+            ): GeckoResult<Int>? {
+                val result = GeckoResult<Int>()
+                if (perm.value != GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT) {
+                    result.complete(perm.value)
+                    return result
+                }
+                if (pendingContentPermissionResult != null) {
+                    result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+                    return result
+                }
+
+                pendingContentPermissionResult = result
+                val origin = runCatching { Uri.parse(perm.uri).host }.getOrNull() ?: perm.uri
+                sitePermissionPrompt = SitePermissionPrompt(
+                    origin = origin,
+                    permission = perm.permission,
+                    permissionLabel = permissionLabel(perm.permission),
+                    isPrivate = perm.privateMode,
+                    isIrreversible = perm.permission ==
+                        GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE
+                )
+                return result
+            }
+
+            override fun onMediaPermissionRequest(
+                session: GeckoSession,
+                uri: String,
+                video: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                audio: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                callback: GeckoSession.PermissionDelegate.MediaCallback
+            ) {
+                val videoSources = video.orEmpty().filter {
+                    it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_VIDEO &&
+                        it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_CAMERA
+                }
+                val audioSources = audio.orEmpty().filter {
+                    it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_AUDIO &&
+                        it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_MICROPHONE
+                }
+                val hasUnsupportedSource = video.orEmpty().any { it !in videoSources } ||
+                    audio.orEmpty().any { it !in audioSources }
+
+                if (hasUnsupportedSource || (videoSources.isEmpty() && audioSources.isEmpty())) {
+                    callback.reject()
+                    return
+                }
+                pendingMediaPermissionCallback?.reject()
+                pendingMediaPermissionCallback = callback
+                val origin = runCatching { Uri.parse(uri).host }.getOrNull() ?: uri
+                mediaPermissionPrompt = MediaPermissionPrompt(
+                    origin = origin,
+                    videoSources = videoSources,
+                    audioSources = audioSources,
+                    isPrivate = tab.isPrivate
+                )
+            }
+        }
+
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 if (tab.session !== session || title.isNullOrBlank()) return
@@ -806,6 +892,14 @@ class BrowserController(
 
             override fun onCloseRequest(session: GeckoSession) {
                 if (tab.session === session) closeTab(tab.id)
+            }
+
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                if (tab.session !== session) {
+                    runCatching { response.body?.close() }
+                    return
+                }
+                downloadManager.enqueue(response, tab.isPrivate)
             }
 
             override fun onCrash(session: GeckoSession) {
@@ -862,6 +956,7 @@ class BrowserController(
         session.setActive(false)
         session.navigationDelegate = null
         session.contentDelegate = null
+        session.permissionDelegate = null
         session.progressDelegate = null
         if (session.isOpen) session.close()
         tab.session = null
@@ -1017,5 +1112,11 @@ class BrowserController(
         const val STARTUP_HOME = "home"
         const val MAX_TABS = 20
         const val MAX_HISTORY = 200
+        val SUPPORTED_ANDROID_PERMISSIONS = setOf(
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO
+        )
     }
 }
