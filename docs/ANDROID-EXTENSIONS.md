@@ -16,6 +16,8 @@ Implemented in the Android app:
 - Open extension popup pages in a separate GeckoSession hosted in a Cat dialog.
 - Route `runtime.openOptionsPage()` to a Cat tab when GeckoView delegates options-page handling to the app.
 - Handle `tabs.create`, supported `tabs.update` requests and `tabs.remove` through GeckoView runtime and per-session delegates. Background tab creation is honored when `active=false`; Cat also notifies extensions when the selected tab changes.
+- Handle basic `downloads.download()` calls through GeckoView's `DownloadDelegate` and `GeckoWebExecutor`. Cat executes the supplied `WebRequest` with its fetch flags, streams the response into Cat's download manager, sanitizes the requested filename, and publishes progress/terminal metadata through `WebExtension.Download.update()`.
+- Preserve GeckoView's private-fetch flag for downloads requested from private browsing.
 - Keep extension private-browsing access disabled by default. A separate confirmation is required before enabling it for an individual extension.
 
 Action buttons appear beside the address field; the strip can scroll horizontally when there are several actions. Action visibility and values may differ between tabs.
@@ -46,6 +48,7 @@ The AMO Android filter is only a catalog compatibility signal. It is not proof t
 - Cat does not provide complete API-by-API compatibility reporting.
 - `tabs.create` currently rejects requests requiring pinned tabs, tab containers, discarded tabs, explicit insertion indices or Reader Mode.
 - `tabs.update` rejects requests to change pinned state, mute state or auto-discard behavior. GeckoView handles URL navigation after Cat accepts the request; `active` and `highlighted` requests select the corresponding Cat tab.
+- The downloads API is partial: `saveAs=true` is rejected because Cat does not yet provide an extension-owned save-location picker. Conflict-action flags are not fully implemented; Cat sanitizes the requested filename and writes through its normal download destination. Extension-driven cancel, pause, resume and persistent task restoration are not wired to Cat's current download manager.
 - Browser action popup sizing, extension lifecycle edge cases and permission behavior still require physical-device testing against representative signed extensions on the pinned GeckoView build.
 - Browser APIs outside the integrated and verified GeckoView surface must be treated as limited or not checked.
 
@@ -59,8 +62,10 @@ The AMO Android filter is only a catalog compatibility signal. It is not proof t
 6. Verify private access starts disabled and works only after explicit opt-in.
 7. Test browser/page action visibility, icons, badges and popup close behavior.
 8. Test `runtime.openOptionsPage()`, `tabs.create`, background tab creation, `tabs.update`, `tabs.remove` and active-tab notifications.
-9. Test each add-on labelled Supported on a real Android device and record GeckoView, device and Android versions.
-10. Report unsupported Chrome and Firefox APIs accurately.
+9. Test `downloads.download()` using authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
+10. Confirm `saveAs` requests fail clearly and unsupported conflict/cancel/pause/resume behavior is not advertised as implemented.
+11. Test each add-on labelled Supported on a real Android device and record GeckoView, device and Android versions.
+12. Report unsupported Chrome and Firefox APIs accurately.
 
 ## Official references
 
@@ -68,4 +73,8 @@ The AMO Android filter is only a catalog compatibility signal. It is not proof t
 - [GeckoView WebExtension API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.html)
 - [GeckoView WebExtensionController API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtensionController.html)
 - [GeckoView ActionDelegate API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.ActionDelegate.html)
+- [GeckoView DownloadDelegate API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.DownloadDelegate.html)
+- [GeckoView DownloadRequest API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.DownloadRequest.html)
+- [GeckoView Download.Info API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.Download.Info.html)
+- [GeckoWebExecutor API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/GeckoWebExecutor.html)
 - [Mozilla Add-ons API](https://mozilla.github.io/addons-server/topics/api/addons.html)
