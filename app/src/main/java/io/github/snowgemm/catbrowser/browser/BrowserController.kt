@@ -849,11 +849,11 @@ class BrowserController(
                 requested.host != null && requested.host == base.host
         }
         if (!belongsToInstalledExtension) {
-            extensionsManager.statusMessage = "Đã chặn trang tuỳ chọn không thuộc tiện ích đã cài."
+            extensionsManager.reportStatus("Đã chặn trang tuỳ chọn không thuộc tiện ích đã cài.")
             return
         }
         if (tabs.size >= MAX_TABS) {
-            extensionsManager.statusMessage = "Đã đạt giới hạn 20 tab."
+            extensionsManager.reportStatus("Đã đạt giới hạn 20 tab.")
             return
         }
         val tab = BrowserTab(initialUrl = url, initialTitle = "Tuỳ chọn tiện ích")

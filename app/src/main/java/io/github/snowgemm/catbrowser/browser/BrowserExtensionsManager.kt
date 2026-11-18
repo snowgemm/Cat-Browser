@@ -550,6 +550,81 @@ class BrowserExtensionsManager(
         )
     }
 
+    fun installFromFile(contentUri: Uri) {
+        if (isWorking) return
+        isWorking = true
+        statusMessage = "Đang đọc gói XPI…"
+
+        networkExecutor.execute {
+            val target = File(context.cacheDir, "extension-import-${UUID.randomUUID()}.xpi")
+            try {
+                val displayName = context.contentResolver.query(
+                    contentUri,
+                    arrayOf(OpenableColumns.DISPLAY_NAME),
+                    null,
+                    null,
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }.orEmpty()
+                if (!displayName.endsWith(".xpi", ignoreCase = true)) {
+                    throw IllegalArgumentException("Chỉ chấp nhận tệp .xpi.")
+                }
+
+                val input = context.contentResolver.openInputStream(contentUri)
+                    ?: throw IllegalStateException("Không thể đọc tệp đã chọn.")
+                var copied = 0L
+                input.use { source ->
+                    FileOutputStream(target).use { output ->
+                        val buffer = ByteArray(8 * 1024)
+                        while (true) {
+                            val count = source.read(buffer)
+                            if (count < 0) break
+                            copied += count
+                            if (copied > MAX_XPI_SIZE) {
+                                throw IllegalArgumentException("Gói XPI vượt quá giới hạn 50 MB.")
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                if (copied == 0L) throw IllegalArgumentException("Tệp XPI trống.")
+
+                mainHandler.post {
+                    statusMessage = "Đang xác minh chữ ký và cài tiện ích…"
+                    controller.install(
+                        Uri.fromFile(target).toString(),
+                        WebExtensionController.INSTALLATION_METHOD_FROM_FILE
+                    ).accept(
+                        { extension ->
+                            target.delete()
+                            isWorking = false
+                            statusMessage = "Đã cài ${extension?.metaData?.name ?: displayName}."
+                            extension?.let(::attachExtension)
+                            refreshInstalled()
+                        },
+                        { error ->
+                            target.delete()
+                            isWorking = false
+                            statusMessage = "Không thể cài XPI: ${error?.message ?: "Gói không hợp lệ hoặc chữ ký không được chấp nhận"}"
+                        }
+                    )
+                }
+            } catch (error: Exception) {
+                target.delete()
+                mainHandler.post {
+                    isWorking = false
+                    statusMessage = error.message?.takeIf(String::isNotBlank)
+                        ?: "Không thể đọc gói XPI."
+                }
+            }
+        }
+    }
+
+    fun reportStatus(message: String) {
+        statusMessage = message
+    }
+
     fun setEnabled(extension: WebExtension, enabled: Boolean) {
         if (isWorking) return
         isWorking = true
@@ -611,5 +686,6 @@ class BrowserExtensionsManager(
 
     private companion object {
         const val AMO_SEARCH_URL = "https://addons.mozilla.org/api/v5/addons/search/"
+        const val MAX_XPI_SIZE = 50L * 1024L * 1024L
     }
 }
