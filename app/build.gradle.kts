@@ -7,6 +7,8 @@ val releaseKeystorePath = providers.environmentVariable("CAT_RELEASE_KEYSTORE_PA
 val releaseStorePassword = providers.environmentVariable("CAT_RELEASE_STORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("CAT_RELEASE_KEY_ALIAS").orNull
 val releaseKeyPassword = providers.environmentVariable("CAT_RELEASE_KEY_PASSWORD").orNull
+val releaseVersionCode = providers.environmentVariable("CAT_VERSION_CODE").orNull?.toIntOrNull()
+val releaseVersionName = providers.environmentVariable("CAT_VERSION_NAME").orNull
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseStorePassword,
@@ -23,8 +25,8 @@ android {
         applicationId = "io.github.snowgemm.catbrowser"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = releaseVersionCode ?: 3
+        versionName = releaseVersionName ?: "0.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
