@@ -1,5 +1,9 @@
 package io.github.snowgemm.catbrowser.ui
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +35,41 @@ import io.github.snowgemm.catbrowser.update.UpdateUiState
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
+    val wallpaperPreferences = remember(context) {
+        context.getSharedPreferences(HOME_APPEARANCE_PREFERENCES, android.content.Context.MODE_PRIVATE)
+    }
+    var newTabWallpaperUri by remember {
+        mutableStateOf(wallpaperPreferences.getString(HOME_WALLPAPER_URI_KEY, null))
+    }
+    var wallpaperPickerError by remember { mutableStateOf<String?>(null) }
+    val wallpaperPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                val previousUri = newTabWallpaperUri?.let(Uri::parse)
+                if (previousUri != null && previousUri != uri) {
+                    runCatching {
+                        context.contentResolver.releasePersistableUriPermission(
+                            previousUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    }
+                }
+                wallpaperPreferences.edit()
+                    .putString(HOME_WALLPAPER_URI_KEY, uri.toString())
+                    .apply()
+                newTabWallpaperUri = uri.toString()
+                wallpaperPickerError = null
+            } catch (_: Exception) {
+                wallpaperPickerError = "Không thể lưu quyền đọc ảnh. Hãy thử chọn ảnh khác."
+            }
+        }
+    }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
     val betaUpdateState = updateManager.betaState
@@ -171,6 +210,62 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                     SettingsChoice("Tối", "Nền tối dịu mắt", controller.themeMode == "dark") {
                         controller.updateThemeMode("dark")
+                    }
+                }
+                SettingsCard {
+                    Text(
+                        "Hình nền trang tab mới",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Chọn ảnh trên thiết bị để cá nhân hóa trang tab mới. Ảnh chỉ được đọc cục bộ, không tải lên Cat Browser.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        if (newTabWallpaperUri != null) "Đã chọn ảnh nền riêng."
+                        else "Đang sử dụng nền mặc định của Cat Browser.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { wallpaperPicker.launch(arrayOf("image/*")) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(if (newTabWallpaperUri != null) "Đổi ảnh nền" else "Chọn ảnh nền")
+                        }
+                        if (newTabWallpaperUri != null) {
+                            TextButton(
+                                onClick = {
+                                    val previousUri = newTabWallpaperUri?.let(Uri::parse)
+                                    if (previousUri != null) {
+                                        runCatching {
+                                            context.contentResolver.releasePersistableUriPermission(
+                                                previousUri,
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            )
+                                        }
+                                    }
+                                    wallpaperPreferences.edit()
+                                        .remove(HOME_WALLPAPER_URI_KEY)
+                                        .apply()
+                                    newTabWallpaperUri = null
+                                    wallpaperPickerError = null
+                                }
+                            ) {
+                                Text("Xóa")
+                            }
+                        }
+                    }
+                    wallpaperPickerError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
