@@ -71,6 +71,17 @@ data class ExtensionPopupState(
     val session: GeckoSession
 )
 
+data class ExtensionSaveAsRequest(
+    val id: String,
+    val suggestedFileName: String
+)
+
+private data class PendingExtensionDownload(
+    val extension: WebExtension,
+    val request: WebExtension.DownloadRequest,
+    val result: GeckoResult<WebExtension.DownloadInitData>
+)
+
 /** Owns installed WebExtensions, browser actions and the Mozilla Add-ons catalog. */
 class BrowserExtensionsManager(
     private val runtime: GeckoRuntime,
@@ -109,8 +120,11 @@ class BrowserExtensionsManager(
         private set
     var permissionPrompt by mutableStateOf<ExtensionPermissionPrompt?>(null)
         private set
+    var saveAsRequest by mutableStateOf<ExtensionSaveAsRequest?>(null)
+        private set
 
     private var pendingPermissionDecision: ((Boolean, Boolean) -> Unit)? = null
+    private var pendingExtensionDownload: PendingExtensionDownload? = null
 
     init {
         controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
@@ -619,88 +633,132 @@ class BrowserExtensionsManager(
                 source: WebExtension,
                 request: WebExtension.DownloadRequest
             ): GeckoResult<WebExtension.DownloadInitData>? {
-                if (request.saveAs) {
-                    mainHandler.post {
-                        statusMessage =
-                            "Yêu cầu chọn nơi lưu chưa được hỗ trợ; Cat sẽ không tự đổi lựa chọn này."
-                    }
-                    return null
-                }
-
                 val result = GeckoResult<WebExtension.DownloadInitData>()
                 mainHandler.post {
-                    val download = runCatching {
-                        controller.createDownload(nextDownloadId())
-                    }.getOrElse { error ->
-                        result.completeExceptionally(error)
-                        return@post
-                    }
-                    if (download == null) {
-                        result.completeExceptionally(
-                            IllegalStateException("GeckoView không thể tạo tác vụ tải xuống.")
-                        )
-                        return@post
-                    }
-
-                    webExecutor.fetch(request.request, request.downloadFlags).accept(
-                        { response ->
-                            mainHandler.post {
-                                if (response == null) {
-                                    result.completeExceptionally(
-                                        IllegalStateException("GeckoView không trả về phản hồi tải xuống.")
-                                    )
-                                    return@post
-                                }
-                                if (!request.allowHttpErrors && response.statusCode >= 400) {
-                                    runCatching { response.body?.close() }
-                                    result.completeExceptionally(
-                                        IllegalStateException(
-                                            "Máy chủ trả về HTTP ${response.statusCode}."
-                                        )
-                                    )
-                                    return@post
-                                }
-
-                                val privateMode =
-                                    (request.downloadFlags and GeckoWebExecutor.FETCH_FLAGS_PRIVATE) != 0
-                                val item = downloadManager.enqueue(
-                                    response = response,
-                                    privateMode = privateMode,
-                                    requestedFileName = request.filename
-                                ) { changed ->
-                                    download.update(
-                                        extensionDownloadInfo(changed, request.request.referrer)
-                                    )
-                                }
-
-                                if (item == null) {
-                                    runCatching { response.body?.close() }
-                                    result.completeExceptionally(
-                                        IllegalStateException("Không nhận được dữ liệu tải xuống.")
-                                    )
-                                    return@post
-                                }
-
-                                result.complete(
-                                    WebExtension.DownloadInitData(
-                                        download,
-                                        extensionDownloadInfo(item, request.request.referrer)
-                                    )
-                                )
-                            }
-                        },
-                        { error ->
-                            mainHandler.post {
-                                result.completeExceptionally(
-                                    error ?: IllegalStateException("Không thể lấy dữ liệu tải xuống.")
-                                )
-                            }
+                    if (request.saveAs) {
+                        if (pendingExtensionDownload != null) {
+                            result.completeExceptionally(
+                                IllegalStateException("Một yêu cầu chọn vị trí lưu khác đang chờ xử lý.")
+                            )
+                            return@post
                         }
-                    )
+                        val suggestedName = request.filename
+                            ?.substringAfterLast('/')
+                            ?.takeIf(String::isNotBlank)
+                            ?: "download"
+                        pendingExtensionDownload = PendingExtensionDownload(source, request, result)
+                        saveAsRequest = ExtensionSaveAsRequest(
+                            id = UUID.randomUUID().toString(),
+                            suggestedFileName = suggestedName
+                        )
+                        statusMessage = "Chọn vị trí lưu cho " + (source.metaData.name ?: source.id) + "."
+                    } else {
+                        startExtensionDownload(source, request, result, destinationUri = null)
+                    }
                 }
                 return result
             }
         }
+
+    fun resolveSaveAsRequest(uri: Uri?) {
+        val pending = pendingExtensionDownload ?: return
+        pendingExtensionDownload = null
+        saveAsRequest = null
+        if (uri == null) {
+            pending.result.completeExceptionally(
+                IllegalStateException("Người dùng đã hủy chọn nơi lưu.")
+            )
+            statusMessage = "Đã hủy tải xuống theo yêu cầu của tiện ích."
+            return
+        }
+
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        }
+        startExtensionDownload(pending.extension, pending.request, pending.result, uri)
+    }
+
+    private fun startExtensionDownload(
+        source: WebExtension,
+        request: WebExtension.DownloadRequest,
+        result: GeckoResult<WebExtension.DownloadInitData>,
+        destinationUri: Uri?
+    ) {
+        val download = runCatching {
+            controller.createDownload(nextDownloadId())
+        }.getOrElse { error ->
+            result.completeExceptionally(error)
+            return
+        }
+        if (download == null) {
+            result.completeExceptionally(
+                IllegalStateException("GeckoView không thể tạo tác vụ tải xuống.")
+            )
+            return
+        }
+
+        webExecutor.fetch(request.request, request.downloadFlags).accept(
+            { response ->
+                mainHandler.post {
+                    if (response == null) {
+                        result.completeExceptionally(
+                            IllegalStateException("GeckoView không trả về phản hồi tải xuống.")
+                        )
+                        return@post
+                    }
+                    if (!request.allowHttpErrors && response.statusCode >= 400) {
+                        runCatching { response.body?.close() }
+                        result.completeExceptionally(
+                            IllegalStateException("Máy chủ trả về HTTP " + response.statusCode + ".")
+                        )
+                        return@post
+                    }
+
+                    val privateMode =
+                        (request.downloadFlags and GeckoWebExecutor.FETCH_FLAGS_PRIVATE) != 0
+                    val item = downloadManager.enqueue(
+                        response = response,
+                        privateMode = privateMode,
+                        requestedFileName = request.filename,
+                        destinationUri = destinationUri,
+                        extensionId = source.id,
+                        extensionDownloadId = download.id,
+                        referrer = request.request.referrer
+                    ) { changed ->
+                        download.update(
+                            extensionDownloadInfo(changed, request.request.referrer)
+                        )
+                    }
+
+                    if (item == null) {
+                        runCatching { response.body?.close() }
+                        result.completeExceptionally(
+                            IllegalStateException("Không nhận được dữ liệu tải xuống.")
+                        )
+                        return@post
+                    }
+
+                    result.complete(
+                        WebExtension.DownloadInitData(
+                            download,
+                            extensionDownloadInfo(item, request.request.referrer)
+                        )
+                    )
+                }
+            },
+            { error ->
+                mainHandler.post {
+                    result.completeExceptionally(
+                        error ?: IllegalStateException("Không thể lấy dữ liệu tải xuống.")
+                    )
+                }
+            }
+        )
+    }
 
     private fun extensionDownloadInfo(
         item: BrowserDownloadItem,
