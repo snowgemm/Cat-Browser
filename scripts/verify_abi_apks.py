@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and normalize Cat Browser's ABI-specific debug APKs."""
+"""Validate and normalize Cat Browser ABI-specific APK outputs."""
 
 from __future__ import annotations
 
