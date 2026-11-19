@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -42,6 +44,9 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
@@ -244,6 +249,7 @@ private fun BrowserMainScreen(
     }
 
     val tab = controller.activeTab ?: return
+    var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
     val extensionActions = controller.extensionsManager.actionsFor(tab.session)
     var address by remember(tab.id) {
         mutableStateOf(TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty()))
@@ -256,6 +262,19 @@ private fun BrowserMainScreen(
     LaunchedEffect(tab.id, tab.url) {
         if (!addressFocused) {
             address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
+        }
+    }
+
+    LaunchedEffect(tab.id, tab.url, tab.isLoading, tab.progress, attachedGeckoView) {
+        val view = attachedGeckoView ?: return@LaunchedEffect
+        if (tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100) {
+            delay(450)
+            if (attachedGeckoView === view && view.getSession() === tab.session) {
+                view.capturePixels().accept(
+                    { bitmap -> controller.updateTabPreview(tab.id, bitmap) },
+                    { /* Preview is optional; keep the previous thumbnail on capture errors. */ }
+                )
+            }
         }
     }
 
@@ -498,12 +517,14 @@ private fun BrowserMainScreen(
                             AndroidView(
                                 factory = { context ->
                                     GeckoView(context).apply {
+                                        attachedGeckoView = this
                                         setSession(session)
                                         controller.onSessionViewAttached(tab.id, session)
                                     }
                                 },
                                 modifier = Modifier.fillMaxSize(),
                                 update = { view ->
+                                    attachedGeckoView = view
                                     if (view.getSession() !== session) {
                                         view.releaseSession()
                                         view.setSession(session)
@@ -511,6 +532,7 @@ private fun BrowserMainScreen(
                                     }
                                 },
                                 onRelease = { view ->
+                                    if (attachedGeckoView === view) attachedGeckoView = null
                                     controller.onSessionViewDetached(tab.id, session)
                                     view.releaseSession()
                                 }
@@ -1309,6 +1331,9 @@ private fun TabsOverview(
 ) {
     var tabSearch by remember { mutableStateOf("") }
     var tabFilter by remember { mutableStateOf("all") }
+    val cardCoordinates = remember { mutableMapOf<String, LayoutCoordinates>() }
+    var draggingTabId by remember { mutableStateOf<String?>(null) }
+    val canReorderTabs = tabSearch.isBlank() && tabFilter == "all"
     val visibleTabs = controller.tabs.filter { tab ->
         val matchesFilter = when (tabFilter) {
             "regular" -> !tab.isPrivate
@@ -1383,6 +1408,15 @@ private fun TabsOverview(
                 label = { Text("Ẩn danh " + controller.privateTabCount) }
             )
         }
+        if (canReorderTabs && visibleTabs.isNotEmpty()) {
+            Text(
+                "Nhấn giữ thẻ để kéo sắp xếp tab.",
+                Modifier.padding(start = 18.dp, top = 2.dp, bottom = 5.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+
         if (visibleTabs.isEmpty()) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 Text(
@@ -1429,11 +1463,36 @@ private fun TabsOverview(
                         else if (tab.isPrivate) Color(0xFF776B86)
                         else MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
                     ),
-                    modifier = Modifier.fillMaxWidth().height(164.dp).animateItem()
+                    modifier = Modifier.fillMaxWidth()
+                        .height(if (tab.previewBitmap != null) 232.dp else 164.dp)
+                        .animateItem()
+                        .onGloballyPositioned { cardCoordinates[tab.id] = it }
+                        .pointerInput(tab.id, canReorderTabs) {
+                            if (canReorderTabs) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { draggingTabId = tab.id },
+                                    onDragEnd = { draggingTabId = null },
+                                    onDragCancel = { draggingTabId = null },
+                                    onDrag = { change, _ ->
+                                        val position = cardCoordinates[tab.id]
+                                            ?.localToRoot(change.position) ?: return@detectDragGesturesAfterLongPress
+                                        val targetId = visibleTabs.firstOrNull { candidate ->
+                                            cardCoordinates[candidate.id]
+                                                ?.boundsInRoot()
+                                                ?.contains(position) == true
+                                        }?.id
+                                        if (targetId != null && targetId != tab.id) {
+                                            controller.moveTab(tab.id, targetId)
+                                        }
+                                        change.consume()
+                                    }
+                                )
+                            }
+                        }
                 ) {
                     Column(
                         Modifier.fillMaxSize().padding(11.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
@@ -1471,6 +1530,17 @@ private fun TabsOverview(
                                     tint = cardMuted
                                 )
                             }
+                        }
+
+                        tab.previewBitmap?.let { preview ->
+                            Image(
+                                bitmap = preview.asImageBitmap(),
+                                contentDescription = "Ảnh xem trước: " + tab.title,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.fillMaxWidth()
+                                    .height(74.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                            )
                         }
 
                         if (tab.isPrivate) {
