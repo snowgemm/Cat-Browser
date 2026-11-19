@@ -456,7 +456,7 @@ private fun continueAssistant(
     scope.launch {
         try {
             var items = JSONArray(initialItems.toString())
-            if (toolRoundsSoFar >= MAX_TOOL_ROUNDS) {
+            if (toolRoundsSoFar > MAX_TOOL_ROUNDS) {
                 onError("Cat AI đã đạt giới hạn số vòng thao tác cho một yêu cầu. Hãy gửi yêu cầu mới.")
                 onBusy(false)
                 return@launch
@@ -591,4 +591,5 @@ private fun toolSummary(call: AiToolCall): String = when (call.name) {
 }
 
 private const val MAX_USER_MESSAGE_CHARS = 4_000
-private const val MAX_INPUT_ITEMS = 28
+private const val MAX_INPUT_ITEMS = 32
+private const val MAX_TOOL_ROUNDS = 4
