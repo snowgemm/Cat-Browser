@@ -18,20 +18,21 @@ Keep answers concise and state uncertainty when appropriate.
 `.trim();
 
 export const tools = [
-  { type: "function", name: "list_tabs", description: "List normal browser tabs only. Private tabs are never included.", parameters: { type: "object", properties: {}, required: [] } },
-  { type: "function", name: "get_active_tab", description: "Get the selected normal tab title and URL. Returns no data when a private tab is selected.", parameters: { type: "object", properties: {}, required: [] } },
-  { type: "function", name: "open_url", description: "Open a user-requested HTTP or HTTPS website in a new normal tab. The app always asks the user to approve this action.", parameters: { type: "object", properties: { url: { type: "string", minLength: 8, maxLength: 2048 } }, required: ["url"] } },
-  { type: "function", name: "switch_tab", description: "Switch to an existing normal tab by its ID. Private tab IDs are not valid.", parameters: { type: "object", properties: { tab_id: { type: "string", minLength: 1, maxLength: 80 } }, required: ["tab_id"] } },
-  { type: "function", name: "go_back", description: "Navigate back in the selected normal tab.", parameters: { type: "object", properties: {}, required: [] } },
-  { type: "function", name: "go_forward", description: "Navigate forward in the selected normal tab.", parameters: { type: "object", properties: {}, required: [] } },
-  { type: "function", name: "go_home", description: "Open the configured Cat Browser homepage in the selected normal tab.", parameters: { type: "object", properties: {}, required: [] } },
-  { type: "function", name: "bookmark_current_page", description: "Add the selected normal page to bookmarks. The app asks for user approval.", parameters: { type: "object", properties: {}, required: [] } }
+  { type: "function", name: "list_tabs", description: "List normal browser tabs only. Private tabs are never included." },
+  { type: "function", name: "get_active_tab", description: "Get the selected normal tab title and URL. Returns no data when a private tab is selected." },
+  { type: "function", name: "open_url", description: "Open a user-requested HTTP or HTTPS website in a new normal tab. The app always asks the user to approve this action.", parameters: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } },
+  { type: "function", name: "switch_tab", description: "Switch to an existing normal tab by its ID. Private tab IDs are not valid.", parameters: { type: "object", properties: { tab_id: { type: "string" } }, required: ["tab_id"] } },
+  { type: "function", name: "go_back", description: "Navigate back in the selected normal tab." },
+  { type: "function", name: "go_forward", description: "Navigate forward in the selected normal tab." },
+  { type: "function", name: "go_home", description: "Open the configured Cat Browser homepage in the selected normal tab." },
+  { type: "function", name: "bookmark_current_page", description: "Add the selected normal page to bookmarks. The app asks for user approval." }
 ];
 
 const allowedToolNames = new Set(tools.map((tool) => tool.name));
 export class RequestValidationError extends Error {}
 
 function parseArguments(value) {
+  if (value === undefined || value === null) return {};
   if (value && typeof value === "object" && !Array.isArray(value)) return value;
   if (typeof value === "string") {
     try {
