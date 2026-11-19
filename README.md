@@ -11,7 +11,7 @@ An independent Android browser whose application code, interface and browsing ex
 - Tab metadata is stored locally. On app restart, tabs reopen at their last HTTP(S) URL.
 - Native New Tab Page with bookmark/recent website shortcuts, same-origin HTTPS favicons and no third-party favicon proxy.
 - Optional Cat AI assistant with a fixed browser-tool allowlist. Every tool call requires in-app approval; private tabs and page contents are excluded.
-- Self-hostable OpenAI Responses API gateway under ai-gateway/. The OpenAI API key stays server-side; Android stores only an encrypted gateway token.
+- Gemini 3.8 Flash assistant through a Supabase Edge Function. Android creates an anonymous Supabase session automatically; Gemini and Supabase secret keys remain server-side.
 - Address/search field with DuckDuckGo search for plain text and local suggestions from same-mode tabs, bookmarks and normal-mode history.
 - Swipe left/right on the unfocused address bar to switch adjacent tabs; Back/Forward actions are in the overflow menu.
 - Tab overview search and restoration of recently closed normal tabs (last URL only, in-memory).
@@ -55,7 +55,7 @@ The browser foundation is implemented, but these areas remain incomplete or requ
 - `downloads.download()` supports progress, terminal updates, Android `saveAs` document picking and safe duplicate-name handling. `OVERWRITE` currently falls back to a unique filename; `PROMPT` uses Android's document picker, so full Firefox Desktop conflict semantics are not claimed. Extension-driven pause/resume/cancel are not available through the public GeckoView API surface.
 - Firefox WebExtensions support is API-by-API and partial. Chrome Web Store/CRX support and complete Firefox Desktop API parity are not provided. See [Android extension support](docs/ANDROID-EXTENSIONS.md) and the [physical-device test matrix](docs/EXTENSION-TEST-MATRIX.md).
 - Physical-device smoke tests for permissions, private-session boundaries, extension popup behavior, downloads and tab previews/reordering remain required.
-- Cat AI requires the owner to deploy ai-gateway/ and configure server secrets and API billing. The repository does not deploy the gateway or contain provider keys. The embedded assistant is not the ChatGPT Android app remotely controlling the browser.
+- Cat AI uses the Supabase Edge Function in supabase/functions/cat-ai/ and Gemini Interactions API with store=false. The app does not require a user-entered gateway URL or access token. End-to-end runtime testing on physical Android devices is still required. The embedded assistant is not the ChatGPT Android app remotely controlling the browser.
 
 CI build success does not replace installation and runtime smoke testing on supported physical Android devices.
 
@@ -69,7 +69,7 @@ CI build success does not replace installation and runtime smoke testing on supp
 | Browser engine | GeckoView Stable |
 | Search provider | DuckDuckGo |
 | Local storage | App-private SharedPreferences |
-| AI gateway token | Android Keystore AES-GCM; provider key stays server-side |
+| Cat AI session | Supabase anonymous Auth; refresh token encrypted with Android Keystore AES-GCM; Gemini key stays in Supabase secrets |
 | Extensions | Firefox WebExtensions via GeckoView; Android-compatible catalog and manager are implemented, compatibility remains API-dependent |
 
 GeckoView is packaged inside each APK. Engine security fixes reach Cat only after the dependency is reviewed, updated, tested and shipped in a new app build.

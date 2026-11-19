@@ -832,7 +832,7 @@ private fun BrowserMainScreen(
                     showMenu = false; onOpenExtensions()
                 }
                 BrowserMenuListAction(BrowserGlyphType.AI, "Cat AI",
-                    subtitle = "Trợ lý OpenAI, cần cấu hình gateway") {
+                    subtitle = "Trợ lý Gemini · tự động kết nối") {
                     showMenu = false; onOpenAssistant()
                 }
                 if (controller.recentlyClosedTabs.isNotEmpty()) {

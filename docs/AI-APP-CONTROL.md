@@ -1,24 +1,48 @@
 # Cat Browser AI integration
 
-## What is implemented
+## Active architecture
 
-Cat Browser now contains an optional Cat AI screen that uses the OpenAI Responses API through the repository's self-hostable ai-gateway service.
+The Android Cat AI screen uses Google Gemini 3.8 Flash through the Supabase Edge Function at `supabase/functions/cat-ai/`. The legacy Vercel/OpenAI gateway under `ai-gateway/` is not used by the current Android app and is retained temporarily for rollback and CI compatibility.
 
-The Android client:
-- Stores the gateway URL and a separate gateway bearer token.
-- Encrypts the gateway token with Android Keystore AES-GCM.
-- Keeps the conversation in memory while the assistant screen is active.
-- Sends the user's chat text and the minimum tool results needed for the active conversation.
-- Replays Responses API output items locally with store=false; it does not create a persistent Responses API conversation.
-- Requests explicit approval before every browser tool call.
-- Excludes private tabs from tab-list and active-tab tools.
-- Does not automatically send page contents, browsing history, cookies, credentials, form values, downloads or extension storage.
+### Android client
 
-The OpenAI API key belongs only in the gateway's server environment. It must never be added to Android resources, source code, app preferences or logs.
+- Uses the existing Supabase project URL and publishable key. The publishable key is public client configuration; no Supabase secret/service-role key is embedded in the APK.
+- Creates an anonymous Supabase Auth session automatically through the Auth signup endpoint when no valid session exists.
+- Refreshes expired sessions and encrypts the access/refresh token bundle with Android Keystore AES-GCM.
+- Does not ask the user to enter a gateway URL, gateway access token, Gemini API key, or Supabase secret.
+- Keeps conversation state in memory while the assistant screen is active.
+- Sends the user message and the full Gemini Interactions history required for stateless continuation.
+- Sends tool results only after the user approves the corresponding browser action.
+- Does not automatically send page contents, cookies, credentials, form values, downloads, extension storage, or private-tab metadata.
 
-The Cat AI Gateway source is in ai-gateway/. It is not deployed by this repository and has no API key or gateway token committed. Until an owner deploys it and configures both app and server, the Cat AI screen remains unavailable and shows a setup message.
+If the user clears app data or changes devices, the anonymous session cannot be recovered automatically. A new anonymous identity is created on the next use.
 
-## Current tool allowlist
+### Supabase Edge Function
+
+- Function name: `cat-ai`.
+- JWT verification is enabled (`verify_jwt=true)).
+- Validates the authenticated user JWT before processing a request.
+- Reads `GEMINI_API_KEY` only from Supabase Edge Function secrets.
+- Uses the Supabase server secret only inside the Edge Function to call the quota RPC. No server secret is sent to Android.
+- Sends requests to `POST https://generativelanguage.googleapis.com/v1beta/interactions`.
+- Uses `store=false`; each request includes the full client-managed history.
+- Preserves model-generated steps exactly, including `thought` and `function_call`, then appends matching `function_result` steps after the app executes approved actions.
+- Does not log prompts, tool arguments, response steps, or authorization headers.
+- Rejects malformed/oversized history, unknown function names, mismatched tool results, and unresolved function calls.
+
+### Database quota
+
+The `private.cat_ai_usage` table has RLS enabled and is not exposed to the client. The quota RPC is executable only by `service_role`; `anon` and `authenticated` cannot call it.
+
+Current limits:
+- Per anonymous/authenticated user: 8 requests per minute and 60 requests per UTC day.
+- Global project limit: 50 requests per minute and 500 requests per UTC day.
+
+The limits are server-side and shared across Edge Function instances. Requests that exceed a limit receive HTTP 429 with a retry delay. These limits are protective ceilings, not a guarantee of zero provider cost.
+
+The existing `public.rls_auto_enable()` function no longer grants direct execution to `PUBLIC`, `anon`, or `authenticated`; the event trigger remains installed.
+
+## Browser tool allowlist
 
 | Tool | Behavior | App approval |
 |---|---|---|
@@ -31,56 +55,38 @@ The Cat AI Gateway source is in ai-gateway/. It is not deployed by this reposito
 | go_home | Open the configured homepage | Required |
 | bookmark_current_page | Add the selected normal page to bookmarks | Required |
 
-No tool can access private-tab content, page DOM/text, cookies, passwords, downloads, local files, extension permissions, website permissions or arbitrary Android intents. The app validates every tool name and argument before action execution. The server declares the same strict tool allowlist.
+No tool can access private-tab content, page DOM/text, cookies, passwords, downloads, local files, extension permissions, website permissions, or arbitrary Android intents. The app validates tool names and executes only its fixed allowlist.
 
-Websites, messages and tool outputs are untrusted. Page content is not included in the assistant context, which also reduces exposure to website prompt injection.
+Websites, messages, and tool outputs are untrusted. Page content is not automatically included in the assistant context. Tab titles and URLs are sent only when the user approves a tab-related tool call.
 
-## Gateway configuration
+## Privacy, retention, and cost
 
-See ai-gateway/README.md for environment variables, deployment root and setup.
+- Gemini Interactions requests use `store=false`; the API does not create a stored interaction resource for the conversation.
+- Cat Browser keeps chat history only in memory for the active assistant screen.
+- Supabase stores quota counters, not chat messages.
+- User messages and approved tool results are still transmitted to Google Gemini for processing.
+- Google AI Studio Free Tier may use submitted prompts and responses to improve Google products. `store=false` does not override the Free Tier data-use terms. Do not send personal, confidential, or sensitive information.
+- Paid Gemini API usage has separate billing. If billing is enabled, a parent or guardian should manage the account and spending limits.
+- Clearing app data or moving to another device loses the anonymous session unless a future account-linking/recovery feature is added.
 
-Required server environment variables:
-- OPENAI_API_KEY: OpenAI API key stored only in the hosting provider's secret manager.
-- CAT_AI_GATEWAY_TOKEN: random, unique bearer token used only between Cat Browser and this gateway.
-- OPENAI_MODEL: optional model override; defaults to gpt-6-luna.
+Official references:
+- Supabase anonymous sign-ins: https://supabase.com/docs/guides/auth/auth-anonymous
+- Supabase Edge Functions: https://supabase.com/docs/guides/functions
+- Gemini Interactions API: https://ai.google.dev/gemini-api/docs/interactions-overview
+- Gemini stateless conversations and function calling: https://ai.google.dev/gemini-api/docs/get-started
+- Gemini pricing and data-use terms: https://ai.google.dev/gemini-api/docs/pricing
 
-In Cat Browser, open Settings → Cat AI and enter the gateway HTTPS base URL plus the gateway token. The app token is encrypted using Android Keystore. A gateway deployment is not automatically created because it needs the account owner's API credential, billing review and secret setup.
+## Remaining validation
 
-OpenAI API usage is billed separately from ChatGPT subscription plans. The account owner should configure budgets, usage limits and rate controls. Users under 18 should have a parent or guardian manage any account and billing that require an adult.
+The backend is deployed, but a successful deployment does not prove end-to-end operation from a physical Android device. Before treating the migration as complete, verify on-device:
 
-## Data retention and operational limits
+1. Anonymous Auth creates a session without manual configuration.
+2. The session survives app restart and refreshes after expiry.
+3. The Settings connection check confirms Gemini model access.
+4. A text-only conversation succeeds.
+5. A browser tool call appears in the approval dialog, runs only after approval, and returns its result to Gemini.
+6. Denying a tool call is handled correctly.
+7. Rate-limit responses are displayed without crashing the app.
+8. Private tabs and page contents remain excluded.
 
-- Requests use the OpenAI Responses API with store=false. Stateless replay retains the encrypted reasoning items locally in the active app screen only. See the official Responses API migration guide: https://developers.openai.com/api/docs/guides/migrate-to-responses.
-- Cat app chat history is not persisted to SharedPreferences or a Cat backend.
-- The gateway rejects oversized requests, limits the number of input items and tool calls, and has a best-effort per-instance rate throttle.
-- The in-memory throttle is not a global rate limiter across serverless instances. Before public release, add hosting-level rate limits/firewall rules, usage alerts and monitoring.
-- The gateway must run over HTTPS. Rotate the gateway token if it is exposed.
-- Avoid logging authorization headers, prompts, tool arguments or response items.
-- The server currently returns a normal JSON response; streaming and cancellation are not implemented.
-
-## ChatGPT app control is a separate integration
-
-The Cat AI screen calls the OpenAI API from Cat Browser. It is not the ChatGPT Android app remotely controlling Cat.
-
-ChatGPT custom MCP apps require a remotely reachable server and the current OpenAI documentation lists custom MCP app availability as web-only, with workspace/plan restrictions for write-capable actions. A phone-local MCP server is not directly reachable from ChatGPT. Do not display a "Connected to ChatGPT" state unless a supported ChatGPT client, workspace, authenticated remote MCP relay and end-to-end device pairing have all been implemented and tested.
-
-Official platform references:
-- ChatGPT custom MCP server connections: https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt
-- OpenAI developer mode and MCP connectors: https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt-beta
-- Responses API and function calling: https://developers.openai.com/api/docs/guides/function-calling
-- OpenAI API key security: https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety
-
-## Future provider expansion
-
-Keep app-side browser tools independent from the model provider. Additional providers can be added behind a provider adapter only after each one has been evaluated for API behavior, cost, data retention, privacy, tool-calling reliability and account terms. Do not give a new provider broader browser permissions by default.
-
-## Acceptance criteria before public release
-
-- Gateway deployed by the account owner and protected by a high-entropy access token.
-- OpenAI API key only in the server secret manager.
-- Hosting-level rate limits, budget alerts and token rotation documented.
-- Android tool execution is user-approved, typed and allowlisted.
-- Private tabs, cookies, credentials, downloads, extension data and page contents remain excluded.
-- API store=false is preserved and conversation state is not persisted by Cat.
-- End-to-end tests cover invalid credentials, network failures, malformed tool arguments, user denial, private-tab exclusion and tab-limit behavior.
-- Physical-device tests complete on supported Android versions.
+Do not remove the legacy Vercel project or its rollback configuration until these checks pass. The legacy gateway is not the active Android backend.
