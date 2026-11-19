@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
+import io.github.snowgemm.catbrowser.ai.AiGatewayConfigStore
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
@@ -30,6 +32,11 @@ import io.github.snowgemm.catbrowser.update.UpdateUiState
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
+    val aiGatewayStore = remember { AiGatewayConfigStore(context) }
+    var aiGatewayUrl by remember { mutableStateOf(aiGatewayStore.savedBaseUrl().orEmpty()) }
+    var aiGatewayToken by remember { mutableStateOf("") }
+    var aiGatewayConfigured by remember { mutableStateOf(aiGatewayStore.isConfigured()) }
+    var aiGatewayMessage by remember { mutableStateOf<String?>(null) }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
     val betaUpdateState = updateManager.betaState
@@ -362,6 +369,85 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+            item {
+                SettingsSectionTitle("CAT AI")
+                SettingsCard {
+                    Text("Trợ lý OpenAI trong Cat Browser",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Kết nối tới Cat AI Gateway do bạn triển khai. OpenAI API key chỉ được đặt trên máy chủ, không nhập vào ứng dụng.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedTextField(
+                        value = aiGatewayUrl,
+                        onValueChange = { aiGatewayUrl = it; aiGatewayMessage = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Gateway URL (HTTPS)") },
+                        placeholder = { Text("https://your-gateway.example") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = aiGatewayToken,
+                        onValueChange = { aiGatewayToken = it; aiGatewayMessage = null },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(if (aiGatewayConfigured) "Token mới (để trống để giữ token cũ)" else "Cat gateway access token") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation()
+                    )
+                    Text(
+                        if (aiGatewayConfigured) "Đã lưu token gateway bằng Android Keystore."
+                        else "Chưa lưu cấu hình gateway.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                val saved = if (aiGatewayToken.isBlank()) {
+                                    aiGatewayStore.updateBaseUrl(aiGatewayUrl)
+                                } else {
+                                    aiGatewayStore.save(aiGatewayUrl, aiGatewayToken)
+                                }
+                                if (saved) {
+                                    aiGatewayConfigured = true
+                                    aiGatewayToken = ""
+                                    aiGatewayMessage = "Đã lưu cấu hình. Cat AI sẽ kiểm tra gateway khi gửi tin nhắn."
+                                } else {
+                                    aiGatewayMessage = "Không lưu được. Kiểm tra URL HTTPS và access token."
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("Lưu cấu hình") }
+                        OutlinedButton(
+                            onClick = {
+                                aiGatewayStore.clear()
+                                aiGatewayUrl = ""
+                                aiGatewayToken = ""
+                                aiGatewayConfigured = false
+                                aiGatewayMessage = "Đã xóa cấu hình AI khỏi thiết bị."
+                            },
+                            enabled = aiGatewayConfigured,
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("Xóa") }
+                    }
+                    aiGatewayMessage?.let {
+                        Text(it, color = if (it.startsWith("Không")) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(
+                        "Lưu ý: sử dụng OpenAI API có thể phát sinh phí riêng, không nằm trong gói ChatGPT. Chỉ kết nối gateway bạn tin cậy.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
             item {
