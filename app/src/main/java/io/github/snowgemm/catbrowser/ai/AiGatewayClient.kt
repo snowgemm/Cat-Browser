@@ -142,8 +142,26 @@ class AiGatewayClient {
 
             val response = runCatching { JSONObject(responseText) }.getOrNull()
             if (status !in 200..299) {
-                val message = response?.optString("error").orEmpty()
-                    .ifBlank { "Gateway AI trả về mã lỗi $status." }
+                val message = if (status == 429) {
+                    when (response?.optString("code")) {
+                        "insufficient_quota" ->
+                            "Hạn mức hoặc giới hạn thanh toán OpenAI API đã hết. Cần kiểm tra Usage và Billing của API project."
+                        "rate_limit_exceeded" -> {
+                            val retryAfter = response.optInt("retryAfterSeconds", 0)
+                            if (retryAfter > 0) {
+                                "OpenAI đang giới hạn tốc độ yêu cầu. Hãy đợi khoảng $retryAfter giây rồi thử lại."
+                            } else {
+                                "OpenAI đang giới hạn tốc độ yêu cầu. Hãy đợi một lúc rồi thử lại."
+                            }
+                        }
+                        "gateway_rate_limited" ->
+                            "Cat AI Gateway đang giới hạn số yêu cầu. Hãy đợi khoảng một phút rồi thử lại."
+                        else -> "Cat AI Gateway trả về HTTP 429. Hãy thử lại sau."
+                    }
+                } else {
+                    response?.optString("error").orEmpty()
+                        .ifBlank { "Gateway AI trả về mã lỗi $status." }
+                }
                 throw AiGatewayException(message.take(240))
             }
             if (response == null) throw AiGatewayException("Phản hồi gateway không hợp lệ.")
