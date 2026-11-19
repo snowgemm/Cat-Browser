@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.LruCache
 import java.io.ByteArrayOutputStream
 import java.net.HttpURLConnection
+import java.net.InetAddress
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -61,6 +62,7 @@ internal object FaviconRepository {
         executor.execute {
             val bitmap = fetch(faviconUrl)
             if (bitmap == null) {
+                if (negativeCache.size > 128) negativeCache.clear()
                 negativeCache.add(faviconUrl)
             } else {
                 synchronized(cache) { cache.put(faviconUrl, bitmap) }
@@ -104,7 +106,42 @@ internal object FaviconRepository {
             (first == 192 && second == 168)
     }
 
+    private fun resolvesOnlyToPublicAddresses(address: String): Boolean {
+        val host = runCatching { Uri.parse(address).host }.getOrNull() ?: return false
+        val addresses = runCatching { InetAddress.getAllByName(host) }.getOrNull() ?: return false
+        if (addresses.isEmpty()) return false
+        return addresses.all { resolved ->
+            if (resolved.isAnyLocalAddress || resolved.isLoopbackAddress ||
+                resolved.isLinkLocalAddress || resolved.isSiteLocalAddress ||
+                resolved.isMulticastAddress
+            ) return@all false
+
+            val bytes = resolved.address
+            if (bytes.size == 4) {
+                val first = bytes[0].toInt() and 0xff
+                val second = bytes[1].toInt() and 0xff
+                val third = bytes[2].toInt() and 0xff
+                when {
+                    first == 0 || first == 10 || first == 127 || first >= 224 -> false
+                    first == 100 && second in 64..127 -> false // Shared address space / CGNAT.
+                    first == 169 && second == 254 -> false
+                    first == 172 && second in 16..31 -> false
+                    first == 192 && (second == 0 || second == 168) -> false
+                    first == 198 && second in 18..19 -> false // Benchmarking networks.
+                    first == 203 && second == 0 && third == 113 -> false // Documentation range.
+                    else -> true
+                }
+            } else if (bytes.size == 16) {
+                val first = bytes[0].toInt() and 0xff
+                (first and 0xfe) != 0xfc // Reject IPv6 unique-local space.
+            } else {
+                false
+            }
+        }
+    }
+
     private fun fetch(address: String): Bitmap? {
+        if (!resolvesOnlyToPublicAddresses(address)) return null
         var connection: HttpURLConnection? = null
         return try {
             connection = (URL(address).openConnection() as? HttpURLConnection) ?: return null
