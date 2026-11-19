@@ -456,12 +456,13 @@ private fun continueAssistant(
     scope.launch {
         try {
             var items = JSONArray(initialItems.toString())
-            if (toolRoundsSoFar > MAX_TOOL_ROUNDS) {
-                onError("Cat AI đã đạt giới hạn số vòng thao tác cho một yêu cầu. Hãy gửi yêu cầu mới.")
+            val reply = client.sendInputItems(config, items)
+            if (reply.toolCalls.isNotEmpty() && toolRoundsSoFar >= MAX_TOOL_ROUNDS) {
+                onMessages("Cat AI đã đạt giới hạn số vòng thao tác cho yêu cầu này. Hãy bắt đầu chat mới nếu cần tiếp tục.")
+                onToolRounds(0)
                 onBusy(false)
                 return@launch
             }
-            val reply = client.sendInputItems(config, items)
             val updated = JSONArray(items.toString())
             for (index in 0 until reply.responseItems.length()) {
                 updated.put(reply.responseItems.get(index))
@@ -551,14 +552,26 @@ private fun executeApprovedTool(call: AiToolCall, controller: BrowserController)
             JSONObject().put("ok", switched)
                 .put("message", if (switched) "Đã chuyển tab." else "Không tìm thấy tab thường.")
         }
-        "go_back" -> JSONObject().put("ok", controller.assistantGoBack())
-            .put("message", "Điều hướng quay lại đã được gửi.")
-        "go_forward" -> JSONObject().put("ok", controller.assistantGoForward())
-            .put("message", "Điều hướng tiến tới đã được gửi.")
-        "go_home" -> JSONObject().put("ok", controller.assistantGoHome())
-            .put("message", "Đã yêu cầu mở trang chủ.")
-        "bookmark_current_page" -> JSONObject().put("ok", controller.assistantBookmarkCurrentPage())
-            .put("message", "Yêu cầu thêm dấu trang đã được xử lý.")
+        "go_back" -> {
+            val moved = controller.assistantGoBack()
+            JSONObject().put("ok", moved).put("message",
+                if (moved) "Đã gửi lệnh quay lại." else "Tab thường không có trang trước để mở.")
+        }
+        "go_forward" -> {
+            val moved = controller.assistantGoForward()
+            JSONObject().put("ok", moved).put("message",
+                if (moved) "Đã gửi lệnh tiến tới." else "Tab thường không có trang tiếp theo.")
+        }
+        "go_home" -> {
+            val opened = controller.assistantGoHome()
+            JSONObject().put("ok", opened).put("message",
+                if (opened) "Đã yêu cầu mở trang chủ." else "Tab ẩn danh không được điều khiển bởi Cat AI.")
+        }
+        "bookmark_current_page" -> {
+            val saved = controller.assistantBookmarkCurrentPage()
+            JSONObject().put("ok", saved).put("message",
+                if (saved) "Trang đã có trong dấu trang hoặc vừa được lưu." else "Không thể lưu trang này vào dấu trang.")
+        }
         else -> JSONObject().put("ok", false).put("message", "Công cụ không được hỗ trợ.")
     }
 }
