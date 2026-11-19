@@ -189,8 +189,10 @@ fun BrowserScreen(controller: BrowserController) {
     AnimatedContent(
         targetState = destination,
         transitionSpec = {
-            (fadeIn(tween(190)) + slideInVertically(tween(190)) { it / 24 }) togetherWith
-                (fadeOut(tween(130)) + slideOutVertically(tween(130)) { -it / 24 })
+            (fadeIn(tween(170)) + slideInVertically(
+                spring(dampingRatio = 0.9f, stiffness = 520f)
+            ) { it / 18 }) togetherWith
+                (fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 28 })
         },
         label = "browser-navigation"
     ) { target ->
