@@ -421,7 +421,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         )
                     }
                     Text(
-                        "Tin nhắn được gửi tới Google Gemini qua Supabase. Cat AI dùng chế độ store=false và có giới hạn lượt gọi ở máy chủ. Không gửi mật khẩu hoặc dữ liệu nhạy cảm. Hạn mức Gemini của Google vẫn được áp dụng; nếu tài khoản bật thanh toán, API có thể phát sinh phí.",
+                        "Tin nhắn và các bước công cụ bạn duyệt được gửi tới Google Gemini qua Supabase. store=false không lưu interaction trên API, nhưng Google AI Studio Free Tier có thể dùng dữ liệu gửi lên để cải thiện sản phẩm; không gửi thông tin riêng tư. Cat AI giới hạn 8 lượt/phút và 60 lượt/ngày cho mỗi phiên; Google vẫn áp dụng hạn mức riêng. Nếu bật thanh toán API, hãy nhờ phụ huynh/người giám hộ quản lý chi phí. Xóa dữ liệu ứng dụng hoặc đổi thiết bị sẽ làm mất phiên ẩn danh.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
