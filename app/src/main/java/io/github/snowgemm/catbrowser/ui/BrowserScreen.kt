@@ -177,7 +177,11 @@ fun BrowserScreen(controller: BrowserController) {
     var settingsReturnDestination by remember { mutableStateOf(BrowserDestination.BROWSER) }
 
     BackHandler(enabled = destination != BrowserDestination.BROWSER) {
-        destination = BrowserDestination.BROWSER
+        destination = if (destination == BrowserDestination.SETTINGS) {
+            settingsReturnDestination
+        } else {
+            BrowserDestination.BROWSER
+        }
     }
 
     AnimatedContent(
