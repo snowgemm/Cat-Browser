@@ -68,6 +68,7 @@ class AiGatewayClient(context: Context) {
                 val arguments = when (rawArguments) {
                     is JSONObject -> rawArguments
                     is String -> runCatching { JSONObject(rawArguments) }.getOrNull()
+                    null -> null
                     else -> null
                 } ?: JSONObject()
                 if (callId.isNotBlank() && name.isNotBlank()) add(AiToolCall(callId, name, arguments))
