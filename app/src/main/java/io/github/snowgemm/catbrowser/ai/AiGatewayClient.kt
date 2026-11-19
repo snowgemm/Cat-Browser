@@ -147,7 +147,7 @@ class AiGatewayClient {
                         "insufficient_quota" ->
                             "Hạn mức hoặc giới hạn thanh toán OpenAI API đã hết. Cần kiểm tra Usage và Billing của API project."
                         "rate_limit_exceeded" -> {
-                            val retryAfter = response.optInt("retryAfterSeconds", 0)
+                            val retryAfter = response?.optInt("retryAfterSeconds", 0) ?: 0
                             if (retryAfter > 0) {
                                 "OpenAI đang giới hạn tốc độ yêu cầu. Hãy đợi khoảng $retryAfter giây rồi thử lại."
                             } else {
