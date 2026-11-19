@@ -39,7 +39,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val aiGatewayClient = remember { AiGatewayClient() }
     val coroutineScope = rememberCoroutineScope()
     var aiGatewayChecking by remember { mutableStateOf(false) }
-    var aiGatewayUrl by remember { mutableStateOf(aiGatewayStore.savedBaseUrl().orEmpty()) }
+    var aiGatewayUrl by remember { mutableStateOf(aiGatewayStore.savedBaseUrl() ?: DEFAULT_CAT_AI_GATEWAY_URL) }
     var aiGatewayToken by remember { mutableStateOf("") }
     var aiGatewayConfigured by remember { mutableStateOf(aiGatewayStore.isConfigured()) }
     var aiGatewayMessage by remember { mutableStateOf<String?>(null) }
