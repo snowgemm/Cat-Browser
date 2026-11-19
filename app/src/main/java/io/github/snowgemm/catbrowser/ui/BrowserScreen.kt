@@ -201,8 +201,7 @@ fun BrowserScreen(controller: BrowserController) {
                     settingsReturnDestination = BrowserDestination.BROWSER
                     destination = BrowserDestination.SETTINGS
                 },
-                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS },
-                onOpenAssistant = { destination = BrowserDestination.ASSISTANT }
+                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS }
             )
             BrowserDestination.TABS -> TabsOverview(
                 controller = controller,
@@ -225,19 +224,11 @@ fun BrowserScreen(controller: BrowserController) {
             BrowserDestination.DOWNLOADS -> BrowserDownloadsScreen(controller.downloadManager) {
                 destination = BrowserDestination.BROWSER
             }
-            BrowserDestination.ASSISTANT -> AssistantScreen(
-                controller = controller,
-                onBack = { destination = BrowserDestination.BROWSER },
-                onOpenSettings = {
-                    settingsReturnDestination = BrowserDestination.ASSISTANT
-                    destination = BrowserDestination.SETTINGS
-                }
-            )
         }
     }
 }
 
-private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS, ASSISTANT }
+private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -246,8 +237,7 @@ private fun BrowserMainScreen(
     onOpenTabs: () -> Unit,
     onOpenExtensions: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenDownloads: () -> Unit,
-    onOpenAssistant: () -> Unit
+    onOpenDownloads: () -> Unit
 ) {
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
@@ -830,10 +820,6 @@ private fun BrowserMainScreen(
                 }
                 BrowserMenuListAction(BrowserGlyphType.EXTENSIONS, "Tiện ích mở rộng") {
                     showMenu = false; onOpenExtensions()
-                }
-                BrowserMenuListAction(BrowserGlyphType.AI, "Cat AI",
-                    subtitle = "Trợ lý Gemini · tự động kết nối") {
-                    showMenu = false; onOpenAssistant()
                 }
                 if (controller.recentlyClosedTabs.isNotEmpty()) {
                     BrowserMenuListAction(BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
