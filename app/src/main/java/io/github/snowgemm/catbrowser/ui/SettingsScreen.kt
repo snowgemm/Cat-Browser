@@ -23,6 +23,9 @@ import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.ai.AiGatewayConfigStore
+import io.github.snowgemm.catbrowser.ai.AiGatewayClient
+import io.github.snowgemm.catbrowser.ai.AiGatewayException
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
@@ -33,6 +36,9 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
     val aiGatewayStore = remember { AiGatewayConfigStore(context) }
+    val aiGatewayClient = remember { AiGatewayClient() }
+    val coroutineScope = rememberCoroutineScope()
+    var aiGatewayChecking by remember { mutableStateOf(false) }
     var aiGatewayUrl by remember { mutableStateOf(aiGatewayStore.savedBaseUrl().orEmpty()) }
     var aiGatewayToken by remember { mutableStateOf("") }
     var aiGatewayConfigured by remember { mutableStateOf(aiGatewayStore.isConfigured()) }
@@ -418,9 +424,9 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                                 if (saved) {
                                     aiGatewayConfigured = true
                                     aiGatewayToken = ""
-                                    aiGatewayMessage = "Đã lưu cấu hình. Cat AI sẽ kiểm tra gateway khi gửi tin nhắn."
+                                    aiGatewayMessage = "Đã lưu cấu hình. Hãy kiểm tra kết nối trước khi mở Cat AI."
                                 } else {
-                                    aiGatewayMessage = "Không lưu được. Kiểm tra URL HTTPS và access token."
+                                    aiGatewayMessage = "Lỗi: Không lưu được. Kiểm tra URL HTTPS và access token."
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -438,10 +444,46 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                             shape = RoundedCornerShape(14.dp)
                         ) { Text("Xóa") }
                     }
+                    OutlinedButton(
+                        onClick = {
+                            val config = aiGatewayStore.load()
+                            if (config == null) {
+                                aiGatewayMessage = "Lỗi: Hãy lưu URL HTTPS và gateway token trước."
+                            } else {
+                                coroutineScope.launch {
+                                    aiGatewayChecking = true
+                                    aiGatewayMessage = "Đang kiểm tra HTTPS, gateway token và quyền truy cập model…"
+                                    try {
+                                        val health = aiGatewayClient.checkConnection(config)
+                                        aiGatewayMessage = "Kết nối thành công · " + health.model
+                                    } catch (error: AiGatewayException) {
+                                        aiGatewayMessage = "Lỗi: " + (error.message ?: "Không thể kết nối Gateway.")
+                                    } finally {
+                                        aiGatewayChecking = false
+                                    }
+                                }
+                            }
+                        },
+                        enabled = aiGatewayConfigured && !aiGatewayChecking,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (aiGatewayChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Text(if (aiGatewayChecking) "Đang kiểm tra…" else "Kiểm tra kết nối")
+                    }
                     aiGatewayMessage?.let {
-                        Text(it, color = if (it.startsWith("Không")) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            it,
+                            color = if (it.startsWith("Lỗi:")) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                     Text(
                         "Lưu ý: sử dụng OpenAI API có thể phát sinh phí riêng, không nằm trong gói ChatGPT. Chỉ kết nối gateway bạn tin cậy.",
