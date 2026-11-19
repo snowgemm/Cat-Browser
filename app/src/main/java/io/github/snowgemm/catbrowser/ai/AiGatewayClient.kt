@@ -52,6 +52,7 @@ class AiGatewayClient {
         try {
             connection = URL(endpoint).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
+            connection.instanceFollowRedirects = false
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             connection.doOutput = true
