@@ -89,7 +89,24 @@ test("rejects malformed conversation items before calling OpenAI", async () => {
   assert.equal(called, false);
 });
 
-test("uses stateless Responses API and returns only declared browser tools", async () => {
+test("rejects oversized UTF-8 payloads even when the string character count is smaller", async () => {
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    throw new Error("OpenAI must not be called for oversized input");
+  };
+  const res = responseRecorder();
+  const req = validRequest("198.51.100.15");
+  req.body.inputItems = [{
+    role: "user",
+    content: [{ type: "input_text", text: "🧪".repeat(8_000) }]
+  }];
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(called, false);
+});
+
+test("uses stateless Responses API and serializes browser tool calls", async () => {
   let upstreamRequest;
   globalThis.fetch = async (url, init) => {
     upstreamRequest = { url, init };
@@ -119,6 +136,7 @@ test("uses stateless Responses API and returns only declared browser tools", asy
   const requestBody = JSON.parse(upstreamRequest.init.body);
   assert.equal(requestBody.store, false);
   assert.deepEqual(requestBody.include, ["reasoning.encrypted_content"]);
+  assert.equal(requestBody.parallel_tool_calls, false);
   assert.equal(requestBody.model, "gpt-6-luna");
   assert.ok(requestBody.tools.every((tool) => tool.type === "function"));
   assert.ok(requestBody.tools.every((tool) => tool.strict === true));
