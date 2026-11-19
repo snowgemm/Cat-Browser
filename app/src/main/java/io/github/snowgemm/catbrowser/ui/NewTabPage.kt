@@ -2,6 +2,10 @@ package io.github.snowgemm.catbrowser.ui
 
 import android.graphics.Bitmap
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +43,7 @@ internal fun NewTabPage(
     bookmarks: List<BrowserEntry>,
     recentHistory: List<BrowserEntry>,
     onOpenUrl: (String) -> Unit,
+    onFocusAddress: () -> Unit,
     onAddShortcut: (String, String) -> Boolean
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
@@ -70,37 +75,37 @@ internal fun NewTabPage(
         Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 22.dp)
+            .padding(horizontal = 18.dp, vertical = 18.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painter = painterResource(R.drawable.ic_launcher_foreground),
                 contentDescription = null,
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(38.dp)
             )
-            Spacer(Modifier.width(11.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     "Cat Browser",
                     color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    if (isPrivate) "Tab ẩn danh mới" else "Không gian duyệt web của bạn.",
+                    if (isPrivate) "Không gian duyệt riêng tư" else "Không gian duyệt web của bạn",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
             if (isPrivate) {
                 Surface(
                     shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
                         "ẨN DANH",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.7.sp
@@ -110,37 +115,72 @@ internal fun NewTabPage(
         }
 
         Spacer(Modifier.height(22.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(tween = 260) + slideInVertically(
+                animationSpec = spring(dampingRatio = 0.88f, stiffness = 420f)
+            ) { it / 12 }
         ) {
-            Row(
-                Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
-                Text("⌕", color = MaterialTheme.colorScheme.primary, fontSize = 23.sp)
-                Spacer(Modifier.width(10.dp))
-                Column {
+                Column(
+                    Modifier.padding(horizontal = 19.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(13.dp)
+                ) {
                     Text(
-                        "Tìm kiếm hoặc nhập địa chỉ",
+                        if (isPrivate) "Duyệt web riêng tư" else "Bắt đầu khám phá",
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Dùng thanh địa chỉ ở phía dưới để bắt đầu.",
+                        if (isPrivate)
+                            "Cat Browser không lưu lịch sử duyệt web của tab ẩn danh trên thiết bị."
+                        else
+                            "Mọi thứ bạn cần để tiếp tục hành trình trên web, ngay tại đây.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        style = MaterialTheme.typography.bodySmall
                     )
+                    Surface(
+                        onClick = onFocusAddress,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(17.dp),
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 14.dp, vertical = 15.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            BrowserGlyph(
+                                BrowserGlyphType.SEARCH,
+                                tint = MaterialTheme.colorScheme.primary,
+                                iconSize = 20.dp
+                            )
+                            Spacer(Modifier.width(11.dp))
+                            Text(
+                                "Tìm kiếm hoặc nhập địa chỉ",
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp
+                            )
+                            BrowserGlyph(
+                                BrowserGlyphType.GO,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                iconSize = 17.dp
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(25.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Lối tắt",
+                "Trang web yêu thích",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -190,7 +230,7 @@ internal fun NewTabPage(
         Spacer(Modifier.height(28.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Truy cập gần đây",
+                "Gần đây",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -252,7 +292,7 @@ internal fun NewTabPage(
             }
         }
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(24.dp))
         Text(
             if (isPrivate) "Tab ẩn danh không ghi lịch sử vào Cat Browser."
             else "Dấu trang và lịch sử được lưu trên thiết bị của bạn.",
