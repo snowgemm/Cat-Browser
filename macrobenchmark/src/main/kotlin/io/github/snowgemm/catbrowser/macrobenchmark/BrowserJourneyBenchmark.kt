@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.macrobenchmark
 
+import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
+import androidx.benchmark.macro.MemoryUsageMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
@@ -13,6 +15,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+@OptIn(ExperimentalMetricApi::class)
 @RunWith(AndroidJUnit4::class)
 class BrowserJourneyBenchmark {
     @get:Rule
@@ -21,7 +24,7 @@ class BrowserJourneyBenchmark {
     @Test
     fun coldStartup() = benchmarkRule.measureRepeated(
         packageName = TARGET_PACKAGE,
-        metrics = listOf(StartupTimingMetric()),
+        metrics = listOf(StartupTimingMetric(), MemoryUsageMetric(MemoryUsageMetric.Mode.Max)),
         iterations = 5,
         startupMode = StartupMode.COLD,
         setupBlock = { pressHome() }
@@ -32,7 +35,10 @@ class BrowserJourneyBenchmark {
     @Test
     fun tabSwitcherGridScroll() = benchmarkRule.measureRepeated(
         packageName = TARGET_PACKAGE,
-        metrics = listOf(FrameTimingMetric()),
+        metrics = listOf(
+            FrameTimingMetric(),
+            MemoryUsageMetric(MemoryUsageMetric.Mode.Max)
+        ),
         iterations = 5,
         startupMode = StartupMode.WARM,
         setupBlock = {
