@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -312,6 +314,7 @@ private fun BrowserMainScreen(
     }
 
     val tab = controller.activeTab ?: return
+    val context = LocalContext.current
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
     val extensionActions = controller.extensionsManager.actionsFor(tab.session)
     var address by remember(tab.id) {
@@ -331,7 +334,16 @@ private fun BrowserMainScreen(
 
     LaunchedEffect(tab.id, tab.url, tab.isLoading, attachedGeckoView) {
         val view = attachedGeckoView ?: return@LaunchedEffect
-        if (!tab.isPrivate && tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100) {
+        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            context.getSystemService(PowerManager::class.java)?.currentThermalStatus
+                ?: PowerManager.THERMAL_STATUS_NONE
+        } else {
+            PowerManager.THERMAL_STATUS_NONE
+        }
+        if (!tab.isPrivate && tab.previewBitmap == null &&
+            thermalStatus < PowerManager.THERMAL_STATUS_MODERATE &&
+            tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100
+        ) {
             delay(450)
             if (attachedGeckoView === view && view.getSession() === tab.session) {
                 view.capturePixels().accept(
@@ -394,7 +406,6 @@ private fun BrowserMainScreen(
         }
     }
 
-    val context = LocalContext.current
     val androidPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
