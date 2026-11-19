@@ -38,7 +38,64 @@ class AiGatewayException(message: String) : Exception(message)
  * Conversation items are replayed with store=false instead of creating
  * a persistent OpenAI response chain.
  */
+data class AiGatewayHealth(
+    val model: String
+)
+
 class AiGatewayClient {
+    suspend fun checkConnection(config: AiGatewayConfig): AiGatewayHealth =
+        withContext(Dispatchers.IO) {
+            val endpoint = config.baseUrl.trimEnd('/') + API_PATH
+            var connection: HttpURLConnection? = null
+            try {
+                connection = URL(endpoint).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.instanceFollowRedirects = false
+                connection.connectTimeout = CONNECT_TIMEOUT_MS
+                connection.readTimeout = HEALTH_TIMEOUT_MS
+                connection.setRequestProperty("Accept", "application/json")
+                connection.setRequestProperty("Authorization", "Bearer " + config.accessToken)
+
+                val status = connection.responseCode
+                if (status in 300..399) {
+                    throw AiGatewayException(
+                        "Gateway đang chuyển hướng hoặc bị Vercel SSO bảo vệ. Hãy dùng custom domain HTTPS đã cấu hình."
+                    )
+                }
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val responseText = stream?.use { input ->
+                    BufferedReader(InputStreamReader(input, Charsets.UTF_8)).use { it.readText() }
+                }.orEmpty()
+                val response = runCatching { JSONObject(responseText) }.getOrNull()
+                if (status !in 200..299) {
+                    val message = when (status) {
+                        401 -> "Gateway token không chính xác."
+                        429 -> "Gateway đang giới hạn yêu cầu. Thử lại sau."
+                        503 -> "Gateway chưa có đủ biến môi trường bí mật."
+                        else -> response?.optString("error").orEmpty()
+                            .ifBlank { "Gateway trả về HTTP $status." }
+                    }
+                    throw AiGatewayException(message.take(240))
+                }
+                if (response?.optBoolean("ok") != true) {
+                    throw AiGatewayException("Gateway trả về trạng thái không hợp lệ.")
+                }
+                val model = response.optString("model").takeIf { it.isNotBlank() }
+                    ?: throw AiGatewayException("Gateway không xác nhận model OpenAI.")
+                AiGatewayHealth(model)
+            } catch (error: AiGatewayException) {
+                throw error
+            } catch (_: java.net.SocketTimeoutException) {
+                throw AiGatewayException("Kiểm tra kết nối quá thời gian chờ.")
+            } catch (_: java.io.IOException) {
+                throw AiGatewayException("Không thể truy cập Gateway qua HTTPS.")
+            } catch (_: Exception) {
+                throw AiGatewayException("Không thể kiểm tra cấu hình Gateway.")
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
     suspend fun sendInputItems(
         config: AiGatewayConfig,
         inputItems: JSONArray
@@ -125,6 +182,7 @@ class AiGatewayClient {
         const val API_PATH = "/api/assistant"
         const val CONNECT_TIMEOUT_MS = 12_000
         const val READ_TIMEOUT_MS = 45_000
+        const val HEALTH_TIMEOUT_MS = 12_000
         const val MAX_REQUEST_BYTES = 28 * 1024
         const val MAX_RESPONSE_CHARS = 48 * 1024
         const val MAX_TOOL_CALLS = 5
