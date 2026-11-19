@@ -3,7 +3,6 @@ import { timingSafeEqual } from "node:crypto";
 const MODEL = process.env.OPENAI_MODEL || "gpt-6-luna";
 const MAX_BODY_BYTES = 28 * 1024;
 const MAX_INPUT_ITEMS = 32;
-const MAX_INPUT_CHARS = 22_000;
 const MAX_TOOL_OUTPUT_CHARS = 2_000;
 
 const instructions = `
@@ -122,7 +121,9 @@ function validateInputItems(items) {
     throw new Error("Invalid conversation length.");
   }
   const encoded = JSON.stringify(items);
-  if (encoded.length > MAX_INPUT_CHARS) throw new Error("Conversation is too large.");
+  if (Buffer.byteLength(encoded, "utf8") > MAX_BODY_BYTES) {
+    throw new Error("Conversation is too large.");
+  }
 
   for (const item of items) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
@@ -166,7 +167,7 @@ function validateInputItems(items) {
 
     if (item.type === "reasoning" &&
         typeof item.encrypted_content === "string" &&
-        item.encrypted_content.length <= 12_000) {
+        item.encrypted_content.length <= MAX_BODY_BYTES) {
       continue;
     }
 
@@ -269,6 +270,7 @@ export default async function handler(req, res) {
         input: body.inputItems,
         tools,
         tool_choice: "auto",
+        parallel_tool_calls: false,
         max_output_tokens: 800,
         store: false,
         include: ["reasoning.encrypted_content"]
