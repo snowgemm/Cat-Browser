@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebResponse
 import java.io.File
 import java.io.InputStream
@@ -92,6 +93,7 @@ class BrowserDownloadManager(context: Context) {
         privateMode: Boolean,
         requestedFileName: String? = null,
         destinationUri: Uri? = null,
+        conflictActionFlag: Int? = null,
         extensionId: String? = null,
         extensionDownloadId: Int? = null,
         referrer: String? = null,
@@ -114,10 +116,15 @@ class BrowserDownloadManager(context: Context) {
             ?.coerceAtLeast(0L)
             ?: -1L
 
-        val fileName = requestedFileName
+        val requestedName = requestedFileName
             ?.takeIf(String::isNotBlank)
             ?.let(::sanitizeDownloadFileName)
             ?: resolveFileName(response)
+        val fileName = if (destinationUri == null && conflictActionFlag != null) {
+            applyConflictAction(requestedName, conflictActionFlag)
+        } else {
+            requestedName
+        }
         val item = BrowserDownloadItem(
             id = UUID.randomUUID().toString(),
             fileName = fileName,
@@ -468,6 +475,74 @@ class BrowserDownloadManager(context: Context) {
 
         return sanitizeDownloadFileName(rawName)
     }
+
+    private fun applyConflictAction(fileName: String, action: Int): String {
+        val activeCollision = downloads.any {
+            it.fileName.equals(fileName, ignoreCase = true) &&
+                (it.status == BrowserDownloadStatus.QUEUED ||
+                    it.status == BrowserDownloadStatus.DOWNLOADING)
+        }
+        return when (action) {
+            WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE -> {
+                if (activeCollision) uniqueAvailableFileName(fileName) else {
+                    deleteExistingDestination(fileName)
+                    fileName
+                }
+            }
+            WebExtension.DownloadRequest.CONFLICT_ACTION_UNIQUIFY -> uniqueAvailableFileName(fileName)
+            WebExtension.DownloadRequest.CONFLICT_ACTION_PROMPT -> uniqueAvailableFileName(fileName)
+            else -> uniqueAvailableFileName(fileName)
+        }
+    }
+
+    private fun uniqueAvailableFileName(fileName: String): String {
+        val base = fileName.substringBeforeLast('.', fileName)
+        val extension = fileName.substringAfterLast('.', "").takeIf { it.isNotBlank() }
+        var index = 0
+        while (true) {
+            val candidate = if (index == 0) fileName else
+                base + " (" + index + ")" + (extension?.let { ".$it" } ?: "")
+            val exists = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                mediaStoreDestinationExists(candidate)
+            } else {
+                val directory = legacyDownloadDirectory()
+                File(directory, candidate).exists() || File(directory, candidate + ".part").exists()
+            }
+            if (!exists) return candidate
+            index++
+        }
+    }
+
+    private fun deleteExistingDestination(fileName: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            resolver.delete(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                "\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \${MediaStore.Downloads.RELATIVE_PATH} = ?",
+                arrayOf(fileName, downloadRelativePath())
+            )
+        } else {
+            val target = File(legacyDownloadDirectory(), fileName)
+            if (target.isFile) target.delete()
+        }
+    }
+
+    private fun mediaStoreDestinationExists(fileName: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Downloads._ID),
+            "\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \${MediaStore.Downloads.RELATIVE_PATH} = ?",
+            arrayOf(fileName, downloadRelativePath()),
+            null
+        )?.use { cursor -> cursor.moveToFirst() } ?: false
+    }
+
+    private fun downloadRelativePath(): String =
+        Environment.DIRECTORY_DOWNLOADS + "/Cat Browser/"
+
+    private fun legacyDownloadDirectory(): File =
+        appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+            ?: File(appContext.filesDir, "downloads")
 
     private fun uniqueFile(directory: File, fileName: String): File {
         val base = fileName.substringBeforeLast('.', fileName)
