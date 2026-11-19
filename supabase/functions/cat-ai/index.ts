@@ -25,7 +25,7 @@ function json(data: unknown, status = 200, extraHeaders: Record<string, string> 
 
 function getVerifiedUserId(request: Request): string | null {
   const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
