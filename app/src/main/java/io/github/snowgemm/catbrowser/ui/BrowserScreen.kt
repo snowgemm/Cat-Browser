@@ -40,6 +40,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -277,6 +279,7 @@ private fun BrowserMainScreen(
     }
     var addressFocused by remember(tab.id) { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val addressFocusRequester = remember(tab.id) { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val tabSwipeThreshold = with(LocalDensity.current) { 44.dp.toPx() }
 
@@ -535,6 +538,11 @@ private fun BrowserMainScreen(
                     bookmarks = controller.bookmarks.toList(),
                     recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
                     onOpenUrl = controller::openEntry,
+                    onFocusAddress = {
+                        addressFocused = true
+                        addressFocusRequester.requestFocus()
+                        keyboard?.show()
+                    },
                     onAddShortcut = if (tab.isPrivate) { _, _ -> false } else controller::addBookmark
                 )
                 else -> {
@@ -623,7 +631,7 @@ private fun BrowserMainScreen(
                     BasicTextField(
                         value = address,
                         onValueChange = { address = it },
-                        modifier = Modifier.weight(1f).onFocusChanged { state ->
+                        modifier = Modifier.weight(1f).focusRequester(addressFocusRequester).onFocusChanged { state ->
                             if (state.isFocused && !addressFocused) {
                                 address = address.copy(selection = TextRange(0, address.text.length))
                             } else if (!state.isFocused && addressFocused) {
