@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CatBrowser"
 include(":app")
+include(":macrobenchmark")
