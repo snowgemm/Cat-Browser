@@ -17,6 +17,7 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.MediaSession
 import org.mozilla.geckoview.StorageController
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.WebResponse
@@ -329,6 +330,7 @@ class BrowserController(
             if (!session.isOpen) return@forEach
             session.setFocused(false)
             session.setActive(false)
+            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
             runtime.webExtensionController.setTabActive(session, false)
         }
     }
@@ -341,6 +343,9 @@ class BrowserController(
             val visible = tab.id == selectedTabId && tab.isViewAttached
             session.setActive(visible)
             session.setFocused(visible)
+            session.setPriorityHint(
+                if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+            )
             runtime.webExtensionController.setTabActive(session, visible)
         }
     }
@@ -387,6 +392,9 @@ class BrowserController(
                 val visible = isAppForegrounded && target.isViewAttached
                 session.setActive(visible)
                 session.setFocused(visible)
+                session.setPriorityHint(
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
             return
@@ -401,6 +409,7 @@ class BrowserController(
                 runtime.webExtensionController.setTabActive(session, false)
                 session.setFocused(false)
                 session.setActive(false)
+                session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
             }
         }
 
@@ -411,6 +420,9 @@ class BrowserController(
                 val visible = isAppForegrounded && target.isViewAttached
                 session.setActive(visible)
                 session.setFocused(visible)
+                session.setPriorityHint(
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
         }
@@ -1210,6 +1222,9 @@ class BrowserController(
                 val visible = isAppForegrounded && tab.id == selected.id && tab.isViewAttached
                 session.setActive(visible)
                 session.setFocused(visible)
+                session.setPriorityHint(
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
         }
@@ -1219,6 +1234,9 @@ class BrowserController(
                 val visible = isAppForegrounded && selected.isViewAttached
                 session.setActive(visible)
                 session.setFocused(visible)
+                session.setPriorityHint(
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                )
             }
         }
     }
@@ -1231,6 +1249,9 @@ class BrowserController(
         val visible = isAppForegrounded && tab.id == selectedTabId
         session.setActive(visible)
         session.setFocused(visible)
+        session.setPriorityHint(
+            if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+        )
         runtime.webExtensionController.setTabActive(session, visible)
 
         if (visible && tab.loadPendingUntilAttached) {
@@ -1253,6 +1274,7 @@ class BrowserController(
         if (session.isOpen) {
             session.setFocused(false)
             session.setActive(false)
+            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
             runtime.webExtensionController.setTabActive(session, false)
         }
     }
@@ -1441,6 +1463,17 @@ class BrowserController(
             }
         }
 
+        session.setMediaSessionDelegate(object : MediaSession.Delegate {
+            override fun onFullscreen(
+                session: GeckoSession,
+                mediaSession: MediaSession,
+                enabled: Boolean,
+                meta: MediaSession.ElementMetadata?
+            ) {
+                if (tab.session === session) tab.isFullScreen = enabled
+            }
+        })
+
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
                 if (tab.session !== session) return
@@ -1475,6 +1508,9 @@ class BrowserController(
         val isVisible = isAppForegrounded && tab.id == selectedTabId && tab.isViewAttached
         session.setActive(isVisible)
         session.setFocused(isVisible)
+        session.setPriorityHint(
+            if (isVisible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+        )
         runtime.webExtensionController.setTabActive(session, isVisible)
     }
 
