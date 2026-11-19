@@ -55,6 +55,9 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | Component | Responsibility |
 |---|---|
 | Browser UI | Native New Tab Page, local address suggestions, address-bar tab gestures, tab overview previews/reordering, navigation overflow menu, bookmark/history dialogs, download manager, find-in-page and permission prompts |
+| FaviconRepository | Fetches only same-host HTTPS /favicon.ico, rejects local/private resolved addresses, bounds icon size and memory caches, and uses monogram fallback; no third-party proxy |
+| Cat AI | Optional assistant UI, Android Keystore gateway-token storage, stateless OpenAI Responses API client, explicit approval queue for every browser tool call; private tabs and page contents excluded |
+| AI gateway | Self-hostable Vercel Node.js endpoint, server-only OpenAI API key, fixed function-tool allowlist, input size limits and best-effort per-instance rate throttle |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
 | BrowserController | GeckoSession collection, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
 | BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode and GeckoSession reference |
@@ -73,4 +76,5 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 - No complete GeckoSession state restore; recently closed tabs restore their last URL only and are held in memory for the current app process.
 - Find-in-page is implemented but requires real-device validation; desktop-site toggle, reader mode and built-in translation UI are not implemented.
 - No built-in password manager/autofill UI or bookmark import/export.
+- Cat AI requires a separately deployed HTTPS gateway and owner-managed API credentials/billing. The gateway is not hosted by the repository; the in-app assistant is not a ChatGPT Android app connector.
 - Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.
