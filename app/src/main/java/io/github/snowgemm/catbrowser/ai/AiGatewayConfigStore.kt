@@ -51,8 +51,7 @@ class AiGatewayConfigStore(context: Context) {
         return AiGatewayConfig(baseUrl, token)
     }
 
-    fun isConfigured(): Boolean =
-        preferences.contains(KEY_BASE_URL) && preferences.contains(KEY_ACCESS_TOKEN)
+    fun isConfigured(): Boolean = load() != null
 
     fun savedBaseUrl(): String? = preferences.getString(KEY_BASE_URL, null)
 
