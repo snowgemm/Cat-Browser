@@ -88,6 +88,7 @@ internal fun AssistantScreen(
                         },
                         onBusy = { isBusy = it },
                         onError = { errorMessage = it },
+                        toolRoundsSoFar = toolRounds,
                         onToolRounds = { toolRounds = it }
                     )
                 }
@@ -136,7 +137,8 @@ internal fun AssistantScreen(
             },
             onBusy = { isBusy = it },
             onError = { errorMessage = it },
-            onToolRounds = { toolRounds = it }
+            toolRoundsSoFar = toolRounds,
+                        onToolRounds = { toolRounds = it }
         )
     }
 
@@ -164,7 +166,8 @@ internal fun AssistantScreen(
                     },
                     onBusy = { isBusy = it },
                     onError = { errorMessage = it },
-                    onToolRounds = { toolRounds = it }
+                    toolRoundsSoFar = toolRounds,
+                        onToolRounds = { toolRounds = it }
                 )
             }
         )
@@ -297,7 +300,8 @@ internal fun AssistantScreen(
                                             },
                                             onBusy = { isBusy = it },
                                             onError = { errorMessage = it },
-                                            onToolRounds = { toolRounds = it }
+                                            toolRoundsSoFar = toolRounds,
+                        onToolRounds = { toolRounds = it }
                                         )
                                     }
                                 ) { Text("Thử lại") }
@@ -426,7 +430,7 @@ private fun AssistantMessageBubble(message: AssistantMessage) {
     }
 }
 
-private suspend fun continueAssistant(
+private fun continueAssistant(
     client: AiGatewayClient,
     config: AiGatewayConfig?,
     initialItems: JSONArray,
@@ -436,6 +440,7 @@ private suspend fun continueAssistant(
     onPendingCalls: (List<AiToolCall>) -> Unit,
     onBusy: (Boolean) -> Unit,
     onError: (String?) -> Unit,
+    toolRoundsSoFar: Int,
     onToolRounds: (Int) -> Unit
 ) {
     if (config == null) {
@@ -451,7 +456,11 @@ private suspend fun continueAssistant(
     scope.launch {
         try {
             var items = JSONArray(initialItems.toString())
-            val roundCount = 0
+            if (toolRoundsSoFar >= MAX_TOOL_ROUNDS) {
+                onError("Cat AI đã đạt giới hạn số vòng thao tác cho một yêu cầu. Hãy gửi yêu cầu mới.")
+                onBusy(false)
+                return@launch
+            }
             val reply = client.sendInputItems(config, items)
             val updated = JSONArray(items.toString())
             for (index in 0 until reply.responseItems.length()) {
@@ -461,12 +470,13 @@ private suspend fun continueAssistant(
             onUpdatedItems(items)
             if (reply.text.isNotBlank()) onMessages(reply.text)
             if (reply.toolCalls.isNotEmpty()) {
-                onToolRounds(roundCount + 1)
+                onToolRounds(toolRoundsSoFar + 1)
                 onPendingCalls(reply.toolCalls)
                 onBusy(false)
                 return@launch
             }
             if (reply.text.isBlank()) onMessages("Mình chưa nhận được câu trả lời. Bạn có thể thử diễn đạt lại.")
+            onToolRounds(0)
             onBusy(false)
         } catch (error: AiGatewayException) {
             onError(error.message ?: "Không thể kết nối Cat AI Gateway.")
