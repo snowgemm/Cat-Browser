@@ -521,7 +521,7 @@ class BrowserDownloadManager(context: Context) {
             runCatching {
                 resolver.delete(
                     MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    "\\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \\${MediaStore.Downloads.RELATIVE_PATH} = ?",
+                    "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} = ?",
                     arrayOf(fileName, downloadRelativePath())
                 )
             }
@@ -536,7 +536,7 @@ class BrowserDownloadManager(context: Context) {
         return resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
             arrayOf(MediaStore.Downloads._ID),
-            "\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \${MediaStore.Downloads.RELATIVE_PATH} = ?",
+            "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} = ?",
             arrayOf(fileName, downloadRelativePath()),
             null
         )?.use { cursor -> cursor.moveToFirst() } ?: false
