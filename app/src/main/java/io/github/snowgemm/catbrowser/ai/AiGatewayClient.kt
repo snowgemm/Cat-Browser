@@ -221,6 +221,6 @@ class AiGatewayClient(context: Context) {
         const val REFRESH_SKEW_SECONDS = 90L
         const val MAX_REQUEST_BYTES = 28 * 1024
         const val MAX_RESPONSE_CHARS = 48 * 1024
-        const val MAX_TOOL_CALLS = 5
+        const val MAX_TOOL_CALLS = 8
     }
 }
