@@ -33,23 +33,30 @@ private class ApiResponseException(val status: Int, message: String) : Exception
 /** Supabase anonymous session + Edge Function client. No user-entered gateway URL or token. */
 class AiGatewayClient(context: Context) {
     private val sessionStore = SupabaseSessionStore(context)
-    private val sessionMutex = Mutex()
 
     suspend fun checkConnection(): AiGatewayHealth = withContext(Dispatchers.IO) {
         val session = requireSession()
-        val response = requestJson("GET", SupabaseConfig.CAT_AI_FUNCTION_URL, session.accessToken)
+        val response = try {
+            requestJson("GET", SupabaseConfig.CAT_AI_FUNCTION_URL, session.accessToken)
+        } catch (error: ApiResponseException) {
+            throw AiGatewayException(error.message ?: "Không thể kiểm tra kết nối Cat AI.")
+        }
         if (response.optBoolean("ok") != true) throw AiGatewayException("Máy chủ Cat AI chưa xác nhận kết nối.")
         AiGatewayHealth(response.optString("model").ifBlank { "Gemini" })
     }
 
     suspend fun sendInputItems(inputItems: JSONArray): AiGatewayReply = withContext(Dispatchers.IO) {
         val session = requireSession()
-        val response = requestJson(
-            method = "POST",
-            endpoint = SupabaseConfig.CAT_AI_FUNCTION_URL,
-            accessToken = session.accessToken,
-            payload = JSONObject().put("input", inputItems)
-        )
+        val response = try {
+            requestJson(
+                method = "POST",
+                endpoint = SupabaseConfig.CAT_AI_FUNCTION_URL,
+                accessToken = session.accessToken,
+                payload = JSONObject().put("input", inputItems)
+            )
+        } catch (error: ApiResponseException) {
+            throw AiGatewayException(error.message ?: "Không thể gửi yêu cầu tới Cat AI.")
+        }
         val steps = response.optJSONArray("responseItems") ?: JSONArray()
         val calls = buildList {
             for (index in 0 until steps.length()) {
@@ -105,7 +112,7 @@ class AiGatewayClient(context: Context) {
                 payload = JSONObject().put("data", JSONObject())
             )
         } catch (error: ApiResponseException) {
-            val message = if (error.status == 400 || error.status == 403) {
+            val message = if (error.status == 400 || error.status == 403 || error.status == 422) {
                 "Không thể tạo phiên ẩn danh. Kiểm tra Anonymous Sign-ins trong Supabase Auth."
             } else error.message ?: "Không thể tạo phiên Supabase."
             throw AiGatewayException(message)
@@ -208,6 +215,7 @@ class AiGatewayClient(context: Context) {
     }
 
     private companion object {
+        val sessionMutex = Mutex()
         const val CONNECT_TIMEOUT_MS = 12_000
         const val READ_TIMEOUT_MS = 45_000
         const val REFRESH_SKEW_SECONDS = 90L
