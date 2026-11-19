@@ -20,7 +20,7 @@ If the user clears app data or changes devices, the anonymous session cannot be 
 ### Supabase Edge Function
 
 - Function name: `cat-ai`.
-- JWT verification is enabled (`verify_jwt=true)).
+- Uses Supabase's official `withSupabase({ auth: "user" })` wrapper to validate the user JWT against the project's JWKS before processing a request. The platform `verify_jwt` flag is disabled because this project uses the new `sb_publishable_` / `sb_secret_` API-key format; authentication is still enforced by the wrapper.
 - Validates the authenticated user JWT before processing a request.
 - Reads `GEMINI_API_KEY` only from Supabase Edge Function secrets.
 - Uses the Supabase server secret only inside the Edge Function to call the quota RPC. No server secret is sent to Android.
