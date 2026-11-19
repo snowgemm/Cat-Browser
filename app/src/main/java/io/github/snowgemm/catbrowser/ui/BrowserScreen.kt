@@ -271,7 +271,7 @@ private fun BrowserMainScreen(
             delay(450)
             if (attachedGeckoView === view && view.getSession() === tab.session) {
                 view.capturePixels().accept(
-                    { bitmap -> controller.updateTabPreview(tab.id, bitmap) },
+                    { bitmap -> bitmap?.let { controller.updateTabPreview(tab.id, it) } },
                     { /* Preview is optional; keep the previous thumbnail on capture errors. */ }
                 )
             }
