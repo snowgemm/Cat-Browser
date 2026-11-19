@@ -213,6 +213,7 @@ See the [Macrobenchmark guide](macrobenchmark/README.md).
 - AI messages and approved browser-tool results are sent to Google Gemini through Supabase. Consult [AI data handling](docs/AI-APP-CONTROL.md) for retention, quotas and provider data-use details.
 - GeckoView security fixes reach Cat when the engine dependency is reviewed, updated, tested and shipped in a new app release.
 - Do not submit passwords, tokens, private browsing data or other sensitive material in public issue reports.
+- Report security vulnerabilities privately; see the [Security policy](SECURITY.md).
 
 ## Known limitations
 
@@ -235,6 +236,8 @@ See the [Macrobenchmark guide](macrobenchmark/README.md).
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Key external components and their licenses |
 | [Macrobenchmark guide](macrobenchmark/README.md) | Device setup, benchmark commands and output locations |
 | [Legacy AI gateway](ai-gateway/README.md) | Deprecated rollback component and its CI-only tests |
+| [Contributing](CONTRIBUTING.md) | Kotlin code organization, local verification and contribution expectations |
+| [Security policy](SECURITY.md) | Supported versions and private vulnerability reporting |
 
 ## Third-party components and licensing
 
