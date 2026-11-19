@@ -76,7 +76,7 @@ class BrowserUpdateManager(context: Context) {
         if (betaEnabled) checkForUpdates(UpdateChannel.BETA)
     }
 
-    fun setBetaEnabled(enabled: Boolean) {
+    fun updateBetaEnabled(enabled: Boolean) {
         if (betaEnabled == enabled) return
         if (!enabled && betaState.isDownloading) return
         betaEnabled = enabled
