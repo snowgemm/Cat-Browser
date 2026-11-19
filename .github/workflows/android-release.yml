@@ -1,0 +1,185 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types:
+      - published
+
+# A tag push and its published-release event can target the same assets.
+# Serialize both runs per tag to prevent concurrent GitHub Release uploads.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish signed ABI APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v7
+
+      - name: Derive Android version from release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import os
+          import re
+          import sys
+
+          tag = os.environ["RELEASE_TAG"]
+          match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-beta(?:\.(\d+))?)?", tag)
+          if not match:
+              sys.exit("Release tags must use vMAJOR.MINOR.PATCH, vMAJOR.MINOR.PATCH-beta, or vMAJOR.MINOR.PATCH-beta.N")
+
+          major, minor, patch = (int(match.group(i)) for i in range(1, 4))
+          beta_text = match.group(4)
+          is_beta = "-beta" in tag
+          stage = int(beta_text) if beta_text else (0 if is_beta else 99)
+          if major > 2099 or minor > 99 or patch > 99:
+              sys.exit("Version components exceed the supported Android versionCode range")
+          if beta_text and not 1 <= stage <= 98:
+              sys.exit("Beta sequence must be between 1 and 98")
+
+          version_code = major * 1_000_000 + minor * 10_000 + patch * 100 + stage
+          if version_code > 2_100_000_000:
+              sys.exit("Generated Android versionCode exceeds the Play/PackageManager limit")
+
+          print("CAT_VERSION_NAME=" + tag.removeprefix("v"))
+          print("CAT_VERSION_CODE=" + str(version_code))
+          PY
+
+      - name: Set up JDK
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Validate signing secrets
+        env:
+          CAT_RELEASE_KEYSTORE_BASE64: ${{ secrets.CAT_RELEASE_KEYSTORE_BASE64 }}
+          CAT_RELEASE_STORE_PASSWORD: ${{ secrets.CAT_RELEASE_STORE_PASSWORD }}
+          CAT_RELEASE_KEY_ALIAS: ${{ secrets.CAT_RELEASE_KEY_ALIAS }}
+          CAT_RELEASE_KEY_PASSWORD: ${{ secrets.CAT_RELEASE_KEY_PASSWORD }}
+        run: |
+          test -n "$CAT_RELEASE_KEYSTORE_BASE64"
+          test -n "$CAT_RELEASE_STORE_PASSWORD"
+          test -n "$CAT_RELEASE_KEY_ALIAS"
+          test -n "$CAT_RELEASE_KEY_PASSWORD"
+
+      - name: Decode release keystore
+        env:
+          CAT_RELEASE_KEYSTORE_BASE64: ${{ secrets.CAT_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          printf '%s' "$CAT_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/cat-browser-release.jks"
+          test -s "$RUNNER_TEMP/cat-browser-release.jks"
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+
+      - name: Install Android SDK components
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-37.2" \
+            "build-tools;36.0.0" \
+            "platform-tools"
+          test -f "$ANDROID_HOME/platforms/android-37.2/android.jar"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run unit tests and build release APKs
+        env:
+          CAT_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/cat-browser-release.jks
+          CAT_RELEASE_STORE_PASSWORD: ${{ secrets.CAT_RELEASE_STORE_PASSWORD }}
+          CAT_RELEASE_KEY_ALIAS: ${{ secrets.CAT_RELEASE_KEY_ALIAS }}
+          CAT_RELEASE_KEY_PASSWORD: ${{ secrets.CAT_RELEASE_KEY_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+
+      - name: Validate release APK ABI contents
+        run: |
+          python3 scripts/verify_abi_apks.py \
+            --input app/build/outputs/apk/release \
+            --output dist/abi-apks
+          for apk in dist/abi-apks/*-debug.apk; do
+            mv "$apk" "${apk/-debug.apk/-release.apk}"
+          done
+          (
+            cd dist/abi-apks
+            sha256sum *-release.apk > SHA256SUMS
+          )
+
+      - name: Verify APK signatures and shared signing identity
+        shell: bash
+        run: |
+          expected_certificate=""
+          for apk in dist/abi-apks/*-release.apk; do
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+            certificate=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" \
+              | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+            test -n "$certificate"
+            if [[ -z "$expected_certificate" ]]; then
+              expected_certificate="$certificate"
+            elif [[ "$certificate" != "$expected_certificate" ]]; then
+              echo "APK signing certificates do not match" >&2
+              exit 1
+            fi
+          done
+          echo "All ABI APKs use the same release certificate: $expected_certificate" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish release checksums
+        run: |
+          {
+            echo "## Cat Browser $GITHUB_REF_NAME"
+            echo
+            echo "Production-signed ABI-specific APKs"
+            echo
+            cat dist/abi-apks/SHA256SUMS
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_create_flags=()
+          release_edit_flags=()
+          if [[ "$GITHUB_REF_NAME" == *-beta* ]]; then
+            release_create_flags+=(--prerelease)
+            release_edit_flags+=(--prerelease)
+          fi
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              dist/abi-apks/*-release.apk \
+              dist/abi-apks/SHA256SUMS \
+              --clobber
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Cat Browser $GITHUB_REF_NAME" \
+              "${release_edit_flags[@]}"
+          else
+            if [[ -f ".github/release-notes/$GITHUB_REF_NAME.md" ]]; then
+              gh release create "$GITHUB_REF_NAME" \
+                dist/abi-apks/*-release.apk \
+                dist/abi-apks/SHA256SUMS \
+                --title "Cat Browser $GITHUB_REF_NAME" \
+                --notes-file ".github/release-notes/$GITHUB_REF_NAME.md" \
+                "${release_create_flags[@]}"
+            else
+              gh release create "$GITHUB_REF_NAME" \
+                dist/abi-apks/*-release.apk \
+                dist/abi-apks/SHA256SUMS \
+                --title "Cat Browser $GITHUB_REF_NAME" \
+                --generate-notes \
+                "${release_create_flags[@]}"
+            fi
+          fi
