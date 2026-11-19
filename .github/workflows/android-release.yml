@@ -8,6 +8,13 @@ on:
     types:
       - published
 
+# A tag push and its published-release event can target the same assets.
+# Serialize both runs per tag to prevent concurrent GitHub Release uploads.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+  queue: max
+
 permissions:
   contents: write
 
