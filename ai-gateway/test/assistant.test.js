@@ -145,6 +145,106 @@ test("uses stateless Responses API and serializes browser tool calls", async () 
   assert.equal(res.body.responseItems.length, 2);
 });
 
+test("accepts assistant message items and completed tool outputs on stateless replay", async () => {
+  let called = false;
+  globalThis.fetch = async (_url, init) => {
+    called = true;
+    const requestBody = JSON.parse(init.body);
+    assert.equal(requestBody.input.length, 6);
+    return new Response(JSON.stringify({
+      output: [{
+        type: "message",
+        id: "msg_reply",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Đã mở trang." }]
+      }]
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+
+  const req = validRequest("198.51.100.16");
+  req.body.inputItems = [
+    {
+      role: "user",
+      content: [{ type: "input_text", text: "Mở example.com" }]
+    },
+    {
+      type: "reasoning",
+      id: "rs_first",
+      encrypted_content: "opaque-first-reasoning"
+    },
+    {
+      type: "function_call",
+      id: "fc_first",
+      call_id: "call_first",
+      name: "open_url",
+      arguments: JSON.stringify({ url: "https://example.com" })
+    },
+    {
+      type: "function_call_output",
+      call_id: "call_first",
+      output: JSON.stringify({ ok: true })
+    },
+    {
+      type: "reasoning",
+      id: "rs_second",
+      encrypted_content: "opaque-second-reasoning"
+    },
+    {
+      type: "message",
+      id: "msg_previous",
+      role: "assistant",
+      content: [{ type: "output_text", text: "Đang mở trang." }]
+    }
+  ];
+
+  const res = responseRecorder();
+  await handler(req, res);
+  assert.equal(called, true);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.outputText, "Đã mở trang.");
+});
+
+test("rejects a function output that has no matching function call", async () => {
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    throw new Error("OpenAI must not be called for an unpaired tool output");
+  };
+
+  const req = validRequest("198.51.100.17");
+  req.body.inputItems = [
+    { role: "user", content: [{ type: "input_text", text: "Hello" }] },
+    { type: "function_call_output", call_id: "missing_call", output: "{\\"ok\\":true}" }
+  ];
+  const res = responseRecorder();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(called, false);
+});
+
+test("rejects unresolved tool calls instead of sending an incomplete tool cycle", async () => {
+  let called = false;
+  globalThis.fetch = async () => {
+    called = true;
+    throw new Error("OpenAI must not be called for an unresolved tool call");
+  };
+
+  const req = validRequest("198.51.100.18");
+  req.body.inputItems = [
+    { role: "user", content: [{ type: "input_text", text: "Hello" }] },
+    {
+      type: "function_call",
+      call_id: "pending_call",
+      name: "go_home",
+      arguments: "{}"
+    }
+  ];
+  const res = responseRecorder();
+  await handler(req, res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(called, false);
+});
+
 test("does not expose OpenAI upstream error bodies to the client", async () => {
   globalThis.fetch = async () =>
     new Response(JSON.stringify({ error: { message: "sensitive upstream diagnostic" } }), {
