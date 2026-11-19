@@ -62,9 +62,32 @@ test.after(() => {
 
 test("rejects non-POST requests", async () => {
   const res = responseRecorder();
-  await handler({ method: "GET", headers: {}, body: null }, res);
+  await handler({ method: "PATCH", headers: {}, body: null }, res);
   assert.equal(res.statusCode, 405);
-  assert.equal(res.headers.allow, "POST");
+  assert.equal(res.headers.allow, "GET, POST");
+});
+
+test("checks gateway credentials and model access without generating a response", async () => {
+  let upstreamRequest;
+  globalThis.fetch = async (url, init) => {
+    upstreamRequest = { url, init };
+    return new Response(JSON.stringify({
+      id: "gpt-6-luna",
+      object: "model",
+      owned_by: "openai"
+    }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+
+  const req = validRequest("198.51.100.19");
+  req.method = "GET";
+  const res = responseRecorder();
+  await handler(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(upstreamRequest.url, "https://api.openai.com/v1/models/gpt-6-luna");
+  assert.equal(upstreamRequest.init.method, "GET");
+  assert.equal(upstreamRequest.init.headers.Authorization, "Bearer test-openai-key-not-real");
+  assert.deepEqual(res.body, { ok: true, model: "gpt-6-luna" });
 });
 
 test("rejects requests without a valid gateway token", async () => {
