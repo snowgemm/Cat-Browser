@@ -1,6 +1,7 @@
 package io.github.snowgemm.catbrowser.browser
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
@@ -87,6 +88,8 @@ class BrowserTab internal constructor(
     var canGoForward by mutableStateOf(false)
         internal set
     var error by mutableStateOf<String?>(null)
+        internal set
+    var previewBitmap by mutableStateOf<Bitmap?>(null)
         internal set
     var session by mutableStateOf<GeckoSession?>(null)
         internal set
@@ -256,6 +259,35 @@ class BrowserController(
         )
         tabs.add(tab)
         selectTab(tab.id)
+    }
+
+    fun updateTabPreview(tabId: String, bitmap: Bitmap) {
+        val tab = tabs.firstOrNull { it.id == tabId } ?: return
+        val maxWidth = 320
+        val maxHeight = 180
+        val scale = minOf(
+            1f,
+            maxWidth.toFloat() / bitmap.width.coerceAtLeast(1),
+            maxHeight.toFloat() / bitmap.height.coerceAtLeast(1)
+        )
+        val width = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val height = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        tab.previewBitmap = if (width == bitmap.width && height == bitmap.height) {
+            bitmap
+        } else {
+            Bitmap.createScaledBitmap(bitmap, width, height, true)
+        }
+    }
+
+    fun moveTab(tabId: String, targetId: String): Boolean {
+        if (tabId == targetId) return false
+        val fromIndex = tabs.indexOfFirst { it.id == tabId }
+        val targetIndex = tabs.indexOfFirst { it.id == targetId }
+        if (fromIndex < 0 || targetIndex < 0) return false
+        val tab = tabs.removeAt(fromIndex)
+        tabs.add(targetIndex.coerceIn(0, tabs.size), tab)
+        persistTabs()
+        return true
     }
 
     fun selectTab(tabId: String) {
