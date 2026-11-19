@@ -83,8 +83,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Validate GeckoView ABI splits and create stable artifact names."
     )
-    parser.add_argument("--input", required=True, type=Path, help="Gradle debug APK directory")
+    parser.add_argument("--input", required=True, type=Path, help="Gradle APK output directory")
     parser.add_argument("--output", required=True, type=Path, help="Normalized artifact directory")
+    parser.add_argument(
+        "--variant",
+        choices=("debug", "release"),
+        default="debug",
+        help="APK build variant used in normalized artifact filenames (default: debug)",
+    )
     args = parser.parse_args()
 
     if not args.input.is_dir():
@@ -124,7 +130,7 @@ def main() -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     checksum_path = args.output / "SHA256SUMS"
     output_apks = [
-        args.output / f"cat-browser-{abi}-debug.apk"
+        args.output / f"cat-browser-{abi}-{args.variant}.apk"
         for abi in EXPECTED_ABIS
     ]
     for stale_file in [*output_apks, checksum_path]:
