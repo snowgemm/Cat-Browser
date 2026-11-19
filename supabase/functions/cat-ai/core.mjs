@@ -106,7 +106,7 @@ export function buildGeminiRequest(input) {
     input,
     tools,
     store: false,
-    generation_config: { temperature: 0.4, max_output_tokens: 800, thinking_level: "low" }
+    generation_config: { max_output_tokens: 800, thinking_level: "low" }
   };
 }
 
