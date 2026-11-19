@@ -26,6 +26,7 @@ Emulators are intentionally not the performance baseline: their frame timing doe
 The suite currently measures:
 - Cold app startup using `StartupTimingMetric`.
 - Tab Switcher grid scrolling with eight tabs using `FrameTimingMetric`.
+- Peak main-app-process memory during both journeys using `MemoryUsageMetric` (RSS, ART heap, and GPU memory where supported).
 
 The scrolling benchmark clears Cat Browser's app data during setup so each iteration starts from a predictable tab state. Do not run it against an installation containing data you need to keep.
 
