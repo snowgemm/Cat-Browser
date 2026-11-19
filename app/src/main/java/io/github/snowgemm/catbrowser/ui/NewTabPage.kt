@@ -190,10 +190,10 @@ internal fun NewTabPage(
     }
 }
 
-@Composable
 private fun siteHost(url: String): String =
     runCatching { android.net.Uri.parse(url).host?.removePrefix("www.")?.lowercase() }.getOrNull().orEmpty().ifBlank { url.lowercase() }
 
+@Composable
 private fun ShortcutTile(entry: BrowserEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val domain = siteHost(entry.url)
     Surface(
