@@ -133,7 +133,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         }
                         Switch(checked = updateManager.betaEnabled,
                             enabled = !betaUpdateState.isDownloading,
-                            onCheckedChange = { updateManager.setBetaEnabled(it) })
+                            onCheckedChange = { updateManager.updateBetaEnabled(it) })
                     }
                 }
                 if (updateManager.betaEnabled) {
