@@ -71,6 +71,13 @@ data class FindInPageState(
     val total: Int
 )
 
+data class AssistantTabSnapshot(
+    val id: String,
+    val title: String,
+    val url: String,
+    val active: Boolean
+)
+
 class BrowserTab internal constructor(
     val id: String = UUID.randomUUID().toString(),
     initialUrl: String = START_PAGE_URL,
@@ -442,6 +449,76 @@ class BrowserController(
             tab.pendingOriginalInput = originalInput
         }
         persistTabs()
+    }
+
+    /** Browser context exposed to Cat AI deliberately excludes every private tab. */
+    fun assistantListTabs(): List<AssistantTabSnapshot> = tabs
+        .filterNot { it.isPrivate }
+        .map { tab ->
+            AssistantTabSnapshot(
+                id = tab.id,
+                title = tab.title.ifBlank { if (tab.url == START_PAGE_URL) "Tab mới" else tab.url },
+                url = tab.url.takeUnless { it == START_PAGE_URL }.orEmpty(),
+                active = tab.id == selectedTabId
+            )
+        }
+
+    fun assistantActiveTab(): AssistantTabSnapshot? =
+        activeTab?.takeUnless { it.isPrivate }?.let { tab ->
+            AssistantTabSnapshot(
+                id = tab.id,
+                title = tab.title.ifBlank { if (tab.url == START_PAGE_URL) "Tab mới" else tab.url },
+                url = tab.url.takeUnless { it == START_PAGE_URL }.orEmpty(),
+                active = true
+            )
+        }
+
+    /** AI-created pages always open in a normal tab and require approval in the UI. */
+    fun assistantOpenUrlInNewTab(input: String): String? {
+        val raw = input.trim()
+        val uri = runCatching { Uri.parse(raw) }.getOrNull() ?: return null
+        if (!uri.scheme.equals("https", true) && !uri.scheme.equals("http", true)) return null
+        val destination = BrowserUrlResolver.resolveAddress(raw) ?: return null
+        if (!destination.startsWith("https://", true) && !destination.startsWith("http://", true)) return null
+        if (tabs.size >= MAX_TABS) return null
+
+        val tab = BrowserTab(initialUrl = destination, initialTitle = destination)
+        tabs.add(tab)
+        selectTab(tab.id)
+        return tab.id
+    }
+
+    fun assistantSwitchToTab(tabId: String): Boolean {
+        val tab = tabs.firstOrNull { it.id == tabId && !it.isPrivate } ?: return false
+        selectTab(tab.id)
+        return true
+    }
+
+    fun assistantGoBack(): Boolean {
+        val tab = activeTab?.takeUnless { it.isPrivate } ?: return false
+        if (!tab.canGoBack || tab.session == null) return false
+        tab.session?.goBack()
+        return true
+    }
+
+    fun assistantGoForward(): Boolean {
+        val tab = activeTab?.takeUnless { it.isPrivate } ?: return false
+        if (!tab.canGoForward || tab.session == null) return false
+        tab.session?.goForward()
+        return true
+    }
+
+    fun assistantGoHome(): Boolean {
+        if (activeTab?.isPrivate != false) return false
+        goHome()
+        return true
+    }
+
+    fun assistantBookmarkCurrentPage(): Boolean {
+        val tab = activeTab?.takeUnless { it.isPrivate } ?: return false
+        if (!isWebUrl(tab.url) || !isBookmarksLoaded) return false
+        if (bookmarks.any { it.url == tab.url }) return true
+        return addBookmark(tab.title, tab.url)
     }
 
     fun goBack() {
