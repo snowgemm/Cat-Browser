@@ -27,7 +27,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 
 | Feature | Current status | Acceptance requirements |
 |---|---|---|
-| Download manager | Basic; in-memory task list | GeckoView response stream, progress, cancel, filename sanitization, Android Downloads on Android 10+, app-scoped downloads on Android 8/9, open/share/delete. No pause/resume, retry or persistent download-task restoration yet. |
+| Download manager | Persistent task metadata; transfer resume not available | GeckoView response stream, progress/cancel, filename sanitization, Android Downloads/SAF destination, open/share/delete and up to 100 non-private task records restored after restart. Active transfers restore as interrupted; no byte-stream resume/retry. |
 | Site permissions | Basic; physical-device validation pending | GeckoView content/media prompts, Android runtime permission bridge, stored permission list and reset for supported permission types. Notification/site permission combinations and less-common permission types still need device testing. Some persistent-storage permissions are not revocable. |
 | Clear browsing data | Basic; physical-device validation pending | Selectable history, cookies/DOM storage/auth sessions, cache and stored site permissions. All sessions close during GeckoView storage clearing, then the selected tab is recreated. IndexedDB/site-data coverage and device behavior need validation. |
 | Private-tab lifecycle | Implemented; device verification pending | Verify cookies and web storage remain in GeckoView private mode, popups inherit private mode, and all private sessions close cleanly. |
@@ -40,11 +40,11 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Find in page | Implemented; physical-device validation pending | Debounced search, highlight all matches, previous/next, match count when GeckoView has it, clear and close. |
 | New Tab Page and address suggestions | Implemented; physical-device UX validation pending | Native start page with shortcuts and recent visits; suggestions use local tabs, bookmarks and normal-mode history only. |
 | Address-bar tab switching | Implemented; physical-device gesture validation pending | Horizontal swipes switch adjacent tabs only while the address field is not focused. |
-| Tab search and recently closed | Basic implementation | Search current tab titles/URLs; restore one of the last 10 closed normal tabs by its last URL (not full session state). |
+| Tab search, preview and reorder | Implemented in overview | Search current titles/URLs; capture a scaled GeckoView preview after successful page load; long-press drag reorder in the unfiltered list; recently closed normal tabs restore last URL only. Preview images are memory-only. |
 | Desktop-site mode | Missing | Per-tab toggle, correct viewport configuration and persisted preference for regular tabs only. |
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
 | Bookmark manager | Basic | Edit titles, folders or collections, sort, import/export and duplicate handling. |
-| Extension toolbar, tabs, popup and downloads | Implemented in app; device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, supported `tabs.create` / `tabs.update` / `tabs.remove` callbacks, and basic `downloads.download()` with progress/terminal updates. `saveAs`, conflict flags, extension-driven cancel/pause/resume, Chrome Store compatibility and full API coverage remain unsupported or unverified. |
+| Extension toolbar, tabs, popup and downloads | Partial; matrix and physical-device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, selected tab callbacks, downloads progress/terminal updates and Android `saveAs` picker are integrated. Public GeckoView does not expose extension pause/resume/cancel callbacks; conflict semantics, full API coverage and Chrome Store compatibility remain unsupported or unverified. |
 | Autofill/password management | Missing | Secure storage, Android autofill integration, user consent and biometric/device-authentication safeguards where appropriate. |
 
 ## Priority 2 — Reading and advanced controls
