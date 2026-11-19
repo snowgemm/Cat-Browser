@@ -52,6 +52,13 @@ class CatBrowserApplication : Application() {
     fun existingBrowserController(): BrowserController? =
         if (::browserController.isInitialized) browserController else null
 
+    override fun onTrimMemory(level: Int) {
+        if (isMainProcess && ::browserController.isInitialized) {
+            browserController.trimMemory(level)
+        }
+        super.onTrimMemory(level)
+    }
+
     private fun currentProcessName(): String? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             return Application.getProcessName()
