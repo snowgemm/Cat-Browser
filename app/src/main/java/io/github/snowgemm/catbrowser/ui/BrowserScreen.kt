@@ -275,4 +275,3 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
 
 private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
 
-@OptIn(ExperimentalMaterial3Api::class)
