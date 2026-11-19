@@ -128,7 +128,7 @@ export function extractToolCalls(steps) {
     try {
       calls.push({ callId: step.id, name: step.name, arguments: parseArguments(step.arguments) });
     } catch {}
-    if (calls.length >= 5) break;
+    if (calls.length >= 8) break;
   }
   return calls;
 }
