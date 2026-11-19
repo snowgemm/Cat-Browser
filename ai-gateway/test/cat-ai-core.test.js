@@ -14,6 +14,7 @@ test("builds stateless Gemini Interactions requests", () => {
   const request = buildGeminiRequest(input);
   assert.equal(request.model, MODEL);
   assert.equal(request.store, false);
+  assert.equal("temperature" in request.generation_config, false);
   assert.equal(request.input, input);
   assert.ok(Array.isArray(request.tools));
   assert.equal(typeof request.system_instruction, "string");
