@@ -208,7 +208,7 @@ internal fun AssistantScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Cat không tự gửi nội dung trang, lịch sử, cookie hoặc tab ẩn danh. Mỗi thao tác trình duyệt đều cần bạn cho phép.",
+                    "Tin nhắn bạn nhập được gửi tới Cat AI Gateway và OpenAI. Cat không tự gửi nội dung trang, lịch sử, cookie hoặc tab ẩn danh; mọi thao tác trình duyệt đều cần bạn cho phép.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
