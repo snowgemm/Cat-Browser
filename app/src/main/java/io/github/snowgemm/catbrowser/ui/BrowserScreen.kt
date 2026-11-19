@@ -554,6 +554,9 @@ private fun BrowserMainScreen(
                     bookmarks = controller.bookmarks.toList(),
                     recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
                     openTabCount = controller.regularTabCount,
+                    privacyStats = controller.privacyStats,
+                    trackingProtectionEnabled = controller.trackingProtectionEnabled,
+                    onRefreshPrivacyStats = { controller.refreshPrivacyStats(force = true) },
                     onOpenUrl = controller::openEntry,
                     onFocusAddress = {
                         addressFocused = true
