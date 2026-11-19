@@ -54,7 +54,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | Native New Tab Page, local address suggestions, address-bar tab gestures, tab overview previews/reordering, navigation overflow menu, bookmark/history dialogs, download manager, find-in-page and permission prompts |
+| Browser UI | `BrowserScreen` navigation shell, `BrowserMainScreen`, shared `BrowserChrome` controls, `TabsOverview`, native New Tab Page, address suggestions, bookmark/history dialogs, downloads, find-in-page and permission prompts |
 | FaviconRepository | Fetches only same-host HTTPS /favicon.ico, rejects local/private resolved addresses, bounds icon size and memory caches, and uses monogram fallback; no third-party proxy |
 | Cat AI | Optional Gemini assistant, Supabase anonymous Auth, Android Keystore session storage, stateless Gemini Interactions client, explicit approval queue for every browser tool call; private tabs and page contents excluded |
 | AI gateway | Supabase Edge Function with JWT verification, server-only Gemini API key, fixed function-tool allowlist, bounded request parsing and database-backed per-user/global quotas |
