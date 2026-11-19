@@ -53,6 +53,16 @@ Vercel currently has SSO protection enabled for all deployment domains except cu
 
 No OpenAI key setup or deployment is performed automatically by this source code. The account owner must review the API billing settings, usage limits and gateway access before enabling it. Users under 18 should have a parent or guardian manage any account and billing that require an adult.
 
+## Connection check
+
+The same authenticated endpoint also supports `GET /api/assistant`. It:
+- checks the gateway bearer token;
+- checks whether the configured OpenAI API key can retrieve the configured model using `GET /v1/models/{model}`;
+- returns only `{ "ok": true, "model": "..." }` when successful;
+- does not create a model response or submit user chat content.
+
+Cat Browser Settings uses this request to verify HTTPS routing, gateway authentication and access to the configured model before starting a chat. A 3xx response is treated as a redirect/SSO gate; do not disable deployment protection just to make the check pass.
+
 ## Request contract
 
 Android sends:
@@ -91,7 +101,8 @@ Cat Browser displays a fresh approval dialog for every function call. The app va
 - Page text, cookies, passwords, form values, downloads and extension storage are not sent to the model.
 - Responses are created with `store: false`; the gateway does not save conversation items.
 - The Android app holds conversation state in memory for the active assistant screen only.
-- The gateway enforces request-size and input-item limits and a small per-instance request throttle.
+- The gateway validates Responses API assistant message items, encrypted reasoning items, and matching function-call/function-output pairs before stateless replay.
+- The gateway enforces request-size limits using UTF-8 byte size, input-item limits and a small per-instance request throttle.
 - The in-memory throttle is best-effort only; serverless instances do not share it. Before public distribution, configure Vercel Firewall/rate limits and monitor provider usage.
 - Restrict who can obtain the gateway token. Rotate it if it is exposed.
 - Keep the OpenAI API project on conservative budget/usage limits. API usage is billed separately from ChatGPT subscriptions.
