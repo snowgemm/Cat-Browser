@@ -6,7 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "check": "node --check api/assistant.js",
+    "check": "node --check api/assistant.js && node --check ../supabase/functions/cat-ai/core.mjs",
     "test": "node --test"
   }
 }

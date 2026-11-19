@@ -22,8 +22,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.ai.AiGatewayClient
-import io.github.snowgemm.catbrowser.ai.AiGatewayConfig
-import io.github.snowgemm.catbrowser.ai.AiGatewayConfigStore
 import io.github.snowgemm.catbrowser.ai.AiGatewayException
 import io.github.snowgemm.catbrowser.ai.AiToolCall
 import io.github.snowgemm.catbrowser.browser.AssistantTabSnapshot
@@ -45,9 +43,7 @@ internal fun AssistantScreen(
     onOpenSettings: () -> Unit
 ) {
     val context = LocalContext.current
-    val configStore = remember { AiGatewayConfigStore(context) }
-    val client = remember { AiGatewayClient() }
-    val config = remember { mutableStateOf(configStore.load()) }
+    val client = remember { AiGatewayClient(context) }
     val messages = remember { mutableStateListOf<AssistantMessage>() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -77,7 +73,6 @@ internal fun AssistantScreen(
                 onContinue = {
                     continueAssistant(
                         client = client,
-                        config = config.value,
                         initialItems = inputItems,
                         scope = scope,
                         onUpdatedItems = { inputItems = it },
@@ -105,17 +100,13 @@ internal fun AssistantScreen(
 
     fun submitMessage() {
         val text = draft.trim()
-        val activeConfig = config.value ?: run {
-            errorMessage = "Hãy cấu hình Cat AI Gateway trong Cài đặt trước."
-            return
-        }
         if (text.isBlank() || isBusy || hasPendingToolApproval || text.length > MAX_USER_MESSAGE_CHARS) return
 
         val nextItems = JSONArray(inputItems.toString()).put(
             JSONObject()
-                .put("role", "user")
+                .put("type", "user_input")
                 .put("content", JSONArray().put(JSONObject()
-                    .put("type", "input_text")
+                    .put("type", "text")
                     .put("text", text)))
         )
         inputItems = nextItems
@@ -126,7 +117,6 @@ internal fun AssistantScreen(
 
         continueAssistant(
             client = client,
-            config = activeConfig,
             initialItems = nextItems,
             scope = scope,
             onUpdatedItems = { inputItems = it },
@@ -155,7 +145,6 @@ internal fun AssistantScreen(
             onContinue = {
                 continueAssistant(
                     client = client,
-                    config = config.value,
                     initialItems = inputItems,
                     scope = scope,
                     onUpdatedItems = { inputItems = it },
@@ -187,7 +176,7 @@ internal fun AssistantScreen(
             TextButton(onClick = onBack) { Text("‹  Quay lại") }
             Column(Modifier.weight(1f)) {
                 Text("Cat AI", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                Text("Trợ lý OpenAI", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                Text("Trợ lý Google Gemini", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
             }
             TextButton(
                 enabled = !isBusy && !hasPendingToolApproval && messages.isNotEmpty(),
@@ -208,7 +197,7 @@ internal fun AssistantScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Tin nhắn bạn nhập được gửi tới Cat AI Gateway và OpenAI. Cat không tự gửi nội dung trang, lịch sử, cookie hoặc tab ẩn danh; mọi thao tác trình duyệt đều cần bạn cho phép.",
+                    "Tin nhắn được gửi tới Google Gemini qua Supabase. Cat không tự gửi nội dung trang, lịch sử, cookie hoặc tab ẩn danh; mọi thao tác trình duyệt đều cần bạn cho phép.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
@@ -216,24 +205,7 @@ internal fun AssistantScreen(
             }
         }
 
-        if (config.value == null) {
-            Box(Modifier.fillMaxSize().weight(1f).padding(24.dp), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Chưa kết nối Cat AI Gateway",
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Cần máy chủ Cat AI Gateway HTTPS của bạn. API key OpenAI nằm trên máy chủ, không nằm trong APK.",
-                        modifier = Modifier.padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Button(onClick = onOpenSettings, modifier = Modifier.padding(top = 16.dp)) {
-                        Text("Mở Cài đặt AI")
-                    }
-                }
-            }
-        } else {
-            LazyColumn(
+        LazyColumn(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 state = listState,
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
@@ -283,11 +255,9 @@ internal fun AssistantScreen(
                                 TextButton(
                                     enabled = !isBusy && !hasPendingToolApproval && inputItems.length() > 0,
                                     onClick = {
-                                        val activeConfig = config.value ?: return@TextButton
                                         errorMessage = null
                                         continueAssistant(
                                             client = client,
-                                            config = activeConfig,
                                             initialItems = inputItems,
                                             scope = scope,
                                             onUpdatedItems = { inputItems = it },
@@ -339,7 +309,6 @@ internal fun AssistantScreen(
                     ) { Text("Gửi") }
                 }
             }
-        }
     }
 
     val currentCall = pendingCalls.firstOrNull()
@@ -432,7 +401,6 @@ private fun AssistantMessageBubble(message: AssistantMessage) {
 
 private fun continueAssistant(
     client: AiGatewayClient,
-    config: AiGatewayConfig?,
     initialItems: JSONArray,
     scope: kotlinx.coroutines.CoroutineScope,
     onUpdatedItems: (JSONArray) -> Unit,
@@ -443,10 +411,6 @@ private fun continueAssistant(
     toolRoundsSoFar: Int,
     onToolRounds: (Int) -> Unit
 ) {
-    if (config == null) {
-        onError("Chưa có cấu hình Cat AI Gateway.")
-        return
-    }
     if (onToolRoundsValueOverflow(initialItems)) {
         onError("Cuộc trò chuyện quá dài. Hãy bắt đầu một chat mới.")
         return
@@ -456,7 +420,7 @@ private fun continueAssistant(
     scope.launch {
         try {
             var items = JSONArray(initialItems.toString())
-            val reply = client.sendInputItems(config, items)
+            val reply = client.sendInputItems(items)
             if (reply.toolCalls.isNotEmpty() && toolRoundsSoFar >= MAX_TOOL_ROUNDS) {
                 onMessages("Cat AI đã đạt giới hạn số vòng thao tác cho yêu cầu này. Hãy bắt đầu chat mới nếu cần tiếp tục.")
                 onToolRounds(0)
@@ -480,7 +444,7 @@ private fun continueAssistant(
             onToolRounds(0)
             onBusy(false)
         } catch (error: AiGatewayException) {
-            onError(error.message ?: "Không thể kết nối Cat AI Gateway.")
+            onError(error.message ?: "Không thể kết nối Cat AI.")
             onBusy(false)
         } catch (_: Exception) {
             onError("Có lỗi khi xử lý cuộc trò chuyện. Hãy thử lại.")
@@ -509,9 +473,12 @@ private fun resolvePendingTool(
 
     val updated = JSONArray(inputItems.toString()).put(
         JSONObject()
-            .put("type", "function_call_output")
+            .put("type", "function_result")
+            .put("name", call.name)
             .put("call_id", call.callId)
-            .put("output", output.toString())
+            .put("result", JSONArray().put(JSONObject()
+                .put("type", "text")
+                .put("text", output.toString())))
     )
     onUpdatedItems(updated)
     onActivity(

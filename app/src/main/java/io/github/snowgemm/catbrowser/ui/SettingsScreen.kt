@@ -22,28 +22,21 @@ import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
-import io.github.snowgemm.catbrowser.ai.AiGatewayConfigStore
 import io.github.snowgemm.catbrowser.ai.AiGatewayClient
 import io.github.snowgemm.catbrowser.ai.AiGatewayException
 import kotlinx.coroutines.launch
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
 
-private const val DEFAULT_CAT_AI_GATEWAY_URL = "https://cat-browser-ai-gateway.vercel.app"
 
 @Composable
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
-    val aiGatewayStore = remember { AiGatewayConfigStore(context) }
-    val aiGatewayClient = remember { AiGatewayClient() }
+    val aiGatewayClient = remember { AiGatewayClient(context) }
     val coroutineScope = rememberCoroutineScope()
     var aiGatewayChecking by remember { mutableStateOf(false) }
-    var aiGatewayUrl by remember { mutableStateOf(aiGatewayStore.savedBaseUrl() ?: DEFAULT_CAT_AI_GATEWAY_URL) }
-    var aiGatewayToken by remember { mutableStateOf("") }
-    var aiGatewayConfigured by remember { mutableStateOf(aiGatewayStore.isConfigured()) }
     var aiGatewayMessage by remember { mutableStateOf<String?>(null) }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
@@ -379,94 +372,34 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
+
             item {
                 SettingsSectionTitle("CAT AI")
                 SettingsCard {
-                    Text("Trợ lý OpenAI trong Cat Browser",
+                    Text("Trợ lý Gemini trong Cat Browser",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Kết nối tới Cat AI Gateway do bạn triển khai. OpenAI API key chỉ được đặt trên máy chủ, không nhập vào ứng dụng.",
+                        "Cat AI tự tạo phiên ẩn danh và kết nối qua Supabase. Bạn không cần nhập Gateway URL hoặc access token; Gemini API key chỉ được lưu ở máy chủ.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
-                    OutlinedTextField(
-                        value = aiGatewayUrl,
-                        onValueChange = { aiGatewayUrl = it; aiGatewayMessage = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Gateway URL (HTTPS)") },
-                        placeholder = { Text("https://your-gateway.example") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = aiGatewayToken,
-                        onValueChange = { aiGatewayToken = it; aiGatewayMessage = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text(if (aiGatewayConfigured) "Token mới (để trống để giữ token cũ)" else "Cat gateway access token") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation()
-                    )
-                    Text(
-                        if (aiGatewayConfigured) "Đã lưu token gateway bằng Android Keystore."
-                        else "Chưa lưu cấu hình gateway.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                val saved = if (aiGatewayToken.isBlank()) {
-                                    aiGatewayStore.updateBaseUrl(aiGatewayUrl)
-                                } else {
-                                    aiGatewayStore.save(aiGatewayUrl, aiGatewayToken)
-                                }
-                                if (saved) {
-                                    aiGatewayConfigured = true
-                                    aiGatewayToken = ""
-                                    aiGatewayMessage = "Đã lưu cấu hình. Hãy kiểm tra kết nối trước khi mở Cat AI."
-                                } else {
-                                    aiGatewayMessage = "Lỗi: Không lưu được. Kiểm tra URL HTTPS và access token."
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp)
-                        ) { Text("Lưu cấu hình") }
-                        OutlinedButton(
-                            onClick = {
-                                aiGatewayStore.clear()
-                                aiGatewayUrl = ""
-                                aiGatewayToken = ""
-                                aiGatewayConfigured = false
-                                aiGatewayMessage = "Đã xóa cấu hình AI khỏi thiết bị."
-                            },
-                            enabled = aiGatewayConfigured,
-                            shape = RoundedCornerShape(14.dp)
-                        ) { Text("Xóa") }
-                    }
                     OutlinedButton(
                         onClick = {
-                            val config = aiGatewayStore.load()
-                            if (config == null) {
-                                aiGatewayMessage = "Lỗi: Hãy lưu URL HTTPS và gateway token trước."
-                            } else {
-                                coroutineScope.launch {
-                                    aiGatewayChecking = true
-                                    aiGatewayMessage = "Đang kiểm tra HTTPS, gateway token và quyền truy cập model…"
-                                    try {
-                                        val health = aiGatewayClient.checkConnection(config)
-                                        aiGatewayMessage = "Kết nối thành công · " + health.model
-                                    } catch (error: AiGatewayException) {
-                                        aiGatewayMessage = "Lỗi: " + (error.message ?: "Không thể kết nối Gateway.")
-                                    } finally {
-                                        aiGatewayChecking = false
-                                    }
+                            coroutineScope.launch {
+                                aiGatewayChecking = true
+                                aiGatewayMessage = "Đang kiểm tra phiên Supabase và quyền truy cập Gemini…"
+                                try {
+                                    val health = aiGatewayClient.checkConnection()
+                                    aiGatewayMessage = "Kết nối thành công · " + health.model
+                                } catch (error: AiGatewayException) {
+                                    aiGatewayMessage = "Lỗi: " + (error.message ?: "Không thể kết nối Cat AI.")
+                                } finally {
+                                    aiGatewayChecking = false
                                 }
                             }
                         },
-                        enabled = aiGatewayConfigured && !aiGatewayChecking,
+                        enabled = !aiGatewayChecking,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp)
                     ) {
@@ -488,7 +421,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         )
                     }
                     Text(
-                        "Lưu ý: sử dụng OpenAI API có thể phát sinh phí riêng, không nằm trong gói ChatGPT. Chỉ kết nối gateway bạn tin cậy.",
+                        "Tin nhắn được gửi tới Google Gemini qua Supabase. Cat AI dùng chế độ store=false và có giới hạn lượt gọi ở máy chủ. Không gửi mật khẩu hoặc dữ liệu nhạy cảm. Hạn mức Gemini của Google vẫn được áp dụng; nếu tài khoản bật thanh toán, API có thể phát sinh phí.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
