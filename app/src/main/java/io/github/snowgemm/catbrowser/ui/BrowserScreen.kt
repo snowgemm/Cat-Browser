@@ -267,7 +267,7 @@ private fun BrowserMainScreen(
 
     LaunchedEffect(tab.id, tab.url, tab.isLoading, tab.progress, attachedGeckoView) {
         val view = attachedGeckoView ?: return@LaunchedEffect
-        if (tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100) {
+        if (!tab.isPrivate && tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100) {
             delay(450)
             if (attachedGeckoView === view && view.getSession() === tab.session) {
                 view.capturePixels().accept(
@@ -1476,6 +1476,7 @@ private fun TabsOverview(
                     modifier = Modifier.fillMaxWidth()
                         .height(if (tab.previewBitmap != null) 232.dp else 164.dp)
                         .animateItem()
+                        .graphicsLayer { alpha = if (draggingTabId == tab.id) 0.78f else 1f }
                         .onGloballyPositioned { cardCoordinates[tab.id] = it }
                         .pointerInput(tab.id, canReorderTabs) {
                             if (canReorderTabs) {
