@@ -1,7 +1,7 @@
 package io.github.snowgemm.catbrowser.ai
 
 import android.content.Context
-import android.net.Uri
+import java.net.URI
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -20,9 +20,12 @@ internal object AiGatewayConfigPolicy {
     fun normalizeBaseUrl(input: String): String? {
         val trimmed = input.trim().trimEnd('/')
         if (trimmed.isBlank() || trimmed.length > 240) return null
-        val uri = runCatching { Uri.parse(trimmed) }.getOrNull() ?: return null
+        val uri = runCatching { URI(trimmed) }.getOrNull() ?: return null
         if (!uri.scheme.equals("https", ignoreCase = true)) return null
-        if (uri.host.isNullOrBlank() || uri.userInfo != null || uri.query != null || uri.fragment != null) return null
+        if (uri.host.isNullOrBlank() || uri.rawUserInfo != null ||
+            uri.rawQuery != null || uri.rawFragment != null ||
+            (uri.port != -1 && uri.port !in 1..65535)
+        ) return null
         return trimmed
     }
 
