@@ -52,7 +52,7 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 | `runtime.openOptionsPage()` | Routes the extension options page into a Cat tab | Implemented; device validation pending |
 | `tabs.create` | Creates regular/private Cat sessions where supported | Partial; pinned/container/discarded/index/Reader Mode options are rejected |
 | `tabs.update` / `tabs.remove` | URL navigation, active/highlighted selection and session close | Partial; mute/pin/auto-discard changes are not supported |
-| `downloads.download()` | Uses GeckoWebExecutor, reports progress and terminal metadata, and handles `saveAs` through Android's Storage Access Framework | Partial; conflict semantics and query/control APIs are not complete |
+| `downloads.download()` | Uses GeckoWebExecutor, reports progress and terminal metadata, handles `saveAs` through Android's Storage Access Framework, and applies safe filename conflict handling | Partial; `OVERWRITE` is conservatively uniquified and query/control APIs are not complete |
 | Download task history in Cat UI | Persists up to 100 non-private task records and output references | Implemented for local display; interrupted transfers are restored as interrupted records, not resumed |
 | `downloads.pause()` / `resume()` / `cancel()` from extensions | GeckoView's public `WebExtension.Download` surface only exposes `update(Info)`; no public app callback is available for these commands | Not implementable through the pinned public API |
 | `storage`, content scripts and other engine APIs | Executed by Gecko where supported by the bundled GeckoView build | Not comprehensively certified by Cat |
@@ -65,7 +65,7 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 - Cat persists metadata for up to 100 non-private downloads. This includes filename, source, progress, state, output URI/path and extension download identifiers.
 - If Android kills Cat while a transfer is active, the record is restored as interrupted and its partial artifact is cleaned where access permits. The transfer itself is **not** resumed; request headers, POST bodies and server range support cannot be reconstructed safely from the stored metadata alone.
 - Private-mode download records are excluded from persistent history.
-- Extension-requested conflict actions are not yet fully equivalent to Firefox desktop. Do not rely on overwrite/prompt semantics.
+- `UNIQUIFY` checks Cat's default destination and adds a numbered suffix. `PROMPT` opens Android's Create Document picker; exact behavior after choosing a name depends on the document provider. `OVERWRITE` currently falls back to a unique filename instead of deleting an existing file before the new transfer succeeds. These are safe fallbacks, not full Firefox Desktop conflict semantics.
 - The app's own Cancel action is separate from extension calls to `downloads.cancel()`; the latter is not bridged through the public GeckoView API.
 
 ### Remaining platform limits
@@ -85,7 +85,7 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 6. Verify browser/page action icons, badges, popup sessions and `runtime.openOptionsPage()`.
 7. Test supported `tabs.create`, `tabs.update`, `tabs.remove` and active-tab notifications; verify rejected options fail clearly.
 8. Test `downloads.download()` with authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
-9. Test `saveAs`: select a provider/location, cancel the picker, check filename sanitization and reopen a completed file.
+9. Test `saveAs` and conflict flags: select a provider/location, cancel the picker, test duplicate names with `UNIQUIFY`, `PROMPT` and the safe `OVERWRITE` fallback, check filename sanitization and reopen a completed file.
 10. Kill/restart Cat during a transfer; verify the task appears as interrupted, no private metadata returns, and incomplete artifacts are cleaned.
 11. Run every candidate in the physical-device matrix and record exact Cat commit, GeckoView version, add-on version, device, Android version and result.
 12. Report unsupported Chrome and Firefox APIs accurately; do not mark an add-on compatible solely because installation succeeded.
