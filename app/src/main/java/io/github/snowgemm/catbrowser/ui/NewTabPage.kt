@@ -118,7 +118,7 @@ internal fun NewTabPage(
         Spacer(Modifier.height(22.dp))
         AnimatedVisibility(
             visible = true,
-            enter = fadeIn(tween = 260) + slideInVertically(
+            enter = fadeIn(animationSpec = tween(260)) + slideInVertically(
                 animationSpec = spring(dampingRatio = 0.88f, stiffness = 420f)
             ) { it / 12 }
         ) {
