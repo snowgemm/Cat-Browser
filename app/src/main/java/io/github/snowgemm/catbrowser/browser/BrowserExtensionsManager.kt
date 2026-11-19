@@ -635,7 +635,10 @@ class BrowserExtensionsManager(
             ): GeckoResult<WebExtension.DownloadInitData>? {
                 val result = GeckoResult<WebExtension.DownloadInitData>()
                 mainHandler.post {
-                    if (request.saveAs) {
+                    if (
+                        request.saveAs ||
+                        request.conflictActionFlag == WebExtension.DownloadRequest.CONFLICT_ACTION_PROMPT
+                    ) {
                         if (pendingExtensionDownload != null) {
                             result.completeExceptionally(
                                 IllegalStateException("Một yêu cầu chọn vị trí lưu khác đang chờ xử lý.")
@@ -651,7 +654,11 @@ class BrowserExtensionsManager(
                             id = UUID.randomUUID().toString(),
                             suggestedFileName = suggestedName
                         )
-                        statusMessage = "Chọn vị trí lưu cho " + (source.metaData.name ?: source.id) + "."
+                        statusMessage = if (request.saveAs) {
+                            "Chọn vị trí lưu cho " + (source.metaData.name ?: source.id) + "."
+                        } else {
+                            "Chọn vị trí lưu để xử lý tên tệp có thể bị trùng."
+                        }
                     } else {
                         startExtensionDownload(source, request, result, destinationUri = null)
                     }
@@ -725,6 +732,7 @@ class BrowserExtensionsManager(
                         privateMode = privateMode,
                         requestedFileName = request.filename,
                         destinationUri = destinationUri,
+                        conflictActionFlag = request.conflictActionFlag,
                         extensionId = source.id,
                         extensionDownloadId = download.id,
                         referrer = request.request.referrer
