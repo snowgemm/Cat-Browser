@@ -25,6 +25,9 @@ jobs:
       - name: Check AI gateway JavaScript
         run: npm run check --prefix ai-gateway
 
+      - name: Test AI gateway request handling
+        run: npm test --prefix ai-gateway
+
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
