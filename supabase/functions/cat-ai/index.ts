@@ -74,7 +74,7 @@ async function checkGeminiAccess(apiKey: string): Promise<Response> {
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, ctx) => {
-    const userId = typeof ctx.userClaims?.sub === "string" ? ctx.userClaims.sub : "";
+    const userId = typeof ctx.userClaims?.id === "string" ? ctx.userClaims.id : "";
     if (!userId) return json({ error: "Unauthorized." }, 401);
 
     const apiKey = Deno.env.get("GEMINI_API_KEY") ?? "";
