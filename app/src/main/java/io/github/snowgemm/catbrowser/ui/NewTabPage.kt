@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -154,10 +155,10 @@ internal fun NewTabPage(
                             Modifier.padding(horizontal = 14.dp, vertical = 15.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            BrowserGlyph(
-                                BrowserGlyphType.SEARCH,
-                                tint = MaterialTheme.colorScheme.primary,
-                                iconSize = 20.dp
+                            Text(
+                                "⌕",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 24.sp
                             )
                             Spacer(Modifier.width(11.dp))
                             Text(
@@ -166,10 +167,10 @@ internal fun NewTabPage(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp
                             )
-                            BrowserGlyph(
-                                BrowserGlyphType.GO,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                iconSize = 17.dp
+                            Text(
+                                "›",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 23.sp
                             )
                         }
                     }
