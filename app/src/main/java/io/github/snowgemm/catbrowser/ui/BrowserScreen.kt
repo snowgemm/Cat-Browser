@@ -334,6 +334,16 @@ private fun BrowserMainScreen(
             request != null && areRequestedAndroidPermissionsGranted(request.permissions, results)
         )
     }
+    val extensionSaveAsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        controller.extensionsManager.resolveSaveAsRequest(uri)
+    }
+
+    LaunchedEffect(controller.extensionsManager.saveAsRequest?.id) {
+        val request = controller.extensionsManager.saveAsRequest ?: return@LaunchedEffect
+        extensionSaveAsLauncher.launch(request.suggestedFileName)
+    }
 
     LaunchedEffect(controller.pendingAndroidPermissionRequest?.id) {
         val request = controller.pendingAndroidPermissionRequest ?: return@LaunchedEffect
