@@ -197,7 +197,7 @@ internal fun AssistantScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "Tin nhắn được gửi tới Google Gemini qua Supabase. Cat không tự gửi nội dung trang, lịch sử, cookie hoặc tab ẩn danh; mọi thao tác trình duyệt đều cần bạn cho phép.",
+                    "Tin nhắn được gửi tới Google Gemini qua Supabase. Cat không tự gửi nội dung trang, cookie hoặc tab ẩn danh; dữ liệu tab chỉ được gửi khi bạn duyệt thao tác liên quan. Mọi thao tác trình duyệt đều cần bạn cho phép.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     lineHeight = 14.sp
