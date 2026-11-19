@@ -12,6 +12,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
+import org.json.JSONArray
+import org.json.JSONObject
 import org.mozilla.geckoview.WebResponse
 import java.io.File
 import java.io.InputStream
@@ -35,7 +37,10 @@ class BrowserDownloadItem internal constructor(
     val mimeType: String,
     val totalBytes: Long,
     val isPrivate: Boolean,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val extensionId: String? = null,
+    val extensionDownloadId: Int? = null,
+    val referrer: String? = null
 ) {
     var status by mutableStateOf(BrowserDownloadStatus.QUEUED)
         internal set
@@ -73,13 +78,23 @@ class BrowserDownloadManager(context: Context) {
         Thread(task, "CatBrowserDownload").apply { isDaemon = true }
     }
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val preferences = appContext.getSharedPreferences("cat_download_history", Context.MODE_PRIVATE)
+    private var lastPersistedAt = 0L
 
     val downloads = mutableStateListOf<BrowserDownloadItem>()
+
+    init {
+        restorePersistedDownloads()
+    }
 
     fun enqueue(
         response: WebResponse,
         privateMode: Boolean,
         requestedFileName: String? = null,
+        destinationUri: Uri? = null,
+        extensionId: String? = null,
+        extensionDownloadId: Int? = null,
+        referrer: String? = null,
         onChanged: ((BrowserDownloadItem) -> Unit)? = null
     ): BrowserDownloadItem? {
         val body = response.body ?: return null
@@ -109,9 +124,14 @@ class BrowserDownloadManager(context: Context) {
             sourceUrl = response.uri,
             mimeType = mimeType,
             totalBytes = contentLength,
-            isPrivate = privateMode
+            isPrivate = privateMode,
+            extensionId = extensionId,
+            extensionDownloadId = extensionDownloadId,
+            referrer = referrer
         )
+        item.outputUri = destinationUri
         downloads.add(0, item)
+        persistDownloads(force = true)
 
         executor.execute {
             copyResponse(item, body, onChanged)
@@ -130,6 +150,7 @@ class BrowserDownloadManager(context: Context) {
         mainHandler.post {
             item.status = BrowserDownloadStatus.CANCELLED
             item.errorMessage = "Đã hủy tải xuống."
+            persistDownloads(force = true)
         }
     }
 
@@ -141,6 +162,7 @@ class BrowserDownloadManager(context: Context) {
         }
         if (deleteFile) deleteOutput(item)
         downloads.removeAll { it.id == item.id }
+        persistDownloads(force = true)
     }
 
     fun open(item: BrowserDownloadItem): Boolean {
@@ -193,7 +215,10 @@ class BrowserDownloadManager(context: Context) {
 
         try {
             if (item.isCancelled) throw InterruptedException("Download cancelled")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (item.outputUri != null) {
+                output = resolver.openOutputStream(item.outputUri!!, "wt")
+                    ?: throw IllegalStateException("Không thể ghi vào vị trí đã chọn.")
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, item.fileName)
                     put(MediaStore.Downloads.MIME_TYPE, item.mimeType)
@@ -257,7 +282,9 @@ class BrowserDownloadManager(context: Context) {
 
             if (item.isCancelled) throw InterruptedException("Download cancelled")
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (item.outputUri != null) {
+                // SAF already created the destination document selected by the user.
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.IS_PENDING, 0)
                 }
@@ -277,15 +304,17 @@ class BrowserDownloadManager(context: Context) {
             }
         } catch (error: InterruptedException) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
+            if (item.outputUri != null) runCatching { resolver.delete(item.outputUri!!, null, null) }
             temporaryFile?.delete()
-            updateOnMain(item, onChanged) {
+            updateOnMain(item, onChanged)
                 it.status = BrowserDownloadStatus.CANCELLED
                 it.errorMessage = "Đã hủy tải xuống."
             }
         } catch (error: Exception) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
+            if (item.outputUri != null) runCatching { resolver.delete(item.outputUri!!, null, null) }
             temporaryFile?.delete()
-            updateOnMain(item, onChanged) {
+            updateOnMain(item, onChanged)
                 if (item.isCancelled) {
                     it.status = BrowserDownloadStatus.CANCELLED
                     it.errorMessage = "Đã hủy tải xuống."
@@ -309,7 +338,88 @@ class BrowserDownloadManager(context: Context) {
         mainHandler.post {
             update(item)
             onChanged?.invoke(item)
+            val terminal = item.status == BrowserDownloadStatus.COMPLETE ||
+                item.status == BrowserDownloadStatus.FAILED ||
+                item.status == BrowserDownloadStatus.CANCELLED
+            persistDownloads(force = terminal)
         }
+    }
+
+    private fun restorePersistedDownloads() {
+        val saved = runCatching {
+            JSONArray(preferences.getString(KEY_DOWNLOADS, "[]"))
+        }.getOrDefault(JSONArray())
+
+        for (index in 0 until saved.length()) {
+            val record = saved.optJSONObject(index) ?: continue
+            if (record.optBoolean("private", false)) continue
+
+            val savedStatus = runCatching {
+                BrowserDownloadStatus.valueOf(record.optString("status"))
+            }.getOrDefault(BrowserDownloadStatus.FAILED)
+            val interrupted = savedStatus == BrowserDownloadStatus.QUEUED ||
+                savedStatus == BrowserDownloadStatus.DOWNLOADING
+            val outputUri = record.optString("outputUri").takeIf(String::isNotBlank)
+                ?.let(Uri::parse)
+            val outputPath = record.optString("outputFile").takeIf(String::isNotBlank)
+                ?.let(::File)
+            val item = BrowserDownloadItem(
+                id = record.optString("id").ifBlank { UUID.randomUUID().toString() },
+                fileName = record.optString("fileName").ifBlank { "download" },
+                sourceUrl = record.optString("sourceUrl"),
+                mimeType = record.optString("mimeType", "application/octet-stream"),
+                totalBytes = record.optLong("totalBytes", -1L),
+                isPrivate = false,
+                createdAt = record.optLong("createdAt", System.currentTimeMillis()),
+                extensionId = record.optString("extensionId").takeIf(String::isNotBlank),
+                extensionDownloadId = record.optInt("extensionDownloadId", -1).takeIf { it >= 0 },
+                referrer = record.optString("referrer").takeIf(String::isNotBlank)
+            )
+            item.outputUri = outputUri
+            item.outputFile = outputPath
+            item.receivedBytes = record.optLong("receivedBytes", 0L).coerceAtLeast(0L)
+            item.status = when {
+                interrupted -> BrowserDownloadStatus.FAILED
+                savedStatus == BrowserDownloadStatus.COMPLETE &&
+                    outputUri == null && outputPath?.isFile != true -> BrowserDownloadStatus.FAILED
+                else -> savedStatus
+            }
+            item.errorMessage = when {
+                interrupted -> "Tác vụ bị gián đoạn khi ứng dụng đóng. Tệp tải dở không thể tự tiếp tục."
+                item.status == BrowserDownloadStatus.FAILED ->
+                    record.optString("errorMessage").ifBlank { "Không thể khôi phục tệp đã tải." }
+                else -> record.optString("errorMessage").takeIf(String::isNotBlank)
+            }
+            downloads.add(item)
+        }
+        downloads.sortByDescending { it.createdAt }
+    }
+
+    private fun persistDownloads(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && now - lastPersistedAt < 2_000L) return
+        val records = JSONArray()
+        downloads.asSequence().filterNot { it.isPrivate }.take(MAX_PERSISTED_DOWNLOADS).forEach { item ->
+            val record = JSONObject()
+                .put("id", item.id)
+                .put("fileName", item.fileName)
+                .put("sourceUrl", item.sourceUrl)
+                .put("mimeType", item.mimeType)
+                .put("totalBytes", item.totalBytes)
+                .put("createdAt", item.createdAt)
+                .put("receivedBytes", item.receivedBytes)
+                .put("status", item.status.name)
+                .put("errorMessage", item.errorMessage)
+                .put("outputUri", item.outputUri?.toString())
+                .put("outputFile", item.outputFile?.absolutePath)
+                .put("extensionId", item.extensionId)
+                .put("extensionDownloadId", item.extensionDownloadId)
+                .put("referrer", item.referrer)
+                .put("private", false)
+            records.put(record)
+        }
+        preferences.edit().putString(KEY_DOWNLOADS, records.toString()).apply()
+        lastPersistedAt = now
     }
 
     private fun outputContentUri(item: BrowserDownloadItem): Uri? {
@@ -367,6 +477,10 @@ class BrowserDownloadManager(context: Context) {
             }
             index++
         }
+    }
+    private companion object {
+        const val KEY_DOWNLOADS = "items_v1"
+        const val MAX_PERSISTED_DOWNLOADS = 100
     }
 }
 
