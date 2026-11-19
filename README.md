@@ -50,7 +50,7 @@ The browser foundation is implemented, but these areas remain incomplete or requ
 - Tab overview captures a downscaled preview from the active `GeckoView` surface after a successful load. Previews are in-memory only and may be blank until a tab has been displayed; they are not saved across process restarts.
 - Drag-and-drop reordering is available in the unfiltered tab overview. Filtered/search results intentionally disable reorder to avoid ambiguous index changes.
 - The app download manager persists up to 100 non-private task records. Active tasks interrupted by process death are restored as interrupted metadata; byte-stream transfer is not resumed.
-- `downloads.download()` supports progress, terminal updates and Android `saveAs` document picking. Full conflict-action behavior and extension-driven pause/resume/cancel are not available through the public GeckoView API surface.
+- `downloads.download()` supports progress, terminal updates, Android `saveAs` document picking and safe duplicate-name handling. `OVERWRITE` currently falls back to a unique filename; `PROMPT` uses Android's document picker, so full Firefox Desktop conflict semantics are not claimed. Extension-driven pause/resume/cancel are not available through the public GeckoView API surface.
 - Firefox WebExtensions support is API-by-API and partial. Chrome Web Store/CRX support and complete Firefox Desktop API parity are not provided. See [Android extension support](docs/ANDROID-EXTENSIONS.md) and the [physical-device test matrix](docs/EXTENSION-TEST-MATRIX.md).
 - Physical-device smoke tests for permissions, private-session boundaries, extension popup behavior, downloads and tab previews/reordering remain required.
 
