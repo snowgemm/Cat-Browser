@@ -27,6 +27,22 @@ import io.github.snowgemm.catbrowser.ui.CatBrowserTheme
 class MainActivity : ComponentActivity() {
     private var activeController: BrowserController? = null
     private var pendingExternalUrl: String? = null
+    private var isActivityStarted = false
+
+    override fun onStart() {
+        super.onStart()
+        isActivityStarted = true
+        currentController()?.onAppForegrounded()
+    }
+
+    override fun onStop() {
+        isActivityStarted = false
+        currentController()?.onAppBackgrounded()
+        super.onStop()
+    }
+
+    private fun currentController(): BrowserController? =
+        activeController ?: (application as CatBrowserApplication).existingBrowserController()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -52,6 +68,8 @@ class MainActivity : ComponentActivity() {
                     pendingExternalUrl?.let(initialized::openExternalUrl)
                     pendingExternalUrl = null
                     activeController = initialized
+                    if (isActivityStarted) initialized.onAppForegrounded()
+                    else initialized.onAppBackgrounded()
                     controller = initialized
                     withFrameNanos { }
                     reportFullyDrawn()
@@ -75,7 +93,7 @@ class MainActivity : ComponentActivity() {
                             onRetry = { startupAttempt++ }
                         )
                     } else {
-                        BrowserScreen(controller = initialized)
+                        BrowserScreen(controller = initialized, activity = this@MainActivity)
                     }
                 }
             }
@@ -87,8 +105,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
 
         val url = intent.dataString ?: return
-        val controller = activeController
-            ?: (application as CatBrowserApplication).existingBrowserController()
+        val controller = currentController()
 
         if (controller != null) {
             activeController = controller
