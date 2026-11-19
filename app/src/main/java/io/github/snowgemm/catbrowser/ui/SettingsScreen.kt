@@ -94,6 +94,23 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     var clearCookiesSelected by remember { mutableStateOf(true) }
     var clearCacheSelected by remember { mutableStateOf(true) }
     var clearPermissionsSelected by remember { mutableStateOf(false) }
+    var settingsQuery by remember { mutableStateOf("") }
+
+    val normalizedSettingsQuery = settingsQuery.trim()
+    fun matchesSettings(vararg terms: String): Boolean =
+        normalizedSettingsQuery.isBlank() ||
+            terms.any { term -> term.contains(normalizedSettingsQuery, ignoreCase = true) }
+
+    val hasMatchingSettings =
+        matchesSettings("Cat Browser", "GeckoView", "giới thiệu", "thông tin") ||
+        matchesSettings("cập nhật", "update", "stable", "beta") ||
+        matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền") ||
+        matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search") ||
+        matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL") ||
+        matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab") ||
+        matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa") ||
+        matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí") ||
+        matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")
 
     LaunchedEffect(Unit) {
         updateManager.checkForUpdates(UpdateChannel.STABLE)
@@ -119,12 +136,30 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
+        OutlinedTextField(
+            value = settingsQuery,
+            onValueChange = { settingsQuery = it },
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 8.dp),
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp),
+            placeholder = { Text("Tìm chế độ cài đặt") },
+            leadingIcon = {
+                Text("⌕", color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleLarge)
+            },
+            trailingIcon = {
+                if (settingsQuery.isNotBlank()) {
+                    TextButton(onClick = { settingsQuery = "" }) { Text("Xóa") }
+                }
+            }
+        )
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 30.dp),
             verticalArrangement = Arrangement.spacedBy(17.dp)
         ) {
-            item {
+            if (matchesSettings("Cat Browser", "GeckoView", "giới thiệu", "thông tin")) item {
                 SettingsSectionTitle("CAT BROWSER")
                 SettingsCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -153,7 +188,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            if (matchesSettings("cập nhật", "update", "stable", "beta")) item {
                 SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
                 UpdateChannelCard(
                     title = "Stable · luôn bật",
@@ -196,7 +231,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-            item {
+            if (matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền")) item {
                 SettingsSectionTitle("GIAO DIỆN")
                 SettingsCard {
                     Text("Chủ đề", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -269,7 +304,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            if (matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search")) item {
                 SettingsSectionTitle("TÌM KIẾM")
                 SettingsCard {
                     Text("Công cụ tìm kiếm", style = MaterialTheme.typography.titleMedium,
@@ -286,7 +321,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            if (matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL")) item {
                 SettingsSectionTitle("TRANG CHỦ")
                 SettingsCard {
                     Text("Kiểu trang chủ", style = MaterialTheme.typography.titleMedium,
@@ -327,7 +362,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            if (matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab")) item {
                 SettingsSectionTitle("KHI MỞ CAT BROWSER")
                 SettingsCard {
                     SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
@@ -336,7 +371,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         controller.startupMode == "home") { controller.updateStartupMode("home") }
                 }
             }
-            item {
+            if (matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa")) item {
                 SettingsSectionTitle("DỮ LIỆU DUYỆT WEB")
                 SettingsCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -387,7 +422,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                     }
                 }
             }
-            item {
+            if (matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí")) item {
                 SettingsSectionTitle("QUYỀN WEBSITE")
                 SettingsCard {
                     Text(
@@ -461,7 +496,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 }
             }
 
-            item {
+            if (matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")) item {
                 SettingsSectionTitle("THÔNG TIN")
                 SettingsCard {
                     Text("Cat Browser", style = MaterialTheme.typography.titleMedium,
@@ -493,6 +528,17 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         TextButton(onClick = controller::disableDeveloperMode) {
                             Text("Tắt công cụ nhà phát triển")
                         }
+                    }
+                }
+            }
+            if (normalizedSettingsQuery.isNotBlank() && !hasMatchingSettings) {
+                item {
+                    SettingsCard {
+                        Text(
+                            "Không tìm thấy cài đặt phù hợp.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }
