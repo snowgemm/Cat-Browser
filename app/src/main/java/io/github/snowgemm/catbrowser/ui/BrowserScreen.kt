@@ -70,6 +70,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
@@ -194,14 +195,14 @@ fun BrowserScreen(controller: BrowserController) {
             val movingForward = targetState != BrowserDestination.BROWSER
             (fadeIn(tween(170)) + slideInHorizontally(
                 initialOffsetX = { width -> if (movingForward) width / 5 else -width / 5 },
-                animationSpec = spring(
+                animationSpec = spring<IntOffset>(
                     dampingRatio = Spring.DampingRatioNoBouncy,
                     stiffness = Spring.StiffnessMediumLow
                 )
             )) togetherWith
                 (fadeOut(tween(130)) + slideOutHorizontally(
                     targetOffsetX = { width -> if (movingForward) -width / 7 else width / 7 },
-                    animationSpec = spring(
+                    animationSpec = spring<IntOffset>(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessMediumLow
                     )
