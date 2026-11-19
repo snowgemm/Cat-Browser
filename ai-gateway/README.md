@@ -22,6 +22,20 @@ openssl rand -hex 32
 
 Do not use the OpenAI API key as the gateway token. Do not commit either value to Git, put them in an APK, paste them into an issue, or include them in logs.
 
+## Current Vercel project
+
+A Vercel Hobby project has been created and linked to `snowgemm/Cat-Browser`:
+
+- Project: `cat-browser-ai-gateway`
+- Project ID: `prj_cbiMZz3C2VnPZS1JUEeLkrQo1JB4`
+- Root Directory: `ai-gateway`
+- Runtime: Node.js `22.x`
+- Production branch: `main`
+
+It has **not** been deployed. No domain and no environment variables are configured yet. Deployment is intentionally held until the owner has prepared the required secrets.
+
+Vercel currently has SSO protection enabled for all deployment domains except custom domains. A native Android client cannot complete Vercel's interactive SSO flow. Before enabling the Android connection, either attach a domain you control (custom domains are outside this SSO rule) or deliberately review the deployment-protection setting. Do not remove protection until the bearer token is high-entropy, rate limiting is configured, and the HTTPS endpoint is ready.
+
 ## Deploy
 
 1. Create or select a Vercel project for this repository.
@@ -81,6 +95,7 @@ Cat Browser displays a fresh approval dialog for every function call. The app va
 
 ```bash
 npm run check
+npm test
 ```
 
-This syntax check does not call OpenAI or test a deployed Vercel environment.
+These local checks use mocked upstream responses; they do not call OpenAI, require secrets, or test a deployed Vercel environment.
