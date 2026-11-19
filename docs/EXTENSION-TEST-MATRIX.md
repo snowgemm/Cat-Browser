@@ -41,7 +41,7 @@ Run each candidate against the same Cat build and record the commit SHA and bund
 | EXT-07 | Storage and background lifecycle | State persists according to the extension API; background/service-worker restart does not corrupt state |
 | EXT-08 | Tab API | Supported create/update/remove calls map to Cat tabs; unsupported options reject explicitly rather than succeeding silently |
 | EXT-09 | Network APIs | Blocking/filtering/redirect behavior matches expected GeckoView semantics; inspect page load and console errors |
-| EXT-10 | Downloads | `downloads.download()` progress and terminal events are correct; `saveAs` opens Android picker; cancellation rejects cleanly |
+| EXT-10 | Downloads | `downloads.download()` progress/terminal events are correct; `saveAs`/`PROMPT` open Android picker; `UNIQUIFY` produces a free name; `OVERWRITE` preserves the existing file and falls back to a free name; cancellation rejects cleanly |
 | EXT-11 | Private browsing | Extension access is denied by default; after opt-in, private tabs remain excluded from persistent Cat history/download metadata |
 | EXT-12 | Lifecycle and stress | Switch 1/5/10/20 tabs, background/foreground, rotate, process-restart, low-memory and network loss without crashes or leaked views |
 
