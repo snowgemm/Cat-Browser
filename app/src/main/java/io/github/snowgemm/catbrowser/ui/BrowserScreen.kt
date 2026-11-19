@@ -584,166 +584,195 @@ private fun BrowserMainScreen(
             }
         }
 
-        Row(
-            Modifier.fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .border(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(
+                0.5.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
+            ),
+            tonalElevation = 1.dp
         ) {
-            Surface(
-                modifier = Modifier.weight(1f)
-                    .height(if (addressFocused) 52.dp else 46.dp)
-                    .animateContentSize()
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-                    .pointerInput(tab.id, addressFocused, controller.tabs.size) {
-                        if (!addressFocused && controller.tabs.size > 1) {
-                            var dragDistance = 0f
-                            detectHorizontalDragGestures(
-                                onDragStart = { dragDistance = 0f },
-                                onHorizontalDrag = { _, amount -> dragDistance += amount },
-                                onDragEnd = {
-                                    if (abs(dragDistance) >= tabSwipeThreshold) {
-                                        controller.selectAdjacentTab(if (dragDistance < 0f) 1 else -1)
-                                    }
-                                    dragDistance = 0f
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.weight(1f)
+                        .height(if (addressFocused) 52.dp else 48.dp)
+                        .animateContentSize()
+                        .pointerInput(tab.id, addressFocused, controller.tabs.size) {
+                            if (!addressFocused && controller.tabs.size > 1) {
+                                var dragDistance = 0f
+                                detectHorizontalDragGestures(
+                                    onDragStart = { dragDistance = 0f },
+                                    onHorizontalDrag = { _, amount -> dragDistance += amount },
+                                    onDragEnd = {
+                                        if (abs(dragDistance) >= tabSwipeThreshold) {
+                                            controller.selectAdjacentTab(if (dragDistance < 0f) 1 else -1)
+                                        }
+                                        dragDistance = 0f
+                                    },
+                                    onDragCancel = { dragDistance = 0f }
+                                )
+                            }
+                        },
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        if (addressFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
+                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
+                    )
+                ) {
+                    Column(Modifier.fillMaxWidth()) {
+                        Row(
+                            Modifier.height(if (addressFocused) 48.dp else 46.dp)
+                                .padding(start = 12.dp, end = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            BrowserGlyph(
+                                when {
+                                    addressFocused -> BrowserGlyphType.SEARCH
+                                    tab.url.startsWith("https://", ignoreCase = true) -> BrowserGlyphType.LOCK
+                                    else -> BrowserGlyphType.GLOBE
                                 },
-                                onDragCancel = { dragDistance = 0f }
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(9.dp))
+                            BasicTextField(
+                                value = address,
+                                onValueChange = { address = it },
+                                modifier = Modifier.weight(1f).focusRequester(addressFocusRequester).onFocusChanged { state ->
+                                    if (state.isFocused && !addressFocused) {
+                                        address = address.copy(selection = TextRange(0, address.text.length))
+                                    } else if (!state.isFocused && addressFocused) {
+                                        address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
+                                    }
+                                    addressFocused = state.isFocused
+                                },
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp
+                                ),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = { navigate() }),
+                                decorationBox = { inner ->
+                                    Box {
+                                        if (address.text.isEmpty()) {
+                                            Text(
+                                                "Tìm kiếm hoặc nhập địa chỉ",
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 12.sp,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                }
+                            )
+                            if (addressFocused) {
+                                if (address.text.isNotBlank()) {
+                                    DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
+                                }
+                                DockAction(
+                                    if (address.text.isNotEmpty()) BrowserGlyphType.CLEAR else BrowserGlyphType.CLOSE,
+                                    if (address.text.isNotEmpty()) "Xoá nội dung" else "Đóng gợi ý",
+                                    true
+                                ) {
+                                    if (address.text.isNotEmpty()) {
+                                        address = TextFieldValue("")
+                                    } else {
+                                        addressFocused = false
+                                        focusManager.clearFocus()
+                                        keyboard?.hide()
+                                    }
+                                }
+                            } else if (tab.isLoading) {
+                                Text(
+                                    tab.progress.toString() + "%",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                DockAction(BrowserGlyphType.GO, "Truy cập", true) { navigate() }
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = tab.isLoading && !addressFocused,
+                            enter = fadeIn(tween(120)),
+                            exit = fadeOut(tween(90))
+                        ) {
+                            LinearProgressIndicator(
+                                progress = { tab.progress.coerceIn(0, 100) / 100f },
+                                modifier = Modifier.fillMaxWidth().height(2.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         }
-                    },
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Row(
-                    Modifier.padding(start = 10.dp, end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BrowserGlyph(
-                        when {
-                            addressFocused -> BrowserGlyphType.SEARCH
-                            tab.url.startsWith("https://", ignoreCase = true) -> BrowserGlyphType.LOCK
-                            else -> BrowserGlyphType.GLOBE
-                        },
-                        modifier = Modifier.size(17.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(7.dp))
-                    BasicTextField(
-                        value = address,
-                        onValueChange = { address = it },
-                        modifier = Modifier.weight(1f).focusRequester(addressFocusRequester).onFocusChanged { state ->
-                            if (state.isFocused && !addressFocused) {
-                                address = address.copy(selection = TextRange(0, address.text.length))
-                            } else if (!state.isFocused && addressFocused) {
-                                address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
-                            }
-                            addressFocused = state.isFocused
-                        },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { navigate() }),
-                        decorationBox = { inner ->
-                            Box {
-                                if (address.text.isEmpty()) {
-                                    Text(
-                                        "Tìm kiếm hoặc nhập địa chỉ",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 12.sp,
-                                        maxLines = 1
-                                    )
-                                }
-                                inner()
-                            }
-                        }
-                    )
-                    if (addressFocused) {
-                        if (address.text.isNotBlank()) {
-                            DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
-                        }
-                        DockAction(
-                            if (address.text.isNotEmpty()) BrowserGlyphType.CLEAR else BrowserGlyphType.CLOSE,
-                            if (address.text.isNotEmpty()) "Xoá nội dung" else "Đóng gợi ý",
-                            true
-                        ) {
-                            if (address.text.isNotEmpty()) {
-                                address = TextFieldValue("")
-                            } else {
-                                addressFocused = false
-                                focusManager.clearFocus()
-                                keyboard?.hide()
-                            }
-                        }
-                    } else if (tab.isLoading) {
-                        Text(tab.progress.toString() + "%",
-                            color = MaterialTheme.colorScheme.primary, fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold)
-                    } else {
-                        DockAction(BrowserGlyphType.GO, "Truy cập", true) { navigate() }
                     }
                 }
-            }
 
-            if (!addressFocused) {
-                if (extensionActions.isNotEmpty()) {
-                    Row(
-                        Modifier.widthIn(max = 118.dp)
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        extensionActions.take(3).forEach { action ->
-                            Surface(
-                                onClick = { action.action.click() },
-                                modifier = Modifier.size(38.dp).semantics {
-                                    contentDescription = action.title
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    val iconBitmap = action.iconBitmap
-                                    if (iconBitmap != null) {
-                                        Image(
-                                            bitmap = iconBitmap.asImageBitmap(),
-                                            contentDescription = action.title,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    } else {
-                                        Text(
-                                            action.extensionName.firstOrNull()?.uppercase() ?: "E",
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
-                                        Surface(
-                                            modifier = Modifier.align(Alignment.TopEnd),
-                                            color = Color(action.badgeBackgroundColor ?: 0xFF59616D.toInt()),
-                                            shape = RoundedCornerShape(6.dp)
-                                        ) {
-                                            Text(
-                                                badge.take(4),
-                                                Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
-                                                color = MaterialTheme.colorScheme.onPrimary,
-                                                fontSize = 8.sp,
-                                                lineHeight = 9.sp
+                if (!addressFocused) {
+                    if (extensionActions.isNotEmpty()) {
+                        Row(
+                            Modifier.widthIn(max = 88.dp).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            extensionActions.take(2).forEach { action ->
+                                Surface(
+                                    onClick = { action.action.click() },
+                                    modifier = Modifier.size(38.dp).semantics {
+                                        contentDescription = action.title
+                                    },
+                                    shape = RoundedCornerShape(13.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        val iconBitmap = action.iconBitmap
+                                        if (iconBitmap != null) {
+                                            Image(
+                                                bitmap = iconBitmap.asImageBitmap(),
+                                                contentDescription = action.title,
+                                                modifier = Modifier.size(22.dp)
                                             )
+                                        } else {
+                                            Text(
+                                                action.extensionName.firstOrNull()?.uppercase() ?: "E",
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
+                                            Surface(
+                                                modifier = Modifier.align(Alignment.TopEnd),
+                                                color = Color(action.badgeBackgroundColor ?: 0xFF59616D.toInt()),
+                                                shape = RoundedCornerShape(6.dp)
+                                            ) {
+                                                Text(
+                                                    badge.take(4),
+                                                    Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    fontSize = 8.sp,
+                                                    lineHeight = 9.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    TabSwitcherAction(controller.tabs.size, onOpenTabs)
+                    DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
                 }
-                TabSwitcherAction(controller.tabs.size, onOpenTabs)
-                DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
             }
         }
     }
