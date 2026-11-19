@@ -781,7 +781,9 @@ private fun BrowserMainScreen(
         ModalBottomSheet(
             onDismissRequest = { showMenu = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surface
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp
         ) {
             Column(
                 Modifier.fillMaxWidth()
@@ -790,11 +792,25 @@ private fun BrowserMainScreen(
                     .padding(bottom = 20.dp)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Image(
+                                painter = painterResource(R.drawable.ic_launcher_foreground),
+                                contentDescription = "Cat Browser",
+                                modifier = Modifier.size(29.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.width(11.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Cat Browser", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Cat Browser", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                         Text(
                             tab.title.ifBlank { "Tab mới" },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -803,12 +819,21 @@ private fun BrowserMainScreen(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Text(
-                        if (tab.isPrivate) "ẨN DANH" else "ĐANG DUYỆT",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = if (tab.isPrivate) Color(0xFF443B50)
+                            else MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            if (tab.isPrivate) "ẨN DANH" else "ĐANG DUYỆT",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            color = if (tab.isPrivate) Color(0xFFF2EDF7)
+                                else MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.45.sp
+                        )
+                    }
                 }
                 Row(Modifier.fillMaxWidth()) {
                     BrowserMenuAction(BrowserGlyphType.BACK, "Quay lại", Modifier.weight(1f), tab.canGoBack) {
