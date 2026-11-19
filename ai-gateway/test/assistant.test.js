@@ -268,6 +268,39 @@ test("rejects unresolved tool calls instead of sending an incomplete tool cycle"
   assert.equal(called, false);
 });
 
+
+test("classifies exhausted OpenAI quota separately from request rate limits", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: {
+      message: "Sensitive billing diagnostic",
+      type: "insufficient_quota",
+      code: "insufficient_quota"
+    }
+  }), { status: 429, headers: { "content-type": "application/json" } });
+
+  const quotaRes = responseRecorder();
+  await handler(validRequest("198.51.100.21"), quotaRes);
+  assert.equal(quotaRes.statusCode, 429);
+  assert.equal(quotaRes.body.code, "insufficient_quota");
+  assert.match(quotaRes.body.error, /quota or billing limit/i);
+  assert.equal(JSON.stringify(quotaRes.body).includes("Sensitive billing diagnostic"), false);
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: { message: "Sensitive rate diagnostic", type: "requests", code: "rate_limit_exceeded" }
+  }), {
+    status: 429,
+    headers: { "content-type": "application/json", "retry-after": "7" }
+  });
+
+  const rateRes = responseRecorder();
+  await handler(validRequest("198.51.100.22"), rateRes);
+  assert.equal(rateRes.statusCode, 429);
+  assert.equal(rateRes.body.code, "rate_limit_exceeded");
+  assert.equal(rateRes.body.retryAfterSeconds, 7);
+  assert.equal(rateRes.headers["retry-after"], "7");
+  assert.equal(JSON.stringify(rateRes.body).includes("Sensitive rate diagnostic"), false);
+});
+
 test("does not expose OpenAI upstream error bodies to the client", async () => {
   globalThis.fetch = async () =>
     new Response(JSON.stringify({ error: { message: "sensitive upstream diagnostic" } }), {
