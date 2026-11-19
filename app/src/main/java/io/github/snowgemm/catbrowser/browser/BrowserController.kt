@@ -1444,6 +1444,7 @@ class BrowserController(
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
                 if (tab.session !== session) return
+                tab.previewBitmap = null
                 tab.isLoading = true
                 tab.progress = 0
                 tab.error = null
