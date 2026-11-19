@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# New commits supersede older checks on main; avoid spending runners on stale builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Test and build ABI APKs
@@ -15,10 +20,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js for AI gateway checks
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
 
@@ -28,8 +33,11 @@ jobs:
       - name: Test AI gateway request handling
         run: npm test --prefix ai-gateway
 
+      - name: Test APK ABI validation
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
       - name: Set up JDK
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: temurin
           java-version: "17"
@@ -46,7 +54,7 @@ jobs:
           test -f "$ANDROID_HOME/platforms/android-37.2/android.jar"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
       - name: Run unit tests and build ABI-split debug APKs
         run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
@@ -79,7 +87,7 @@ jobs:
 
       # upload-artifact v7 supports archive:false for a single standalone file.
       - name: Upload ARM64 APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: dist/abi-apks/cat-browser-arm64-v8a-debug.apk
           archive: false
@@ -87,7 +95,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload ARMv7 APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: dist/abi-apks/cat-browser-armeabi-v7a-debug.apk
           archive: false
@@ -95,7 +103,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload x86_64 APK
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: dist/abi-apks/cat-browser-x86_64-debug.apk
           archive: false
