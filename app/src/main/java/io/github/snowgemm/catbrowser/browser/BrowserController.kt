@@ -239,7 +239,8 @@ class BrowserController(
     private var privacyStatsRefreshQueued = false
     private var lastPrivacyStatsRefreshMs = 0L
     private var pendingBookmarkToggle = false
-    private var isAppForegrounded = true
+    var isAppForegrounded by mutableStateOf(true)
+        private set
 
     var selectedTabId by mutableStateOf("")
         private set
