@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
+import io.github.snowgemm.catbrowser.browser.BrowserPrivacyStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,11 +53,17 @@ internal fun NewTabPage(
     bookmarks: List<BrowserEntry>,
     recentHistory: List<BrowserEntry>,
     openTabCount: Int,
+    privacyStats: BrowserPrivacyStats,
+    trackingProtectionEnabled: Boolean,
+    onRefreshPrivacyStats: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onFocusAddress: () -> Unit,
     onAddShortcut: (String, String) -> Boolean
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(isPrivate) {
+        if (!isPrivate) onRefreshPrivacyStats()
+    }
     val wallpaperUri = remember(context) {
         context.getSharedPreferences(HOME_APPEARANCE_PREFERENCES, android.content.Context.MODE_PRIVATE)
             .getString(HOME_WALLPAPER_URI_KEY, null)
@@ -252,6 +259,161 @@ internal fun NewTabPage(
                         }
                     }
                 }
+
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    color = sectionCardColor
+                ) {
+                    Column(
+                        Modifier.padding(horizontal = 17.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Bảo vệ quyền riêng tư",
+                                    color = heroTextColor,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Tổng hợp 7 ngày gần nhất",
+                                    color = mutedTextColor,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            TextButton(
+                                onClick = onRefreshPrivacyStats,
+                                enabled = !privacyStats.isLoading
+                            ) {
+                                Text(if (privacyStats.isLoading) "Đang tải…" else "Làm mới")
+                            }
+                        }
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    if (privacyStats.isAvailable) {
+                                        privacyStats.totalBlockedLastSevenDays.toString()
+                                    } else {
+                                        "—"
+                                    },
+                                    color = heroTextColor,
+                                    fontSize = 30.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "Lượt chặn đã ghi nhận",
+                                    color = mutedTextColor,
+                                    fontSize = 10.sp
+                                )
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = tileColor
+                            ) {
+                                Column(
+                                    Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(
+                                        if (trackingProtectionEnabled) "ĐANG BẬT" else "ĐANG TẮT",
+                                        color = heroTextColor,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.6.sp
+                                    )
+                                    Text(
+                                        "Tracking Protection",
+                                        color = mutedTextColor,
+                                        fontSize = 9.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = mutedTextColor.copy(alpha = 0.25f))
+
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            PrivacyMetric(
+                                "Tracker",
+                                privacyStats.trackers,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                            PrivacyMetric(
+                                "Cookie",
+                                privacyStats.trackingCookies,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                            PrivacyMetric(
+                                "Fingerprint",
+                                privacyStats.fingerprinters,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            PrivacyMetric(
+                                "Social",
+                                privacyStats.socialTrackers,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                            PrivacyMetric(
+                                "Bounce",
+                                privacyStats.bounceTrackers,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                            PrivacyMetric(
+                                "Crypto",
+                                privacyStats.cryptominers,
+                                privacyStats.isAvailable,
+                                Modifier.weight(1f),
+                                heroTextColor,
+                                mutedTextColor
+                            )
+                        }
+
+                        Text(
+                            when {
+                                privacyStats.hasError -> "Không thể đọc thống kê từ GeckoView. Hãy thử làm mới."
+                                !privacyStats.isAvailable && privacyStats.isLoading -> "Đang đọc thống kê cục bộ…"
+                                !privacyStats.isAvailable -> "Thống kê chưa sẵn sàng trên thiết bị này."
+                                !trackingProtectionEnabled -> "Bảo vệ đang tắt; số liệu chỉ phản ánh các lượt chặn đã ghi nhận trước đó."
+                                else -> "Dữ liệu tổng hợp được lưu trên thiết bị. Tab ẩn danh không được tính."
+                            },
+                            color = mutedTextColor,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(25.dp))
@@ -420,6 +582,35 @@ internal fun NewTabPage(
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) { Text("Hủy") }
             }
+        )
+    }
+}
+
+@Composable
+private fun PrivacyMetric(
+    label: String,
+    value: Long,
+    isAvailable: Boolean,
+    modifier: Modifier = Modifier,
+    valueColor: Color,
+    labelColor: Color
+) {
+    Column(
+        modifier,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            if (isAvailable) value.toString() else "—",
+            color = valueColor,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            label,
+            color = labelColor,
+            fontSize = 9.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
