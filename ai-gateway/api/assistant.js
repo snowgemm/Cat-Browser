@@ -252,8 +252,8 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
 
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
+  if (req.method !== "POST" && req.method !== "GET") {
+    res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ error: "Method not allowed." });
   }
 
@@ -273,6 +273,32 @@ export default async function handler(req, res) {
   const clientAddress = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "unknown";
   if (isRateLimited(clientAddress)) {
     return res.status(429).json({ error: "Too many requests. Try again shortly." });
+  }
+
+  if (req.method === "GET") {
+    const model = process.env.OPENAI_MODEL || MODEL;
+    try {
+      const upstream = await fetch(
+        "https://api.openai.com/v1/models/" + encodeURIComponent(model),
+        {
+          method: "GET",
+          headers: { Authorization: "Bearer " + apiKey },
+          signal: AbortSignal.timeout(12_000)
+        }
+      );
+      if (upstream.ok) {
+        return res.status(200).json({ ok: true, model });
+      }
+      if (upstream.status === 401) {
+        return res.status(502).json({ error: "OpenAI API credentials are invalid or unauthorized." });
+      }
+      if (upstream.status === 404) {
+        return res.status(502).json({ error: "The configured OpenAI model is unavailable to this API project." });
+      }
+      return res.status(502).json({ error: "OpenAI model access could not be verified." });
+    } catch {
+      return res.status(502).json({ error: "Could not reach the OpenAI API for the connection check." });
+    }
   }
 
   let body = req.body;
