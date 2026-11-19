@@ -961,7 +961,7 @@ class BrowserExtensionsManager(
                 statusMessage = if (updated == null) {
                     "Tiện ích đã ở phiên bản mới nhất."
                 } else {
-                    "Đã cập nhật ${updated?.metaData?.name ?: updated?.id ?: extension.id}."
+                    "Đã cập nhật ${updated.metaData.name ?: updated.id ?: extension.id}."
                 }
                 refreshInstalled()
             },
