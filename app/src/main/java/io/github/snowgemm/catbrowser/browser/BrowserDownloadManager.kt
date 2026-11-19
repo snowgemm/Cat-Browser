@@ -485,13 +485,8 @@ class BrowserDownloadManager(context: Context) {
                     it.status == BrowserDownloadStatus.DOWNLOADING)
         }
         return when (action) {
-            WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE -> {
-                if (activeCollision || !deleteExistingDestination(fileName)) {
-                    uniqueAvailableFileName(fileName)
-                } else {
-                    fileName
-                }
-            }
+            WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE ->
+                uniqueAvailableFileName(fileName)
             WebExtension.DownloadRequest.CONFLICT_ACTION_UNIQUIFY -> uniqueAvailableFileName(fileName)
             WebExtension.DownloadRequest.CONFLICT_ACTION_PROMPT -> uniqueAvailableFileName(fileName)
             else -> uniqueAvailableFileName(fileName)
@@ -516,21 +511,6 @@ class BrowserDownloadManager(context: Context) {
         }
     }
 
-    private fun deleteExistingDestination(fileName: String): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching {
-                resolver.delete(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                    "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} = ?",
-                    arrayOf(fileName, downloadRelativePath())
-                )
-            }
-            return !mediaStoreDestinationExists(fileName)
-        }
-
-        val target = File(legacyDownloadDirectory(), fileName)
-        return !target.exists() || (target.isFile && target.delete())
-    }
     private fun mediaStoreDestinationExists(fileName: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         return resolver.query(
