@@ -22,9 +22,6 @@ import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
-import io.github.snowgemm.catbrowser.ai.AiGatewayClient
-import io.github.snowgemm.catbrowser.ai.AiGatewayException
-import kotlinx.coroutines.launch
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
@@ -34,10 +31,6 @@ import io.github.snowgemm.catbrowser.update.UpdateUiState
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
-    val aiGatewayClient = remember { AiGatewayClient(context) }
-    val coroutineScope = rememberCoroutineScope()
-    var aiGatewayChecking by remember { mutableStateOf(false) }
-    var aiGatewayMessage by remember { mutableStateOf<String?>(null) }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
     val betaUpdateState = updateManager.betaState
@@ -373,60 +366,6 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 }
             }
 
-            item {
-                SettingsSectionTitle("CAT AI")
-                SettingsCard {
-                    Text("Trợ lý Gemini trong Cat Browser",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Cat AI tự tạo phiên ẩn danh và kết nối qua Supabase. Bạn không cần nhập Gateway URL hoặc access token; Gemini API key chỉ được lưu ở máy chủ.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(
-                        onClick = {
-                            coroutineScope.launch {
-                                aiGatewayChecking = true
-                                aiGatewayMessage = "Đang kiểm tra phiên Supabase và quyền truy cập Gemini…"
-                                try {
-                                    val health = aiGatewayClient.checkConnection()
-                                    aiGatewayMessage = "Kết nối thành công · " + health.model
-                                } catch (error: AiGatewayException) {
-                                    aiGatewayMessage = "Lỗi: " + (error.message ?: "Không thể kết nối Cat AI.")
-                                } finally {
-                                    aiGatewayChecking = false
-                                }
-                            }
-                        },
-                        enabled = !aiGatewayChecking,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        if (aiGatewayChecking) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        Text(if (aiGatewayChecking) "Đang kiểm tra…" else "Kiểm tra kết nối")
-                    }
-                    aiGatewayMessage?.let {
-                        Text(
-                            it,
-                            color = if (it.startsWith("Lỗi:")) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Text(
-                        "Tin nhắn và các bước công cụ bạn duyệt được gửi tới Google Gemini qua Supabase. store=false không lưu interaction trên API, nhưng Google AI Studio Free Tier có thể dùng dữ liệu gửi lên để cải thiện sản phẩm; không gửi thông tin riêng tư. Cat AI giới hạn 8 lượt/phút và 60 lượt/ngày cho mỗi phiên; Google vẫn áp dụng hạn mức riêng. Nếu bật thanh toán API, hãy nhờ phụ huynh/người giám hộ quản lý chi phí. Xóa dữ liệu ứng dụng hoặc đổi thiết bị sẽ làm mất phiên ẩn danh.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
             item {
                 SettingsSectionTitle("THÔNG TIN")
                 SettingsCard {
