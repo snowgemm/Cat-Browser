@@ -359,10 +359,18 @@ class BrowserDownloadManager(context: Context) {
             }.getOrDefault(BrowserDownloadStatus.FAILED)
             val interrupted = savedStatus == BrowserDownloadStatus.QUEUED ||
                 savedStatus == BrowserDownloadStatus.DOWNLOADING
-            val outputUri = record.optString("outputUri").takeIf(String::isNotBlank)
+            var outputUri = record.optString("outputUri").takeIf(String::isNotBlank)
                 ?.let(Uri::parse)
-            val outputPath = record.optString("outputFile").takeIf(String::isNotBlank)
+            var outputPath = record.optString("outputFile").takeIf(String::isNotBlank)
                 ?.let(::File)
+            if (interrupted) {
+                outputUri?.let { uri -> runCatching { resolver.delete(uri, null, null) } }
+                outputUri = null
+                outputPath?.let { target ->
+                    File(target.parentFile, target.name + ".part").delete()
+                    if (!target.isFile) outputPath = null
+                }
+            }
             val item = BrowserDownloadItem(
                 id = record.optString("id").ifBlank { UUID.randomUUID().toString() },
                 fileName = record.optString("fileName").ifBlank { "download" },
