@@ -270,7 +270,8 @@ export default async function handler(req, res) {
         tools,
         tool_choice: "auto",
         max_output_tokens: 800,
-        store: false
+        store: false,
+        include: ["reasoning.encrypted_content"]
       }),
       signal: AbortSignal.timeout(40_000)
     });
