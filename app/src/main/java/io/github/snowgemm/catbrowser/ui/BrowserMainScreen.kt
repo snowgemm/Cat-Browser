@@ -116,6 +116,7 @@ private val CatLightColorScheme = lightColorScheme(
 )
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BrowserMainScreen(
     controller: BrowserController,
