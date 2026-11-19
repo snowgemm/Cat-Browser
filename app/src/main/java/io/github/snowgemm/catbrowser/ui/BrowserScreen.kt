@@ -332,7 +332,14 @@ private fun BrowserMainScreen(
         }
     }
 
-    LaunchedEffect(tab.id, tab.url, tab.isLoading, attachedGeckoView) {
+    LaunchedEffect(
+        tab.id,
+        tab.url,
+        tab.isLoading,
+        attachedGeckoView,
+        controller.isAppForegrounded
+    ) {
+        if (!controller.isAppForegrounded) return@LaunchedEffect
         val view = attachedGeckoView ?: return@LaunchedEffect
         val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             context.getSystemService(PowerManager::class.java)?.currentThermalStatus
