@@ -1,5 +1,6 @@
 package io.github.snowgemm.catbrowser.ui
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,6 +79,8 @@ import androidx.compose.ui.res.painterResource
 import io.github.snowgemm.catbrowser.R
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
@@ -178,7 +181,27 @@ fun BrowserStartupScreen(errorMessage: String?, onRetry: () -> Unit) {
 }
 
 @Composable
-fun BrowserScreen(controller: BrowserController) {
+fun BrowserScreen(controller: BrowserController, activity: Activity) {
+    val isFullScreen = controller.activeTab?.isFullScreen == true
+
+    SideEffect {
+        val insetsController = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+        if (isFullScreen) {
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            insetsController.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
+    DisposableEffect(activity) {
+        onDispose {
+            WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                .show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     var destination by remember { mutableStateOf(BrowserDestination.BROWSER) }
     var settingsReturnDestination by remember { mutableStateOf(BrowserDestination.BROWSER) }
 
@@ -354,8 +377,9 @@ private fun BrowserMainScreen(
         }
     }
 
-    BackHandler(enabled = showFind || addressFocused || tab.canGoBack) {
+    BackHandler(enabled = tab.isFullScreen || showFind || addressFocused || tab.canGoBack) {
         when {
+            tab.isFullScreen -> controller.exitFullScreen()
             showFind -> {
                 showFind = false
                 findQuery = ""
@@ -416,12 +440,12 @@ private fun BrowserMainScreen(
     Column(
         Modifier.fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
+            .then(if (tab.isFullScreen) Modifier else Modifier.statusBarsPadding())
+            .then(if (tab.isFullScreen) Modifier else Modifier.navigationBarsPadding())
             .imePadding()
     ) {
         AnimatedVisibility(
-            visible = tab.isPrivate,
+            visible = tab.isPrivate && !tab.isFullScreen,
             enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 4 },
             exit = fadeOut(tween(120))
         ) {
@@ -454,7 +478,7 @@ private fun BrowserMainScreen(
         }
 
         AnimatedVisibility(
-            visible = showFind,
+            visible = showFind && !tab.isFullScreen,
             enter = fadeIn(tween(150)) + slideInVertically(tween(150)) { -it / 3 },
             exit = fadeOut(tween(100))
         ) {
@@ -511,7 +535,7 @@ private fun BrowserMainScreen(
         }
 
         AnimatedVisibility(
-            visible = tab.error != null,
+            visible = tab.error != null && !tab.isFullScreen,
             enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
             exit = fadeOut(tween(100))
         ) {
@@ -607,6 +631,7 @@ private fun BrowserMainScreen(
             }
         }
 
+        if (!tab.isFullScreen) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
@@ -797,6 +822,7 @@ private fun BrowserMainScreen(
                     DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
                 }
             }
+        }
         }
     }
 
