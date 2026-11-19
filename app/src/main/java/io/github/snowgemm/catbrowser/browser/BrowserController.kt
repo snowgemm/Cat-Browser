@@ -392,10 +392,16 @@ class BrowserController(
             return
         }
 
-        activeTab?.session?.let { session ->
-            runtime.webExtensionController.setTabActive(session, false)
-            session.setFocused(false)
-            session.setActive(false)
+        activeTab?.let { previous ->
+            if (previous.isFullScreen) {
+                previous.session?.exitFullScreen()
+                previous.isFullScreen = false
+            }
+            previous.session?.let { session ->
+                runtime.webExtensionController.setTabActive(session, false)
+                session.setFocused(false)
+                session.setActive(false)
+            }
         }
 
         selectedTabId = target.id
@@ -1465,9 +1471,10 @@ class BrowserController(
 
         session.open(runtime)
         extensionsManager.attachSession(session)
-        val isSelected = tab.id == selectedTabId
-        session.setActive(isSelected)
-        session.setFocused(isSelected && tab.isViewAttached)
+        val isVisible = isAppForegrounded && tab.id == selectedTabId && tab.isViewAttached
+        session.setActive(isVisible)
+        session.setFocused(isVisible)
+        runtime.webExtensionController.setTabActive(session, isVisible)
     }
 
     private fun recoverAfterContentProcessDeath(
