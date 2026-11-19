@@ -76,7 +76,12 @@ internal fun NewTabPage(
             }
         }
 
-        val shortcuts = bookmarks.take(12)
+        val visibleHistory = recentHistory.asSequence()
+            .filter { it.url.startsWith("https://", true) || it.url.startsWith("http://", true) }
+            .distinctBy { it.url.trimEnd('/').lowercase() }
+            .toList()
+        val shortcuts = if (bookmarks.isNotEmpty()) bookmarks.distinctBy { it.url }.take(8)
+            else visibleHistory.distinctBy { siteHost(it.url) }.take(8)
         if (shortcuts.isEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
@@ -123,7 +128,7 @@ internal fun NewTabPage(
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 9.dp)
             )
-        } else if (recentHistory.isEmpty()) {
+        } else if (visibleHistory.isEmpty()) {
             Text(
                 "Các website bạn vừa truy cập sẽ xuất hiện ở đây.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -131,7 +136,7 @@ internal fun NewTabPage(
                 modifier = Modifier.padding(top = 9.dp)
             )
         } else {
-            recentHistory.take(7).forEach { entry ->
+            visibleHistory.take(7).forEach { entry ->
                 RecentSiteRow(entry = entry, onClick = { onOpenUrl(entry.url) })
             }
         }
@@ -186,8 +191,11 @@ internal fun NewTabPage(
 }
 
 @Composable
+private fun siteHost(url: String): String =
+    runCatching { android.net.Uri.parse(url).host?.removePrefix("www.")?.lowercase() }.getOrNull().orEmpty().ifBlank { url.lowercase() }
+
 private fun ShortcutTile(entry: BrowserEntry, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val domain = entry.url.removePrefix("https://").removePrefix("http://").substringBefore('/')
+    val domain = siteHost(entry.url)
     Surface(
         onClick = onClick,
         modifier = modifier,
@@ -226,7 +234,7 @@ private fun ShortcutTile(entry: BrowserEntry, onClick: () -> Unit, modifier: Mod
 
 @Composable
 private fun RecentSiteRow(entry: BrowserEntry, onClick: () -> Unit) {
-    val domain = entry.url.removePrefix("https://").removePrefix("http://").substringBefore('/')
+    val domain = siteHost(entry.url)
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(top = 6.dp),

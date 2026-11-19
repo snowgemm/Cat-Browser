@@ -48,6 +48,10 @@ class BrowserUpdateManager(context: Context) {
         Thread(task, "CatBrowserUpdater").apply { isDaemon = true }
     }
     private val pendingUpdates = mutableMapOf<UpdateChannel, PendingUpdate>()
+    private val preferences = appContext.getSharedPreferences("cat_update_preferences", Context.MODE_PRIVATE)
+
+    var betaEnabled by mutableStateOf(preferences.getBoolean(KEY_BETA_ENABLED, false))
+        private set
 
     var stableState by mutableStateOf(UpdateUiState())
         private set
@@ -66,6 +70,42 @@ class BrowserUpdateManager(context: Context) {
     private fun updateState(channel: UpdateChannel, transform: (UpdateUiState) -> UpdateUiState) {
         setState(channel, transform(state(channel)))
     }
+
+    fun checkForStartupUpdates() {
+        checkForUpdates(UpdateChannel.STABLE)
+        if (betaEnabled) checkForUpdates(UpdateChannel.BETA)
+    }
+
+    fun setBetaEnabled(enabled: Boolean) {
+        if (betaEnabled == enabled) return
+        if (!enabled && betaState.isDownloading) return
+        betaEnabled = enabled
+        preferences.edit().putBoolean(KEY_BETA_ENABLED, enabled).apply()
+        if (enabled) {
+            checkForUpdates(UpdateChannel.BETA)
+        } else {
+            pendingUpdates.remove(UpdateChannel.BETA)
+            File(appContext.cacheDir, fileName(UpdateChannel.BETA)).delete()
+            File(appContext.cacheDir, fileName(UpdateChannel.BETA) + ".part").delete()
+            betaState = UpdateUiState(message = "Beta đang tắt. Stable vẫn luôn được kiểm tra.")
+        }
+    }
+
+    fun nextPromptChannel(): UpdateChannel? {
+        val channels = if (betaEnabled) listOf(UpdateChannel.BETA, UpdateChannel.STABLE) else listOf(UpdateChannel.STABLE)
+        return channels.filter { channel ->
+            val current = state(channel)
+            current.updateAvailable && current.version.isNotBlank() &&
+                preferences.getString(promptKey(channel), null) != current.version
+        }.maxWithOrNull { first, second -> compareBrowserVersions(state(first).version, state(second).version) }
+    }
+
+    fun dismissUpdatePrompt(channel: UpdateChannel) {
+        val version = state(channel).version
+        if (version.isNotBlank()) preferences.edit().putString(promptKey(channel), version).apply()
+    }
+
+    private fun promptKey(channel: UpdateChannel): String = "dismissed_${channel.name.lowercase()}_version"
 
     fun checkForUpdates(channel: UpdateChannel) {
         val currentState = state(channel)
@@ -354,6 +394,7 @@ class BrowserUpdateManager(context: Context) {
     }
 
     private companion object {
+        const val KEY_BETA_ENABLED = "beta_updates_enabled"
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/snowgemm/Cat-Browser/releases/latest"
         const val RELEASES_URL =

@@ -76,6 +76,7 @@ import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
+import io.github.snowgemm.catbrowser.update.UpdateChannel
 import org.mozilla.geckoview.GeckoView
 import kotlinx.coroutines.delay
 import kotlin.math.abs
@@ -239,6 +240,18 @@ private fun BrowserMainScreen(
     LaunchedEffect(Unit) {
         controller.loadHistory()
         controller.loadBookmarks()
+        controller.updateManager.checkForStartupUpdates()
+    }
+
+    var promptRefresh by remember { mutableIntStateOf(0) }
+    val updateManager = controller.updateManager
+    val promptChannel = remember(updateManager.stableState, updateManager.betaState, updateManager.betaEnabled, promptRefresh) {
+        updateManager.nextPromptChannel()
+    }
+    val promptState = when (promptChannel) {
+        UpdateChannel.STABLE -> updateManager.stableState
+        UpdateChannel.BETA -> updateManager.betaState
+        null -> null
     }
 
     LaunchedEffect(showHistory) {
@@ -774,58 +787,109 @@ private fun BrowserMainScreen(
                         showMenu = false; controller.goHome()
                     }
                 }
-                Row(Modifier.fillMaxWidth()) {
-                    BrowserMenuAction(BrowserGlyphType.BOOKS, "Dấu trang", Modifier.weight(1f)) {
-                        showMenu = false; showBookmarks = true
-                    }
-                    BrowserMenuAction(BrowserGlyphType.HISTORY, "Lịch sử", Modifier.weight(1f)) {
-                        showMenu = false; showHistory = true
-                    }
-                    BrowserMenuAction(BrowserGlyphType.DOWNLOAD, "Tải xuống", Modifier.weight(1f)) {
-                        showMenu = false; onOpenDownloads()
+                HorizontalDivider(Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                Text("THƯ VIỆN", modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                BrowserMenuListAction(BrowserGlyphType.BOOKS, "Dấu trang",
+                    subtitle = controller.bookmarks.size.toString() + " mục") {
+                    showMenu = false; showBookmarks = true
+                }
+                BrowserMenuListAction(BrowserGlyphType.HISTORY, "Lịch sử") {
+                    showMenu = false; showHistory = true
+                }
+                BrowserMenuListAction(BrowserGlyphType.DOWNLOAD, "Tải xuống") {
+                    showMenu = false; onOpenDownloads()
+                }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                Text("CÔNG CỤ", modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                BrowserMenuListAction(BrowserGlyphType.SEARCH, "Tìm trong trang") {
+                    showMenu = false; showFind = true
+                }
+                BrowserMenuListAction(BrowserGlyphType.EXTENSIONS, "Tiện ích mở rộng") {
+                    showMenu = false; onOpenExtensions()
+                }
+                if (controller.recentlyClosedTabs.isNotEmpty()) {
+                    BrowserMenuListAction(BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
+                        subtitle = "Tab gần đây đã đóng", enabled = controller.tabs.size < 20) {
+                        showMenu = false; controller.restoreRecentlyClosedTab()
                     }
                 }
-                Row(Modifier.fillMaxWidth()) {
-                    BrowserMenuAction(BrowserGlyphType.SEARCH, "Tìm trong trang", Modifier.weight(1f)) {
-                        showMenu = false; showFind = true
-                    }
-                    BrowserMenuAction(BrowserGlyphType.EXTENSIONS, "Tiện ích", Modifier.weight(1f)) {
-                        showMenu = false; onOpenExtensions()
-                    }
-                    BrowserMenuAction(BrowserGlyphType.SETTINGS, "Cài đặt", Modifier.weight(1f)) {
-                        showMenu = false; onOpenSettings()
+                if (controller.privateTabCount > 0) {
+                    BrowserMenuListAction(BrowserGlyphType.CLOSE, "Đóng tất cả tab ẩn danh",
+                        subtitle = controller.privateTabCount.toString() + " tab") {
+                        showMenu = false; controller.closeAllPrivateTabs()
                     }
                 }
-                if (controller.recentlyClosedTabs.isNotEmpty() || controller.privateTabCount > 0) {
-                    Row(Modifier.fillMaxWidth()) {
-                        if (controller.recentlyClosedTabs.isNotEmpty()) {
-                            BrowserMenuAction(
-                                BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
-                                Modifier.weight(1f), controller.tabs.size < 20
-                            ) { showMenu = false; controller.restoreRecentlyClosedTab() }
-                        }
-                        if (controller.privateTabCount > 0) {
-                            BrowserMenuAction(
-                                BrowserGlyphType.CLOSE, "Đóng tab ẩn danh", Modifier.weight(1f)
-                            ) { showMenu = false; controller.closeAllPrivateTabs() }
-                        }
-                        if (controller.recentlyClosedTabs.isEmpty() || controller.privateTabCount == 0) {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
+                HorizontalDivider(Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                BrowserMenuListAction(BrowserGlyphType.SETTINGS, "Cài đặt") {
+                    showMenu = false; onOpenSettings()
                 }
                 if (!tab.isPrivate) {
-                    TextButton(
-                        onClick = { showMenu = false; controller.toggleBookmark() },
-                        modifier = Modifier.fillMaxWidth()
+                    BrowserMenuListAction(
+                        BrowserGlyphType.BOOKMARK,
+                        if (controller.isBookmarked(tab.url)) "Bỏ trang khỏi dấu trang" else "Thêm vào dấu trang"
                     ) {
-                        BrowserGlyph(BrowserGlyphType.BOOKMARK, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (controller.isBookmarked(tab.url)) "Bỏ dấu trang hiện tại" else "Thêm trang hiện tại vào dấu trang")
+                        showMenu = false; controller.toggleBookmark()
                     }
                 }
             }
         }
+    }
+
+    if (promptChannel != null && promptState != null) {
+        AlertDialog(
+            onDismissRequest = {
+                updateManager.dismissUpdatePrompt(promptChannel)
+                promptRefresh++
+            },
+            title = { Text("Có bản cập nhật " + if (promptChannel == UpdateChannel.BETA) "Beta" else "Stable") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Phiên bản " + promptState.version, fontWeight = FontWeight.SemiBold)
+                    if (promptState.releaseNotes.isNotBlank()) {
+                        Text(promptState.releaseNotes, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (promptState.isDownloading) {
+                        LinearProgressIndicator(progress = { promptState.progress / 100f }, modifier = Modifier.fillMaxWidth())
+                        Text("Đang tải " + promptState.progress + "%", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Text(promptState.message, color = if (promptState.error) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !promptState.isChecking && !promptState.isDownloading,
+                    onClick = {
+                        when {
+                            promptState.downloaded -> updateManager.installDownloadedApk(promptChannel)
+                            promptState.updateAvailable -> updateManager.downloadUpdate(promptChannel)
+                            else -> updateManager.checkForUpdates(promptChannel)
+                        }
+                    }
+                ) {
+                    Text(when {
+                        promptState.downloaded -> "Cài đặt ngay"
+                        promptState.isDownloading -> "Đang tải…"
+                        promptState.updateAvailable -> "Tải cập nhật"
+                        else -> "Thử lại"
+                    })
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    updateManager.dismissUpdatePrompt(promptChannel)
+                    promptRefresh++
+                }) { Text("Để sau") }
+            }
+        )
     }
 
     if (showHistory) {
@@ -1279,6 +1343,43 @@ private fun MenuDivider() {
             .height(1.dp)
             .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.55f))
     )
+}
+
+@Composable
+private fun BrowserMenuListAction(
+    icon: BrowserGlyphType,
+    label: String,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        shape = RoundedCornerShape(13.dp),
+        color = Color.Transparent,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.size(38.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    BrowserGlyph(icon, tint = MaterialTheme.colorScheme.onSurfaceVariant, iconSize = 19.dp)
+                }
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            }
+        }
+    }
 }
 
 @Composable

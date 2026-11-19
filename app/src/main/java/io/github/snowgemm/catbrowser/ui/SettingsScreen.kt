@@ -15,10 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.os.Build
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
+import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
+import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
@@ -26,12 +29,24 @@ import io.github.snowgemm.catbrowser.update.UpdateUiState
 @Composable
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
-    val updateManager = remember { BrowserUpdateManager(context) }
+    val updateManager = controller.updateManager
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
     val betaUpdateState = updateManager.betaState
-    var homePage by remember(controller.homePage) { mutableStateOf(controller.homePage) }
+    var homePageMode by remember(controller.homePage) {
+        mutableStateOf(when (controller.homePage) {
+            SEARCH_HOME_PAGE_URL -> "search"
+            DEFAULT_HOME_PAGE_URL -> "cat"
+            else -> "custom"
+        })
+    }
+    var customHomePage by remember(controller.homePage) {
+        mutableStateOf(controller.homePage.takeIf { it != DEFAULT_HOME_PAGE_URL && it != SEARCH_HOME_PAGE_URL }.orEmpty())
+    }
     var homePageError by remember { mutableStateOf(false) }
+    var showDeveloperUnlockDialog by remember { mutableStateOf(false) }
+    var developerCode by remember { mutableStateOf("") }
+    var developerCodeError by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showClearDataDialog by remember { mutableStateOf(false) }
     var historyCleared by remember { mutableStateOf(false) }
@@ -101,19 +116,39 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
             item {
                 SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
                 UpdateChannelCard(
-                    title = "Stable",
-                    description = "Bản ổn định dành cho sử dụng hằng ngày.",
+                    title = "Stable · luôn bật",
+                    description = "Kênh ổn định luôn được kiểm tra và không thể tắt.",
                     channel = UpdateChannel.STABLE,
                     state = stableUpdateState,
                     manager = updateManager
                 )
-                UpdateChannelCard(
-                    title = "Beta · pre-release",
-                    description = "Bản thử nghiệm mới nhất. Có thể còn lỗi hoặc thay đổi chưa hoàn thiện.",
-                    channel = UpdateChannel.BETA,
-                    state = betaUpdateState,
-                    manager = updateManager
-                )
+                SettingsCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Beta · thử nghiệm", style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text("Chỉ bật khi muốn nhận bản thử nghiệm. Mặc định đang tắt.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(checked = updateManager.betaEnabled,
+                            enabled = !betaUpdateState.isDownloading,
+                            onCheckedChange = { updateManager.setBetaEnabled(it) })
+                    }
+                }
+                if (updateManager.betaEnabled) {
+                    UpdateChannelCard(
+                        title = "Beta",
+                        description = "Bản thử nghiệm có thể còn lỗi hoặc thay đổi chưa hoàn thiện.",
+                        channel = UpdateChannel.BETA,
+                        state = betaUpdateState,
+                        manager = updateManager
+                    )
+                } else {
+                    Text("Beta đang tắt. Cat Browser chỉ kiểm tra Stable.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall)
+                }
                 Text(
                     "Mỗi kênh tải APK đúng kiến trúc thiết bị và xác minh SHA-256 trước khi mở trình cài đặt Android.",
                     Modifier.padding(horizontal = 4.dp),
@@ -158,19 +193,41 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
             item {
                 SettingsSectionTitle("TRANG CHỦ")
                 SettingsCard {
-                    Text("Địa chỉ trang chủ", style = MaterialTheme.typography.titleMedium,
+                    Text("Kiểu trang chủ", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold)
-                    Text("Mặc định là sảnh Cat Browser với lối tắt và website vừa truy cập. Bạn cũng có thể nhập URL riêng.",
+                    Text("Chọn cách Cat Browser mở trang chủ. URL chỉ cần nhập khi chọn website tùy chỉnh.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(homePage, { homePage = it; homePageError = false },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                        singleLine = true, label = { Text("URL trang chủ") }, isError = homePageError)
-                    if (homePageError) Text("URL không hợp lệ. Hãy nhập about:blank hoặc địa chỉ http/https.",
-                        color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = { homePageError = !controller.setHomePage(homePage) },
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                        Text("Lưu trang chủ")
+                    SettingsChoice("Trang Cat Browser", "Lối tắt, dấu trang và website gần đây",
+                        homePageMode == "cat") {
+                        homePageMode = "cat"
+                        homePageError = false
+                        controller.setHomePageMode("cat")
+                    }
+                    SettingsChoice("Trang công cụ tìm kiếm", "Mở trang chủ của công cụ đang chọn trong mục Tìm kiếm",
+                        homePageMode == "search") {
+                        homePageMode = "search"
+                        homePageError = false
+                        controller.setHomePageMode("search")
+                    }
+                    SettingsChoice("Website tùy chỉnh", "Tự nhập địa chỉ trang chủ",
+                        homePageMode == "custom") {
+                        homePageMode = "custom"
+                        homePageError = false
+                    }
+                    if (homePageMode == "custom") {
+                        OutlinedTextField(customHomePage,
+                            { customHomePage = it; homePageError = false },
+                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                            singleLine = true, label = { Text("URL trang chủ") },
+                            placeholder = { Text("https://example.com") }, isError = homePageError)
+                        if (homePageError) Text("URL không hợp lệ. Hãy nhập địa chỉ http hoặc https.",
+                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = {
+                            homePageError = !controller.setHomePage(customHomePage)
+                        }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                            Text("Lưu URL trang chủ")
+                        }
                     }
                 }
             }
@@ -319,10 +376,58 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         modifier = Modifier.padding(top = 8.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = {
+                        developerCode = ""
+                        developerCodeError = false
+                        showDeveloperUnlockDialog = true
+                    }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                        Text(if (controller.developerMode) "Công cụ nhà phát triển đã mở" else "Nhập mã nhà phát triển")
+                    }
+                    if (controller.developerMode) {
+                        Text("Chẩn đoán thiết bị", fontWeight = FontWeight.SemiBold)
+                        Text("Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") · " +
+                            Build.SUPPORTED_ABIS.joinToString(),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Mã ứng dụng: " + context.packageName,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = controller::disableDeveloperMode) {
+                            Text("Tắt công cụ nhà phát triển")
+                        }
+                    }
                 }
             }
         }
     }
+
+    if (showDeveloperUnlockDialog) AlertDialog(
+        onDismissRequest = { showDeveloperUnlockDialog = false },
+        title = { Text("Mở công cụ nhà phát triển") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Mã này chỉ mở thông tin chẩn đoán cục bộ; không cấp thêm quyền truy cập hay bảo vệ dữ liệu.")
+                OutlinedTextField(
+                    value = developerCode,
+                    onValueChange = { developerCode = it; developerCodeError = false },
+                    label = { Text("Mã mở khóa") },
+                    singleLine = true,
+                    isError = developerCodeError
+                )
+                if (developerCodeError) Text("Mã không đúng.", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                developerCodeError = !controller.unlockDeveloperMode(developerCode)
+                if (!developerCodeError) showDeveloperUnlockDialog = false
+            }) { Text("Mở") }
+        },
+        dismissButton = {
+            TextButton(onClick = { showDeveloperUnlockDialog = false }) { Text("Hủy") }
+        }
+    )
 
     if (showClearHistoryDialog) AlertDialog(
         onDismissRequest = { showClearHistoryDialog = false },
