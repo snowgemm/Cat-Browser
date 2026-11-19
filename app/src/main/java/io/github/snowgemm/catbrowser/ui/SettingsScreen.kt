@@ -31,6 +31,8 @@ import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
 
+private const val DEFAULT_CAT_AI_GATEWAY_URL = "https://cat-browser-ai-gateway.vercel.app"
+
 @Composable
 fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     val context = LocalContext.current
