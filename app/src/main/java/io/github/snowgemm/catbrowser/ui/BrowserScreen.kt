@@ -1665,6 +1665,31 @@ private fun TabsOverview(
                     else MaterialTheme.colorScheme.onSurface
                 val cardMuted = if (tab.isPrivate) Color(0xFFC9C0D2)
                     else MaterialTheme.colorScheme.onSurfaceVariant
+                val targetBorderColor = when {
+                    selected -> MaterialTheme.colorScheme.primary
+                    tab.isPrivate -> Color(0xFF776B86)
+                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
+                }
+                val borderColor by animateColorAsState(
+                    targetValue = targetBorderColor,
+                    animationSpec = tween(180),
+                    label = "tab-card-border"
+                )
+                val borderWidth by animateDpAsState(
+                    targetValue = if (selected) 1.6.dp else 1.dp,
+                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
+                    label = "tab-card-border-width"
+                )
+                val cardScale by animateFloatAsState(
+                    targetValue = if (draggingTabId == tab.id) 0.96f else 1f,
+                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 460f),
+                    label = "tab-card-drag-scale"
+                )
+                val cardElevation by animateDpAsState(
+                    targetValue = if (selected) 4.dp else 1.dp,
+                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
+                    label = "tab-card-elevation"
+                )
 
                 Surface(
                     onClick = {
@@ -1673,16 +1698,17 @@ private fun TabsOverview(
                     },
                     shape = RoundedCornerShape(19.dp),
                     color = cardBackground,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (selected) 1.25.dp else 1.dp,
-                        if (selected) MaterialTheme.colorScheme.primary
-                        else if (tab.isPrivate) Color(0xFF776B86)
-                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
-                    ),
+                    tonalElevation = cardElevation,
+                    border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
                     modifier = Modifier.fillMaxWidth()
-                        .height(if (tab.previewBitmap != null) 232.dp else 164.dp)
+                        .height(if (tab.previewBitmap != null) 254.dp else 164.dp)
+                        .animateContentSize()
                         .animateItem()
-                        .graphicsLayer { alpha = if (draggingTabId == tab.id) 0.78f else 1f }
+                        .graphicsLayer {
+                            alpha = if (draggingTabId == tab.id) 0.84f else 1f
+                            scaleX = cardScale
+                            scaleY = cardScale
+                        }
                         .onGloballyPositioned { cardCoordinates[tab.id] = it }
                         .pointerInput(tab.id, canReorderTabs) {
                             if (canReorderTabs) {
@@ -1755,8 +1781,8 @@ private fun TabsOverview(
                                 contentDescription = "Ảnh xem trước: " + tab.title,
                                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                                 modifier = Modifier.fillMaxWidth()
-                                    .height(74.dp)
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .height(96.dp)
+                                    .clip(RoundedCornerShape(11.dp))
                             )
                         }
 
