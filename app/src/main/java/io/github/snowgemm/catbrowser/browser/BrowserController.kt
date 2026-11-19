@@ -1,5 +1,6 @@
 package io.github.snowgemm.catbrowser.browser
 
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -99,6 +100,8 @@ class BrowserTab internal constructor(
     var error by mutableStateOf<String?>(null)
         internal set
     var previewBitmap by mutableStateOf<Bitmap?>(null)
+        internal set
+    var isFullScreen by mutableStateOf(false)
         internal set
     var session by mutableStateOf<GeckoSession?>(null)
         internal set
@@ -235,6 +238,7 @@ class BrowserController(
     private var privacyStatsRefreshQueued = false
     private var lastPrivacyStatsRefreshMs = 0L
     private var pendingBookmarkToggle = false
+    private var isAppForegrounded = true
 
     var selectedTabId by mutableStateOf("")
         private set
@@ -298,10 +302,68 @@ class BrowserController(
         )
         val width = (bitmap.width * scale).toInt().coerceAtLeast(1)
         val height = (bitmap.height * scale).toInt().coerceAtLeast(1)
-        tab.previewBitmap = if (width == bitmap.width && height == bitmap.height) {
+        val scaled = if (width == bitmap.width && height == bitmap.height) {
             bitmap
         } else {
             Bitmap.createScaledBitmap(bitmap, width, height, true)
+        }
+        val compact = if (scaled.config != Bitmap.Config.RGB_565) {
+            runCatching { scaled.copy(Bitmap.Config.RGB_565, false) }.getOrNull() ?: scaled
+        } else {
+            scaled
+        }
+
+        if (compact !== scaled && !scaled.isRecycled) scaled.recycle()
+        if (compact !== bitmap && !bitmap.isRecycled) bitmap.recycle()
+        tab.previewBitmap = compact
+    }
+
+    /**
+     * GeckoView uses active state as a visibility hint. Inactive sessions release
+     * substantial page/compositor memory and are less likely to keep background work alive.
+     */
+    fun onAppBackgrounded() {
+        isAppForegrounded = false
+        tabs.forEach { tab ->
+            val session = tab.session ?: return@forEach
+            if (!session.isOpen) return@forEach
+            session.setFocused(false)
+            session.setActive(false)
+            runtime.webExtensionController.setTabActive(session, false)
+        }
+    }
+
+    fun onAppForegrounded() {
+        isAppForegrounded = true
+        tabs.forEach { tab ->
+            val session = tab.session ?: return@forEach
+            if (!session.isOpen) return@forEach
+            val visible = tab.id == selectedTabId && tab.isViewAttached
+            session.setActive(visible)
+            session.setFocused(visible)
+            runtime.webExtensionController.setTabActive(session, visible)
+        }
+    }
+
+    fun trimMemory(level: Int) {
+        when {
+            level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
+                level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                tabs.forEach { it.previewBitmap = null }
+            }
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+                tabs.filter { it.id != selectedTabId }.forEach { it.previewBitmap = null }
+            }
+        }
+    }
+
+    fun exitFullScreen() {
+        val tab = activeTab ?: return
+        val session = tab.session
+        if (tab.isFullScreen && session?.isOpen == true) {
+            session.exitFullScreen()
+        } else {
+            tab.isFullScreen = false
         }
     }
 
@@ -321,7 +383,12 @@ class BrowserController(
         val target = tabs.firstOrNull { it.id == tabId } ?: return
         if (selectedTabId == tabId) {
             if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
-            target.session?.let { runtime.webExtensionController.setTabActive(it, true) }
+            target.session?.let { session ->
+                val visible = isAppForegrounded && target.isViewAttached
+                session.setActive(visible)
+                session.setFocused(visible)
+                runtime.webExtensionController.setTabActive(session, visible)
+            }
             return
         }
 
@@ -335,9 +402,10 @@ class BrowserController(
         if (target.url != START_PAGE_URL || target.session != null) {
             ensureSession(target)
             target.session?.let { session ->
-                session.setActive(true)
-                session.setFocused(target.isViewAttached)
-                runtime.webExtensionController.setTabActive(session, true)
+                val visible = isAppForegrounded && target.isViewAttached
+                session.setActive(visible)
+                session.setFocused(visible)
+                runtime.webExtensionController.setTabActive(session, visible)
             }
         }
         persistTabs()
@@ -439,6 +507,8 @@ class BrowserController(
 
     private fun navigateToUrl(destination: String, originalInput: String) {
         val tab = activeTab ?: return
+        if (tab.isFullScreen) tab.session?.exitFullScreen()
+        tab.isFullScreen = false
         tab.url = destination
         tab.title = destination
         tab.error = null
@@ -1131,16 +1201,19 @@ class BrowserController(
         val selected = activeTab ?: return
         tabs.forEach { tab ->
             tab.session?.let { session ->
-                val active = tab.id == selected.id
-                session.setActive(active)
-                session.setFocused(active && tab.isViewAttached)
-                runtime.webExtensionController.setTabActive(session, active)
+                val visible = isAppForegrounded && tab.id == selected.id && tab.isViewAttached
+                session.setActive(visible)
+                session.setFocused(visible)
+                runtime.webExtensionController.setTabActive(session, visible)
             }
         }
         if (selected.url != START_PAGE_URL || selected.session != null) {
             ensureSession(selected)
-            selected.session?.setActive(true)
-            selected.session?.setFocused(selected.isViewAttached)
+            selected.session?.let { session ->
+                val visible = isAppForegrounded && selected.isViewAttached
+                session.setActive(visible)
+                session.setFocused(visible)
+            }
         }
     }
 
@@ -1149,11 +1222,12 @@ class BrowserController(
         if (tab.session !== session || !session.isOpen) return
 
         tab.isViewAttached = true
-        val isSelected = tab.id == selectedTabId
-        session.setActive(isSelected)
-        session.setFocused(isSelected)
+        val visible = isAppForegrounded && tab.id == selectedTabId
+        session.setActive(visible)
+        session.setFocused(visible)
+        runtime.webExtensionController.setTabActive(session, visible)
 
-        if (isSelected && tab.loadPendingUntilAttached) {
+        if (visible && tab.loadPendingUntilAttached) {
             val originalInput = tab.pendingOriginalInput ?: tab.url
             tab.loadPendingUntilAttached = false
             tab.pendingOriginalInput = null
@@ -1170,7 +1244,11 @@ class BrowserController(
         if (tab.session !== session) return
 
         tab.isViewAttached = false
-        if (session.isOpen) session.setFocused(false)
+        if (session.isOpen) {
+            session.setFocused(false)
+            session.setActive(false)
+            runtime.webExtensionController.setTabActive(session, false)
+        }
     }
 
     private fun ensureSession(tab: BrowserTab, loadCurrentUrl: Boolean = true) {
@@ -1328,6 +1406,10 @@ class BrowserController(
                 if (tab.session === session) closeTab(tab.id)
             }
 
+            override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
+                if (tab.session === session) tab.isFullScreen = fullScreen
+            }
+
             override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
                 if (tab.session !== session) {
                     runCatching { response.body?.close() }
@@ -1337,17 +1419,19 @@ class BrowserController(
             }
 
             override fun onCrash(session: GeckoSession) {
-                if (tab.session !== session) return
-                tab.isLoading = false
-                tab.progress = 0
-                tab.error = "The page process stopped. Reload to continue."
+                recoverAfterContentProcessDeath(
+                    tab,
+                    session,
+                    "Trang bị dừng đột ngột. Nhấn Thử lại để tải lại trang."
+                )
             }
 
             override fun onKill(session: GeckoSession) {
-                if (tab.session !== session) return
-                tab.isLoading = false
-                tab.progress = 0
-                tab.error = "The page process was stopped. Reload to continue."
+                recoverAfterContentProcessDeath(
+                    tab,
+                    session,
+                    "Android đã dừng tiến trình trang. Nhấn Thử lại để tải lại trang."
+                )
             }
         }
 
@@ -1386,8 +1470,31 @@ class BrowserController(
         session.setFocused(isSelected && tab.isViewAttached)
     }
 
+    private fun recoverAfterContentProcessDeath(
+        tab: BrowserTab,
+        failedSession: GeckoSession,
+        message: String
+    ) {
+        if (tab.session !== failedSession) return
+
+        // GeckoView closes a session before delivering onCrash/onKill. It must not
+        // remain attached to Compose's AndroidView or be reused for the retry.
+        tab.session = null
+        tab.isViewAttached = false
+        tab.loadPendingUntilAttached = false
+        tab.pendingOriginalInput = tab.url
+        tab.isFullScreen = false
+        tab.isLoading = false
+        tab.progress = 0
+        tab.error = message
+    }
+
     private fun destroySession(tab: BrowserTab) {
-        val session = tab.session ?: return
+        val session = tab.session ?: run {
+            tab.isFullScreen = false
+            return
+        }
+        tab.isFullScreen = false
 
         if (pendingContentPermissionSession === session) {
             pendingContentPermissionResult?.complete(
