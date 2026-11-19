@@ -26,55 +26,24 @@ data class AiToolOutput(
 )
 
 data class AiGatewayReply(
-    val responseId: String?,
     val text: String,
-    val toolCalls: List<AiToolCall>
+    val toolCalls: List<AiToolCall>,
+    val responseItems: JSONArray
 )
 
 class AiGatewayException(message: String) : Exception(message)
 
-/** Client for Cat's self-hosted gateway. It never receives an OpenAI API key. */
+/**
+ * Calls Cat's self-hosted gateway. The OpenAI key stays on the server.
+ * Conversation items are replayed with store=false instead of creating
+ * a persistent OpenAI response chain.
+ */
 class AiGatewayClient {
-    suspend fun sendMessages(
+    suspend fun sendInputItems(
         config: AiGatewayConfig,
-        messages: List<AiChatMessage>
+        inputItems: JSONArray
     ): AiGatewayReply = withContext(Dispatchers.IO) {
-        val payload = JSONObject().put("messages", JSONArray().apply {
-            messages.forEach { message ->
-                put(JSONObject().put("role", message.role).put("content", message.content))
-            }
-        })
-        post(config, payload)
-    }
-
-    suspend fun sendNextMessage(
-        config: AiGatewayConfig,
-        previousResponseId: String,
-        message: String
-    ): AiGatewayReply = withContext(Dispatchers.IO) {
-        val payload = JSONObject()
-            .put("previousResponseId", previousResponseId)
-            .put("inputMessage", message)
-        post(config, payload)
-    }
-
-    suspend fun sendToolOutputs(
-        config: AiGatewayConfig,
-        previousResponseId: String,
-        outputs: List<AiToolOutput>
-    ): AiGatewayReply = withContext(Dispatchers.IO) {
-        val payload = JSONObject()
-            .put("previousResponseId", previousResponseId)
-            .put("toolOutputs", JSONArray().apply {
-                outputs.forEach { item ->
-                    put(
-                        JSONObject()
-                            .put("callId", item.callId)
-                            .put("output", item.output.take(MAX_TOOL_OUTPUT_CHARS))
-                    )
-                }
-            })
-        post(config, payload)
+        post(config, JSONObject().put("inputItems", inputItems))
     }
 
     private fun post(config: AiGatewayConfig, payload: JSONObject): AiGatewayReply {
@@ -89,8 +58,9 @@ class AiGatewayClient {
             connection.setRequestProperty("Accept", "application/json")
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
             connection.setRequestProperty("Authorization", "Bearer " + config.accessToken)
+
             val body = payload.toString().toByteArray(Charsets.UTF_8)
-            if (body.size > MAX_REQUEST_BYTES) throw AiGatewayException("Tin nhắn gửi đi quá lớn.")
+            if (body.size > MAX_REQUEST_BYTES) throw AiGatewayException("Lịch sử hội thoại quá lớn.")
             connection.setFixedLengthStreamingMode(body.size)
             connection.outputStream.use { it.write(body) }
 
@@ -133,9 +103,9 @@ class AiGatewayClient {
                 }
             }
             return AiGatewayReply(
-                responseId = response.optString("responseId").takeIf { it.isNotBlank() },
                 text = response.optString("outputText").take(MAX_RESPONSE_CHARS),
-                toolCalls = calls
+                toolCalls = calls,
+                responseItems = response.optJSONArray("responseItems") ?: JSONArray()
             )
         } catch (error: AiGatewayException) {
             throw error
@@ -154,9 +124,8 @@ class AiGatewayClient {
         const val API_PATH = "/api/assistant"
         const val CONNECT_TIMEOUT_MS = 12_000
         const val READ_TIMEOUT_MS = 45_000
-        const val MAX_REQUEST_BYTES = 24 * 1024
+        const val MAX_REQUEST_BYTES = 28 * 1024
         const val MAX_RESPONSE_CHARS = 48 * 1024
         const val MAX_TOOL_CALLS = 5
-        const val MAX_TOOL_OUTPUT_CHARS = 2_000
     }
 }
