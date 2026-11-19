@@ -54,22 +54,22 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | Native New Tab Page, local address suggestions, address-bar tab gestures, tab search, navigation overflow menu, bookmark/history dialogs, download manager, find-in-page and permission prompts |
+| Browser UI | Native New Tab Page, local address suggestions, address-bar tab gestures, tab overview previews/reordering, navigation overflow menu, bookmark/history dialogs, download manager, find-in-page and permission prompts |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
-| BrowserController | GeckoSession collection, active tab, navigation, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
-| BrowserTab | Per-tab UI state, privacy mode and GeckoSession reference |
+| BrowserController | GeckoSession collection, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
+| BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode and GeckoSession reference |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
 | Extension manager | GeckoView WebExtensionController, AMO Android catalog, install prompts and lifecycle actions |
-| Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped destination, progress, cancellation, open/share/delete; task list remains in-memory |
+| Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped/SAF destination, progress, app cancellation, open/share/delete and persisted non-private task metadata. Transfers interrupted by process death are not resumed. |
 | Privacy controls | Private-mode sessions, private-data exclusion, site permissions and selective browsing-data clearing; tracking-protection UI is not fully implemented |
 
 ## Current limitations
 
-- Download tasks are not persisted across process death; the downloaded files remain in the selected Android/app Downloads destination. Pause/resume and retry are not implemented.
+- Download metadata for up to 100 non-private records is persisted; active transfers interrupted by process death restore as interrupted records but cannot resume. Extension-driven pause/resume/cancel are not exposed by the public GeckoView Download API.
 - Site permission handling covers GeckoView content/media requests and Android location/camera/microphone/notification runtime permissions; uncommon permission types and real-device behavior still need validation.
 - The clear-data flow clears history, cookies, DOM storage, auth sessions, caches and stored site permissions by separate selections. Full coverage of every GeckoView storage type, especially IndexedDB, has not been verified on device.
 - The browser does not yet provide a full website-permission dashboard with search, bulk editing or granular control for every permission type.
-- Extension action/popup toolbar integration, options-page routing, local XPI import, private-browsing extension permissions and full compatibility reporting are not implemented.
+- Extension action/popup toolbar integration, options-page routing, signed XPI import, private-browsing permissions and selected tab/download bridges are implemented; complete Firefox API parity, Chrome Web Store support and physical-device compatibility certification are not.
 - No complete GeckoSession state restore; recently closed tabs restore their last URL only and are held in memory for the current app process.
 - Find-in-page is implemented but requires real-device validation; desktop-site toggle, reader mode and built-in translation UI are not implemented.
 - No built-in password manager/autofill UI or bookmark import/export.
