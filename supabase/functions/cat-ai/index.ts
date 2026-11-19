@@ -59,7 +59,6 @@ async function consumeQuota(userId: string): Promise<{ allowed: boolean; retryAf
     method: "POST",
     headers: {
       "apikey": serviceKey,
-      "Authorization": "Bearer " + serviceKey,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ p_user_id: userId }),
