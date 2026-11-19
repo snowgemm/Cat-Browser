@@ -51,6 +51,16 @@ class AiGatewayConfigStore(context: Context) {
         return AiGatewayConfig(baseUrl, token)
     }
 
+    fun isConfigured(): Boolean =
+        preferences.contains(KEY_BASE_URL) && preferences.contains(KEY_ACCESS_TOKEN)
+
+    fun savedBaseUrl(): String? = preferences.getString(KEY_BASE_URL, null)
+
+    fun updateBaseUrl(baseUrl: String): Boolean {
+        val currentToken = load()?.accessToken ?: return false
+        return save(baseUrl, currentToken)
+    }
+
     fun save(baseUrl: String, accessToken: String): Boolean {
         val normalized = AiGatewayConfigPolicy.normalizeBaseUrl(baseUrl) ?: return false
         val token = accessToken.trim()
