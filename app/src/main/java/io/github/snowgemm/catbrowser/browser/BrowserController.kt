@@ -285,7 +285,8 @@ class BrowserController(
         val targetIndex = tabs.indexOfFirst { it.id == targetId }
         if (fromIndex < 0 || targetIndex < 0) return false
         val tab = tabs.removeAt(fromIndex)
-        tabs.add(targetIndex.coerceIn(0, tabs.size), tab)
+        val insertionIndex = if (fromIndex < targetIndex) targetIndex - 1 else targetIndex
+        tabs.add(insertionIndex.coerceIn(0, tabs.size), tab)
         persistTabs()
         return true
     }
