@@ -192,17 +192,19 @@ fun BrowserScreen(controller: BrowserController) {
         targetState = destination,
         transitionSpec = {
             val movingForward = targetState != BrowserDestination.BROWSER
-            val motion = spring<Float>(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
             (fadeIn(tween(170)) + slideInHorizontally(
                 initialOffsetX = { width -> if (movingForward) width / 5 else -width / 5 },
-                animationSpec = motion
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
             )) togetherWith
                 (fadeOut(tween(130)) + slideOutHorizontally(
                     targetOffsetX = { width -> if (movingForward) -width / 7 else width / 7 },
-                    animationSpec = motion
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
                 ))
         },
         label = "browser-navigation"
