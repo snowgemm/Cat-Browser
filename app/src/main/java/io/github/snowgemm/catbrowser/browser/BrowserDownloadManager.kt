@@ -348,7 +348,9 @@ class BrowserDownloadManager(context: Context) {
             val terminal = item.status == BrowserDownloadStatus.COMPLETE ||
                 item.status == BrowserDownloadStatus.FAILED ||
                 item.status == BrowserDownloadStatus.CANCELLED
-            persistDownloads(force = terminal)
+            val justStarted = item.status == BrowserDownloadStatus.DOWNLOADING &&
+                item.receivedBytes == 0L
+            persistDownloads(force = terminal || justStarted)
         }
     }
 
@@ -484,8 +486,9 @@ class BrowserDownloadManager(context: Context) {
         }
         return when (action) {
             WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE -> {
-                if (activeCollision) uniqueAvailableFileName(fileName) else {
-                    deleteExistingDestination(fileName)
+                if (activeCollision || !deleteExistingDestination(fileName)) {
+                    uniqueAvailableFileName(fileName)
+                } else {
                     fileName
                 }
             }
@@ -513,19 +516,21 @@ class BrowserDownloadManager(context: Context) {
         }
     }
 
-    private fun deleteExistingDestination(fileName: String) {
+    private fun deleteExistingDestination(fileName: String): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            resolver.delete(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                "\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \${MediaStore.Downloads.RELATIVE_PATH} = ?",
-                arrayOf(fileName, downloadRelativePath())
-            )
-        } else {
-            val target = File(legacyDownloadDirectory(), fileName)
-            if (target.isFile) target.delete()
+            runCatching {
+                resolver.delete(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    "\\${MediaStore.Downloads.DISPLAY_NAME} = ? AND \\${MediaStore.Downloads.RELATIVE_PATH} = ?",
+                    arrayOf(fileName, downloadRelativePath())
+                )
+            }
+            return !mediaStoreDestinationExists(fileName)
         }
-    }
 
+        val target = File(legacyDownloadDirectory(), fileName)
+        return !target.exists() || (target.isFile && target.delete())
+    }
     private fun mediaStoreDestinationExists(fileName: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         return resolver.query(
