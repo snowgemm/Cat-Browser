@@ -16,7 +16,6 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
-import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.StorageController
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.WebResponse
@@ -808,9 +807,7 @@ class BrowserController(
             if (force) privacyStatsRefreshQueued = true
             return
         }
-        if (!force && privacyStats.isAvailable &&
-            now - lastPrivacyStatsRefreshMs < PRIVACY_STATS_REFRESH_INTERVAL_MS
-        ) {
+        if (!force && now - lastPrivacyStatsRefreshMs < PRIVACY_STATS_REFRESH_INTERVAL_MS) {
             return
         }
 
@@ -838,7 +835,7 @@ class BrowserController(
                             }
                         }
                     },
-                    { error ->
+                    { _ ->
                         dataHandler.post {
                             if (requestVersion == privacyStatsRequestVersion) {
                                 privacyStats = privacyStats.copy(
