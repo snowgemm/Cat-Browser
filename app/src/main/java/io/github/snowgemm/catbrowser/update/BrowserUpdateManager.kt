@@ -50,6 +50,11 @@ class BrowserUpdateManager(context: Context) {
     private val pendingUpdates = mutableMapOf<UpdateChannel, PendingUpdate>()
     private val preferences = appContext.getSharedPreferences("cat_update_preferences", Context.MODE_PRIVATE)
 
+    init {
+        // A process death during download can leave a partial cache file behind.
+        BrowserUpdateArtifacts.removePartialDownloads(appContext.cacheDir)
+    }
+
     var betaEnabled by mutableStateOf(preferences.getBoolean(KEY_BETA_ENABLED, false))
         private set
 
