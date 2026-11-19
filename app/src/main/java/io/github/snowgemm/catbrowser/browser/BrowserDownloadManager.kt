@@ -69,8 +69,8 @@ class BrowserDownloadItem internal constructor(
  * Receives GeckoView's original response stream so cookies, authorization headers,
  * and non-GET response bodies are not lost by re-fetching a download URL.
  *
- * The task list is intentionally in-memory. A download made from a private tab is
- * still an explicit user-saved file, but its source URL is not persisted as history.
+ * Up to 100 non-private task records are persisted locally. Interrupted transfers are
+ * restored as interrupted metadata and are not resumed. Private source URLs are never persisted.
  */
 class BrowserDownloadManager(context: Context) {
     private val appContext = context.applicationContext
