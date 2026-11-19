@@ -11,6 +11,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -86,24 +88,24 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 private val CatDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD6B96C), onPrimary = Color(0xFF211A08),
-    secondary = Color(0xFFE3C77E), onSecondary = Color(0xFF241C0A),
-    background = Color(0xFF101318), onBackground = Color(0xFFF1F1ED),
-    surface = Color(0xFF1C222B), onSurface = Color(0xFFF1F1ED),
-    surfaceVariant = Color(0xFF272E38), onSurfaceVariant = Color(0xFFB8BDC5),
-    outline = Color(0xFF343A43), secondaryContainer = Color(0xFF3A3321),
-    onSecondaryContainer = Color(0xFFEAD69D)
+    primary = Color(0xFFA9C9F7), onPrimary = Color(0xFF10243C),
+    secondary = Color(0xFFE6C47D), onSecondary = Color(0xFF2A210F),
+    background = Color(0xFF10161E), onBackground = Color(0xFFF1F4F8),
+    surface = Color(0xFF1B2633), onSurface = Color(0xFFF1F4F8),
+    surfaceVariant = Color(0xFF293747), onSurfaceVariant = Color(0xFFBAC7D5),
+    outline = Color(0xFF405164), secondaryContainer = Color(0xFF34465C),
+    onSecondaryContainer = Color(0xFFEAF1FB)
 )
 
 private val CatLightColorScheme = lightColorScheme(
-    primary = Color(0xFFA98535), onPrimary = Color.White,
-    primaryContainer = Color(0xFFF0E4C5), onPrimaryContainer = Color(0xFF35280C),
-    secondary = Color(0xFFA98535), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF0E8D5), onSecondaryContainer = Color(0xFF3D321C),
-    background = Color(0xFFF8F7F3), onBackground = Color(0xFF242424),
-    surface = Color.White, onSurface = Color(0xFF242424),
-    surfaceVariant = Color(0xFFF0EEE8), onSurfaceVariant = Color(0xFF5F5B51),
-    outline = Color(0xFFE5E1D7)
+    primary = Color(0xFF416B9B), onPrimary = Color.White,
+    primaryContainer = Color(0xFFDCE9F8), onPrimaryContainer = Color(0xFF173451),
+    secondary = Color(0xFF8F713B), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFF1E7D4), onSecondaryContainer = Color(0xFF392B13),
+    background = Color(0xFFF3F6FA), onBackground = Color(0xFF1B2530),
+    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1B2530),
+    surfaceVariant = Color(0xFFE8EEF5), onSurfaceVariant = Color(0xFF526171),
+    outline = Color(0xFFD2DCE8)
 )
 
 @Composable
@@ -189,10 +191,19 @@ fun BrowserScreen(controller: BrowserController) {
     AnimatedContent(
         targetState = destination,
         transitionSpec = {
-            (fadeIn(tween(170)) + slideInVertically(
-                spring(dampingRatio = 0.9f, stiffness = 520f)
-            ) { it / 18 }) togetherWith
-                (fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 28 })
+            val movingForward = targetState != BrowserDestination.BROWSER
+            val motion = spring<Float>(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+            (fadeIn(tween(170)) + slideInHorizontally(
+                initialOffsetX = { width -> if (movingForward) width / 5 else -width / 5 },
+                animationSpec = motion
+            )) togetherWith
+                (fadeOut(tween(130)) + slideOutHorizontally(
+                    targetOffsetX = { width -> if (movingForward) -width / 7 else width / 7 },
+                    animationSpec = motion
+                ))
         },
         label = "browser-navigation"
     ) { target ->
@@ -539,6 +550,7 @@ private fun BrowserMainScreen(
                     isPrivate = tab.isPrivate,
                     bookmarks = controller.bookmarks.toList(),
                     recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
+                    openTabCount = controller.regularTabCount,
                     onOpenUrl = controller::openEntry,
                     onFocusAddress = {
                         addressFocused = true
