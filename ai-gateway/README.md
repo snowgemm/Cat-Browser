@@ -32,10 +32,7 @@ A Vercel Hobby project has been created and linked to `snowgemm/Cat-Browser`:
 - Runtime: Node.js `22.x`
 - Production branch: `main`
 
-A production deployment has been created automatically after a push to the linked Git repository and reached `READY`:
-
-- Deployment: `dpl_7C2u6HrqHSxg2Ec4PF1SoYsHv4vE`
-- Deployment URL: `https://cat-browser-ai-gateway-bylp4powl-slg-7f71.vercel.app`
+The linked `main` branch has generated production deployments that reached `READY`. Vercel automatically creates a new deployment after each push, so the Vercel project dashboard is the source of truth for the current deployment URL.
 
 However, **the API is not operational yet**. No environment variables and no custom domain are configured. Requests reach the handler only after deployment protection is passed, and the handler returns HTTP 503 until `OPENAI_API_KEY` and `CAT_AI_GATEWAY_TOKEN` are set.
 
