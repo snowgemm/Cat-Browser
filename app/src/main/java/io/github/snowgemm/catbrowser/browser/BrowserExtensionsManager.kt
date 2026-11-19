@@ -125,11 +125,13 @@ class BrowserExtensionsManager(
             }
 
             override fun onDisabled(extension: WebExtension) {
+                detachExtensionFromSessions(extension)
                 toolbarActions.removeAll { it.extensionId == extension.id }
                 if (popup?.extensionId == extension.id) closePopup()
             }
 
             override fun onUninstalled(extension: WebExtension) {
+                detachExtensionFromSessions(extension)
                 toolbarActions.removeAll { it.extensionId == extension.id }
                 if (popup?.extensionId == extension.id) closePopup()
             }
@@ -251,6 +253,13 @@ class BrowserExtensionsManager(
                 }
             }
         })
+    }
+
+    private fun detachExtensionFromSessions(extension: WebExtension) {
+        sessionProvider().forEach { session ->
+            session.getWebExtensionController().setActionDelegate(extension, null)
+            session.getWebExtensionController().setTabDelegate(extension, null)
+        }
     }
 
     fun attachSession(session: GeckoSession) {
