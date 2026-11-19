@@ -116,35 +116,37 @@ function safeEqual(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+class RequestValidationError extends Error {}
+
 function validateInputItems(items) {
   if (!Array.isArray(items) || items.length < 1 || items.length > MAX_INPUT_ITEMS) {
-    throw new Error("Invalid conversation length.");
+    throw new RequestValidationError("Invalid conversation length.");
   }
   const encoded = JSON.stringify(items);
   if (Buffer.byteLength(encoded, "utf8") > MAX_BODY_BYTES) {
-    throw new Error("Conversation is too large.");
+    throw new RequestValidationError("Conversation is too large.");
   }
 
   const pendingCallIds = new Set();
 
   for (const item of items) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
-      throw new Error("Invalid conversation item.");
+      throw new RequestValidationError("Invalid conversation item.");
     }
 
     // App-authored user messages.
     if (item.role === "user") {
       if (typeof item.content === "string") {
-        if (item.content.length > 4_000) throw new Error("Message is too long.");
+        if (item.content.length > 4_000) throw new RequestValidationError("Message is too long.");
         continue;
       }
       if (!Array.isArray(item.content) || item.content.length < 1 || item.content.length > 8) {
-        throw new Error("Invalid user message content.");
+        throw new RequestValidationError("Invalid user message content.");
       }
       for (const part of item.content) {
         if (!part || part.type !== "input_text" ||
             typeof part.text !== "string" || part.text.length > 4_000) {
-          throw new Error("Invalid user message text.");
+          throw new RequestValidationError("Invalid user message text.");
         }
       }
       continue;
@@ -155,12 +157,12 @@ function validateInputItems(items) {
     if (item.type === "message") {
       if (item.role !== "assistant" ||
           !Array.isArray(item.content) || item.content.length > 8) {
-        throw new Error("Invalid assistant response message.");
+        throw new RequestValidationError("Invalid assistant response message.");
       }
       for (const part of item.content) {
         if (!part || !["output_text", "refusal"].includes(part.type) ||
             typeof part.text !== "string" || part.text.length > 12_000) {
-          throw new Error("Invalid assistant response content.");
+          throw new RequestValidationError("Invalid assistant response content.");
         }
       }
       continue;
@@ -171,16 +173,16 @@ function validateInputItems(items) {
           pendingCallIds.has(item.call_id) ||
           typeof item.name !== "string" || !allowedToolNames.has(item.name) ||
           typeof item.arguments !== "string" || item.arguments.length > 4_000) {
-        throw new Error("Invalid function call item.");
+        throw new RequestValidationError("Invalid function call item.");
       }
       let parsedArguments;
       try {
         parsedArguments = JSON.parse(item.arguments);
       } catch {
-        throw new Error("Function call arguments are not valid JSON.");
+        throw new RequestValidationError("Function call arguments are not valid JSON.");
       }
       if (!parsedArguments || typeof parsedArguments !== "object" || Array.isArray(parsedArguments)) {
-        throw new Error("Function call arguments must be an object.");
+        throw new RequestValidationError("Function call arguments must be an object.");
       }
       pendingCallIds.add(item.call_id);
       continue;
@@ -189,7 +191,7 @@ function validateInputItems(items) {
     if (item.type === "function_call_output") {
       if (typeof item.call_id !== "string" || !pendingCallIds.has(item.call_id) ||
           typeof item.output !== "string" || item.output.length > MAX_TOOL_OUTPUT_CHARS) {
-        throw new Error("Function output does not match a pending function call.");
+        throw new RequestValidationError("Function output does not match a pending function call.");
       }
       pendingCallIds.delete(item.call_id);
       continue;
@@ -201,11 +203,11 @@ function validateInputItems(items) {
       continue;
     }
 
-    throw new Error("Unsupported conversation item.");
+    throw new RequestValidationError("Unsupported conversation item.");
   }
 
   if (pendingCallIds.size > 0) {
-    throw new Error("Conversation contains an unresolved function call.");
+    throw new RequestValidationError("Conversation contains an unresolved function call.");
   }
 }
 
@@ -355,10 +357,8 @@ export default async function handler(req, res) {
       responseItems
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid request.";
-    if (message.includes("Conversation") || message.includes("Invalid") ||
-        message.includes("Unsupported") || message.includes("Message")) {
-      return res.status(400).json({ error: message });
+    if (error instanceof RequestValidationError) {
+      return res.status(400).json({ error: error.message });
     }
     return res.status(502).json({ error: "The AI gateway could not complete this request." });
   }
