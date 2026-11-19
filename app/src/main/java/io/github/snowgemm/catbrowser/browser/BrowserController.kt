@@ -16,6 +16,7 @@ import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.ContentBlockingController
 import org.mozilla.geckoview.StorageController
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.WebResponse
@@ -158,9 +159,14 @@ class BrowserController(
         private set
     var startupMode by mutableStateOf(preferences.getString(KEY_STARTUP_MODE, STARTUP_CONTINUE) ?: STARTUP_CONTINUE)
         private set
+    var trackingProtectionEnabled by mutableStateOf(
+        preferences.getBoolean(KEY_TRACKING_PROTECTION, true)
+    )
+        private set
 
     val downloadManager = BrowserDownloadManager(context.applicationContext)
     private val storageController = runtime.getStorageController()
+    private val contentBlockingController = runtime.getContentBlockingController()
 
     val tabs = mutableStateListOf<BrowserTab>()
     val history = mutableStateListOf<BrowserEntry>()
@@ -185,6 +191,8 @@ class BrowserController(
     var isBookmarksLoading by mutableStateOf(false)
         private set
     var isBookmarksLoaded by mutableStateOf(false)
+        private set
+    internal var privacyStats by mutableStateOf(BrowserPrivacyStats(isLoading = true))
         private set
 
     val sitePermissions = mutableStateListOf<SitePermissionEntry>()
@@ -218,9 +226,15 @@ class BrowserController(
     private val dataHandler = Handler(Looper.getMainLooper())
     private val storageHandlerThread = HandlerThread("CatBrowserStorage").apply { start() }
     private val storageHandler = Handler(storageHandlerThread.looper)
+    private val privacyStatsHandlerThread = HandlerThread("CatBrowserPrivacyStats").apply { start() }
+    private val privacyStatsHandler = Handler(privacyStatsHandlerThread.looper)
     private val dataExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "CatBrowserData").apply { isDaemon = true }
     }
+    private var privacyStatsRequestVersion = 0
+    private var privacyStatsRequestInFlight = false
+    private var privacyStatsRefreshQueued = false
+    private var lastPrivacyStatsRefreshMs = 0L
     private var pendingBookmarkToggle = false
 
     var selectedTabId by mutableStateOf("")
@@ -778,6 +792,86 @@ class BrowserController(
         if (granted) callback?.grant() else callback?.reject()
     }
 
+    fun updateTrackingProtection(enabled: Boolean) {
+        if (trackingProtectionEnabled == enabled) return
+        trackingProtectionEnabled = enabled
+        preferences.edit().putBoolean(KEY_TRACKING_PROTECTION, enabled).apply()
+        tabs.forEach { tab ->
+            tab.session?.settings?.setUseTrackingProtection(enabled)
+        }
+        refreshPrivacyStats(force = true)
+    }
+
+    fun refreshPrivacyStats(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (privacyStatsRequestInFlight) {
+            if (force) privacyStatsRefreshQueued = true
+            return
+        }
+        if (!force && privacyStats.isAvailable &&
+            now - lastPrivacyStatsRefreshMs < PRIVACY_STATS_REFRESH_INTERVAL_MS
+        ) {
+            return
+        }
+
+        privacyStatsRequestInFlight = true
+        lastPrivacyStatsRefreshMs = now
+        val requestVersion = ++privacyStatsRequestVersion
+        privacyStats = privacyStats.copy(isLoading = true, hasError = false)
+
+        privacyStatsHandler.post {
+            try {
+                contentBlockingController.getTrackingDbEventsByDateRange(
+                    now - PRIVACY_STATS_RANGE_MS,
+                    now
+                ).accept(
+                    { events ->
+                        val result = aggregatePrivacyBlockingEvents(
+                            events.orEmpty().map { event ->
+                                PrivacyBlockingEvent(type = event.type, count = event.count)
+                            }
+                        )
+                        dataHandler.post {
+                            if (requestVersion == privacyStatsRequestVersion) {
+                                privacyStats = result.copy(isLoading = false, hasError = false)
+                                finishPrivacyStatsRequest()
+                            }
+                        }
+                    },
+                    { error ->
+                        dataHandler.post {
+                            if (requestVersion == privacyStatsRequestVersion) {
+                                privacyStats = privacyStats.copy(
+                                    isLoading = false,
+                                    hasError = true
+                                )
+                                finishPrivacyStatsRequest()
+                            }
+                        }
+                    }
+                )
+            } catch (_: Exception) {
+                dataHandler.post {
+                    if (requestVersion == privacyStatsRequestVersion) {
+                        privacyStats = privacyStats.copy(
+                            isLoading = false,
+                            hasError = true
+                        )
+                        finishPrivacyStatsRequest()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun finishPrivacyStatsRequest() {
+        privacyStatsRequestInFlight = false
+        if (privacyStatsRefreshQueued) {
+            privacyStatsRefreshQueued = false
+            refreshPrivacyStats(force = true)
+        }
+    }
+
     fun loadSitePermissions() {
         if (isSitePermissionsLoading) return
         isSitePermissionsLoading = true
@@ -1089,6 +1183,7 @@ class BrowserController(
         val session = GeckoSession(
             GeckoSessionSettings.Builder()
                 .usePrivateMode(tab.isPrivate)
+                .useTrackingProtection(trackingProtectionEnabled)
                 .build()
         )
         tab.session = session
@@ -1280,6 +1375,7 @@ class BrowserController(
                 if (success) {
                     tab.error = null
                     recordVisit(tab)
+                    if (!tab.isPrivate) refreshPrivacyStats()
                 } else {
                     tab.error = "This page could not be loaded. Check the connection and retry."
                 }
@@ -1466,7 +1562,10 @@ class BrowserController(
         const val KEY_SEARCH_ENGINE = "search_engine"
         const val KEY_HOME_PAGE = "home_page"
         const val KEY_STARTUP_MODE = "startup_mode"
+        const val KEY_TRACKING_PROTECTION = "tracking_protection_enabled"
         const val KEY_DEVELOPER_MODE = "developer_mode"
+        const val PRIVACY_STATS_RANGE_MS = 7L * 24L * 60L * 60L * 1000L
+        const val PRIVACY_STATS_REFRESH_INTERVAL_MS = 15_000L
         const val DEVELOPER_UNLOCK_CODE = "dev-cat"
         const val THEME_SYSTEM = "system"
         const val THEME_LIGHT = "light"
