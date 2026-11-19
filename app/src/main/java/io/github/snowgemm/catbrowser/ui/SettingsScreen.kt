@@ -109,6 +109,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
         matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL") ||
         matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab") ||
         matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa") ||
+        matchesSettings("bảo vệ quyền riêng tư", "quyền riêng tư", "privacy", "tracking protection", "tracker", "chặn theo dõi", "fingerprint") ||
         matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí") ||
         matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")
 
@@ -302,6 +303,41 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         Text(it, color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall)
                     }
+                }
+            }
+            if (matchesSettings("bảo vệ quyền riêng tư", "quyền riêng tư", "privacy", "tracking protection", "tracker", "chặn theo dõi", "fingerprint")) item {
+                SettingsSectionTitle("BẢO VỆ QUYỀN RIÊNG TƯ")
+                SettingsCard {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                            Text(
+                                "Chặn nội dung theo dõi",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "Dùng danh sách bảo vệ của GeckoView để chặn các tracker đã biết trên tab thường và tab ẩn danh.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Switch(
+                            checked = controller.trackingProtectionEnabled,
+                            onCheckedChange = controller::updateTrackingProtection
+                        )
+                    }
+                    HorizontalDivider(
+                        Modifier.padding(vertical = 10.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    )
+                    Text(
+                        "Thống kê 7 ngày được tổng hợp cục bộ từ GeckoView. Dữ liệu tab ẩn danh không được tính; số liệu bắt đầu từ khi bộ ghi thống kê được bật.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall
+                    )
                 }
             }
             if (matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search")) item {
