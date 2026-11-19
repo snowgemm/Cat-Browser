@@ -42,30 +42,53 @@ The AMO Android filter is only a catalog compatibility signal. It is not proof t
 - Private-browsing access is disabled by default. Enabling it requires a separate confirmation explaining that the extension may access pages inside private tabs.
 - The AMO discovery catalog accepts HTTPS download URLs hosted by `addons.mozilla.org`; local file import is a separate user-selected flow.
 
-## Known limitations
+## Current compatibility boundary
 
-- Chrome Web Store installation and blanket Chrome-extension compatibility are not supported.
-- Cat does not provide complete API-by-API compatibility reporting.
-- `tabs.create` currently rejects requests requiring pinned tabs, tab containers, discarded tabs, explicit insertion indices or Reader Mode.
-- `tabs.update` rejects requests to change pinned state, mute state or auto-discard behavior. GeckoView handles URL navigation after Cat accepts the request; `active` and `highlighted` requests select the corresponding Cat tab.
-- The downloads API is partial: `saveAs=true` is rejected because Cat does not yet provide an extension-owned save-location picker. Conflict-action flags are not fully implemented; Cat sanitizes the requested filename and writes through its normal download destination. Extension-driven cancel, pause, resume and persistent task restoration are not wired to Cat's current download manager.
-- Browser action popup sizing, extension lifecycle edge cases and permission behavior still require physical-device testing against representative signed extensions on the pinned GeckoView build.
-- Browser APIs outside the integrated and verified GeckoView surface must be treated as limited or not checked.
+Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, and it is not Chromium. An API being part of the Firefox WebExtensions specification does not by itself mean that GeckoView exposes the browser-side callback Cat needs to implement it.
+
+| API / capability | Cat integration | Status |
+|---|---|---|
+| `browserAction` / `pageAction` | Toolbar icons, titles, badges, enable state and popup sessions | Partial; device validation pending |
+| `runtime.openOptionsPage()` | Routes the extension options page into a Cat tab | Implemented; device validation pending |
+| `tabs.create` | Creates regular/private Cat sessions where supported | Partial; pinned/container/discarded/index/Reader Mode options are rejected |
+| `tabs.update` / `tabs.remove` | URL navigation, active/highlighted selection and session close | Partial; mute/pin/auto-discard changes are not supported |
+| `downloads.download()` | Uses GeckoWebExecutor, reports progress and terminal metadata, and handles `saveAs` through Android's Storage Access Framework | Partial; conflict semantics and query/control APIs are not complete |
+| Download task history in Cat UI | Persists up to 100 non-private task records and output references | Implemented for local display; interrupted transfers are restored as interrupted records, not resumed |
+| `downloads.pause()` / `resume()` / `cancel()` from extensions | GeckoView's public `WebExtension.Download` surface only exposes `update(Info)`; no public app callback is available for these commands | Not implementable through the pinned public API |
+| `storage`, content scripts and other engine APIs | Executed by Gecko where supported by the bundled GeckoView build | Not comprehensively certified by Cat |
+| `contextMenus`, `notifications`, `identity`, `sessions`, `cookies`, `history`, `bookmarks`, `scripting`, `declarativeNetRequest`, native messaging | No complete Cat-side integration and compatibility test suite | Not verified; do not advertise as supported |
+| Chrome Web Store / CRX | Cat installs Firefox-format signed XPI packages through GeckoView | Unsupported; no Chromium engine or CRX installer |
+
+### Downloads behavior
+
+- `saveAs=true` requests now open Android's Create Document picker. Canceling the picker rejects the extension download request instead of silently choosing another destination.
+- Cat persists metadata for up to 100 non-private downloads. This includes filename, source, progress, state, output URI/path and extension download identifiers.
+- If Android kills Cat while a transfer is active, the record is restored as interrupted and its partial artifact is cleaned where access permits. The transfer itself is **not** resumed; request headers, POST bodies and server range support cannot be reconstructed safely from the stored metadata alone.
+- Private-mode download records are excluded from persistent history.
+- Extension-requested conflict actions are not yet fully equivalent to Firefox desktop. Do not rely on overwrite/prompt semantics.
+- The app's own Cancel action is separate from extension calls to `downloads.cancel()`; the latter is not bridged through the public GeckoView API.
+
+### Remaining platform limits
+
+- Complete Firefox WebExtensions API parity is not a realistic promise for an embedded GeckoView browser. Cat must implement and test each embedder-facing bridge separately.
+- Chrome Web Store packages are not compatible by default with GeckoView. No blanket Chrome add-on compatibility is claimed.
+- A signed XPI being accepted by GeckoView proves package/signature acceptance only. It does not prove that every API used by the extension is available or that its UI works in Cat.
+- The physical-device matrix is tracked in [EXTENSION-TEST-MATRIX.md](EXTENSION-TEST-MATRIX.md). All real-device results remain pending until the test is actually run and logged.
 
 ## Acceptance tests before release
 
 1. Install a Mozilla-signed Android add-on from AMO and inspect its permission prompt.
 2. Import a signed local XPI; reject non-XPI files, empty files, files above 50 MB and packages GeckoView does not accept.
 3. Confirm installed extensions remain available after app restart.
-4. Enable, disable, update and uninstall an extension.
-5. Verify optional permissions require explicit approval.
-6. Verify private access starts disabled and works only after explicit opt-in.
-7. Test browser/page action visibility, icons, badges and popup close behavior.
-8. Test `runtime.openOptionsPage()`, `tabs.create`, background tab creation, `tabs.update`, `tabs.remove` and active-tab notifications.
-9. Test `downloads.download()` using authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
-10. Confirm `saveAs` requests fail clearly and unsupported conflict/cancel/pause/resume behavior is not advertised as implemented.
-11. Test each add-on labelled Supported on a real Android device and record GeckoView, device and Android versions.
-12. Report unsupported Chrome and Firefox APIs accurately.
+4. Enable, disable, update and uninstall an extension; verify action/tab delegates detach on disable and removal.
+5. Verify optional permissions require explicit approval and private access stays disabled until explicit opt-in.
+6. Verify browser/page action icons, badges, popup sessions and `runtime.openOptionsPage()`.
+7. Test supported `tabs.create`, `tabs.update`, `tabs.remove` and active-tab notifications; verify rejected options fail clearly.
+8. Test `downloads.download()` with authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
+9. Test `saveAs`: select a provider/location, cancel the picker, check filename sanitization and reopen a completed file.
+10. Kill/restart Cat during a transfer; verify the task appears as interrupted, no private metadata returns, and incomplete artifacts are cleaned.
+11. Run every candidate in the physical-device matrix and record exact Cat commit, GeckoView version, add-on version, device, Android version and result.
+12. Report unsupported Chrome and Firefox APIs accurately; do not mark an add-on compatible solely because installation succeeded.
 
 ## Official references
 
