@@ -116,6 +116,26 @@ function safeEqual(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function parseRetryAfter(value) {
+  if (!value) return null;
+  const seconds = Number(value);
+  const delayMs = Number.isFinite(seconds)
+    ? seconds * 1_000
+    : Date.parse(value) - Date.now();
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return null;
+  return Math.min(3_600, Math.max(1, Math.ceil(delayMs / 1_000)));
+}
+
+function classifyOpenAiRateLimit(error) {
+  const code = typeof error?.code === "string" ? error.code : "";
+  const type = typeof error?.type === "string" ? error.type : "";
+  if (["insufficient_quota", "billing_hard_limit_reached"].includes(code) ||
+      ["insufficient_quota", "billing_hard_limit_reached"].includes(type)) {
+    return "insufficient_quota";
+  }
+  return "rate_limit_exceeded";
+}
+
 class RequestValidationError extends Error {}
 
 function validateInputItems(items) {
@@ -274,7 +294,12 @@ export default async function handler(req, res) {
   const forwarded = req.headers["x-forwarded-for"];
   const clientAddress = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "unknown";
   if (isRateLimited(clientAddress)) {
-    return res.status(429).json({ error: "Too many requests. Try again shortly." });
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({
+      error: "Too many requests. Try again shortly.",
+      code: "gateway_rate_limited",
+      retryAfterSeconds: 60
+    });
   }
 
   if (req.method === "GET") {
@@ -342,11 +367,22 @@ export default async function handler(req, res) {
 
     const data = await upstream.json().catch(() => null);
     if (!upstream.ok || !data) {
-      const status = upstream.status === 429 ? 429 : 502;
-      return res.status(status).json({
-        error: upstream.status === 429
-          ? "OpenAI API rate limit reached. Try again later."
-          : "OpenAI API request failed. Check the gateway configuration."
+      if (upstream.status === 429) {
+        const code = classifyOpenAiRateLimit(data?.error);
+        const retryAfterSeconds = parseRetryAfter(upstream.headers.get("retry-after"));
+        if (retryAfterSeconds !== null) {
+          res.setHeader("Retry-After", String(retryAfterSeconds));
+        }
+        return res.status(429).json({
+          error: code === "insufficient_quota"
+            ? "OpenAI API project quota or billing limit has been reached."
+            : "OpenAI API rate limit exceeded. Retry after the indicated delay.",
+          code,
+          ...(retryAfterSeconds !== null ? { retryAfterSeconds } : {})
+        });
+      }
+      return res.status(502).json({
+        error: "OpenAI API request failed. Check the gateway configuration."
       });
     }
 
