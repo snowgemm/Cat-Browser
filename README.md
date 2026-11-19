@@ -43,18 +43,16 @@ After a process restart, each saved tab is reopened at its last URL. The current
 
 ## Current limitations
 
-The browser has a working foundation, but these areas are still incomplete or require validation:
+The browser foundation is implemented, but these areas remain incomplete or require validation:
 
-- Full GeckoSession state restoration, including back/forward stacks, scroll position, form state and in-page state.
-- Recently closed tabs restore the last URL only and are kept in memory; they do not restore the complete session.
-- Firefox WebExtension browser/page actions with icons and badges, popup windows, options-page routing, and supported `tabs.create` / `tabs.update` / `tabs.remove` integration.
-- Basic `downloads.download()` integration through GeckoView and Cat's download manager, including progress and completion/error notifications.
-- Local XPI import through Android's document picker, limited to 50 MB and validated by GeckoView; Mozilla signature checks remain enforced.
-- Per-extension private-browsing access is disabled by default and requires explicit user confirmation. Chrome Web Store compatibility and full API parity are not provided.
-- The WebExtensions downloads API is partial: `saveAs`, full conflict-action behavior, extension-driven cancel/pause/resume and persistent task restoration are not implemented.
-- The app's own download task list is in-memory; saved files remain in device storage.
-- Complete website-permission coverage and physical-device validation of permission prompts and private-session boundaries.
-- Desktop-site mode, reader mode, built-in translation and a complete tracking-protection dashboard.
+- Complete GeckoSession state restoration, including back/forward stacks, scroll position, form state and in-page state.
+- Recently closed tabs restore the last URL only and are held in memory; they do not restore a complete session.
+- Tab overview captures a downscaled preview from the active `GeckoView` surface after a successful load. Previews are in-memory only and may be blank until a tab has been displayed; they are not saved across process restarts.
+- Drag-and-drop reordering is available in the unfiltered tab overview. Filtered/search results intentionally disable reorder to avoid ambiguous index changes.
+- The app download manager persists up to 100 non-private task records. Active tasks interrupted by process death are restored as interrupted metadata; byte-stream transfer is not resumed.
+- `downloads.download()` supports progress, terminal updates and Android `saveAs` document picking. Full conflict-action behavior and extension-driven pause/resume/cancel are not available through the public GeckoView API surface.
+- Firefox WebExtensions support is API-by-API and partial. Chrome Web Store/CRX support and complete Firefox Desktop API parity are not provided. See [Android extension support](docs/ANDROID-EXTENSIONS.md) and the [physical-device test matrix](docs/EXTENSION-TEST-MATRIX.md).
+- Physical-device smoke tests for permissions, private-session boundaries, extension popup behavior, downloads and tab previews/reordering remain required.
 
 CI build success does not replace installation and runtime smoke testing on supported physical Android devices.
 
