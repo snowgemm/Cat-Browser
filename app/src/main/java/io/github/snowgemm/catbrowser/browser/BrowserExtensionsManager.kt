@@ -642,10 +642,10 @@ class BrowserExtensionsManager(
                             )
                             return@post
                         }
-                        val suggestedName = request.filename
-                            ?.substringAfterLast('/')
-                            ?.takeIf(String::isNotBlank)
-                            ?: "download"
+                        val suggestedName = sanitizeDownloadFileName(
+                            request.filename?.substringAfterLast('/')?.takeIf(String::isNotBlank)
+                                ?: "download"
+                        )
                         pendingExtensionDownload = PendingExtensionDownload(source, request, result)
                         saveAsRequest = ExtensionSaveAsRequest(
                             id = UUID.randomUUID().toString(),
