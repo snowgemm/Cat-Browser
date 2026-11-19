@@ -55,6 +55,16 @@ test("extracts text and supported function calls from Gemini steps", () => {
   }]);
 });
 
+test("supports no-argument browser functions", () => {
+  assert.deepEqual(extractToolCalls([
+    { type: "function_call", id: "call_list", name: "list_tabs" }
+  ]), [{
+    callId: "call_list",
+    name: "list_tabs",
+    arguments: {}
+  }]);
+});
+
 test("rejects oversized and legacy OpenAI history", () => {
   assert.throws(() => validateConversation([{ type: "user_input", content: [{ type: "text", text: "x".repeat(4_001) }] }]), RequestValidationError);
   assert.throws(() => validateConversation([{ role: "user", content: "legacy OpenAI format" }]), RequestValidationError);
