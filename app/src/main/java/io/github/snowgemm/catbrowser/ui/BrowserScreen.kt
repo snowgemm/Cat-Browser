@@ -174,6 +174,7 @@ fun BrowserStartupScreen(errorMessage: String?, onRetry: () -> Unit) {
 @Composable
 fun BrowserScreen(controller: BrowserController) {
     var destination by remember { mutableStateOf(BrowserDestination.BROWSER) }
+    var settingsReturnDestination by remember { mutableStateOf(BrowserDestination.BROWSER) }
 
     BackHandler(enabled = destination != BrowserDestination.BROWSER) {
         destination = BrowserDestination.BROWSER
@@ -192,8 +193,12 @@ fun BrowserScreen(controller: BrowserController) {
                 controller = controller,
                 onOpenTabs = { destination = BrowserDestination.TABS },
                 onOpenExtensions = { destination = BrowserDestination.EXTENSIONS },
-                onOpenSettings = { destination = BrowserDestination.SETTINGS },
-                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS }
+                onOpenSettings = {
+                    settingsReturnDestination = BrowserDestination.BROWSER
+                    destination = BrowserDestination.SETTINGS
+                },
+                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS },
+                onOpenAssistant = { destination = BrowserDestination.ASSISTANT }
             )
             BrowserDestination.TABS -> TabsOverview(
                 controller = controller,
@@ -211,16 +216,24 @@ fun BrowserScreen(controller: BrowserController) {
                 destination = BrowserDestination.BROWSER
             }
             BrowserDestination.SETTINGS -> SettingsScreen(controller) {
-                destination = BrowserDestination.BROWSER
+                destination = settingsReturnDestination
             }
             BrowserDestination.DOWNLOADS -> BrowserDownloadsScreen(controller.downloadManager) {
                 destination = BrowserDestination.BROWSER
             }
+            BrowserDestination.ASSISTANT -> AssistantScreen(
+                controller = controller,
+                onBack = { destination = BrowserDestination.BROWSER },
+                onOpenSettings = {
+                    settingsReturnDestination = BrowserDestination.ASSISTANT
+                    destination = BrowserDestination.SETTINGS
+                }
+            )
         }
     }
 }
 
-private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
+private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS, ASSISTANT }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -229,7 +242,8 @@ private fun BrowserMainScreen(
     onOpenTabs: () -> Unit,
     onOpenExtensions: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenDownloads: () -> Unit
+    onOpenDownloads: () -> Unit,
+    onOpenAssistant: () -> Unit
 ) {
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
@@ -813,6 +827,10 @@ private fun BrowserMainScreen(
                 BrowserMenuListAction(BrowserGlyphType.EXTENSIONS, "Tiện ích mở rộng") {
                     showMenu = false; onOpenExtensions()
                 }
+                BrowserMenuListAction(BrowserGlyphType.AI, "Cat AI",
+                    subtitle = "Trợ lý OpenAI, cần cấu hình gateway") {
+                    showMenu = false; onOpenAssistant()
+                }
                 if (controller.recentlyClosedTabs.isNotEmpty()) {
                     BrowserMenuListAction(BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
                         subtitle = "Tab gần đây đã đóng", enabled = controller.tabs.size < 20) {
@@ -1052,7 +1070,7 @@ private fun BrowserMainScreen(
 
 private enum class BrowserGlyphType {
     BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE, INCOGNITO,
-    SEARCH, DOWNLOAD, HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS
+    SEARCH, DOWNLOAD, HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS, AI
 }
 
 @Composable
@@ -1122,6 +1140,21 @@ private fun BrowserGlyph(
             BrowserGlyphType.SEARCH -> {
                 drawCircle(tint, 6.5f * unit, point(10f, 10f), style = Stroke(strokeWidth))
                 line(14.5f, 14.5f, 20.5f, 20.5f)
+            }
+            BrowserGlyphType.AI -> {
+                drawRoundRect(
+                    tint,
+                    topLeft = point(3f, 4f),
+                    size = Size(18f * unit, 14f * unit),
+                    cornerRadius = CornerRadius(4f * unit),
+                    style = Stroke(strokeWidth)
+                )
+                line(8f, 18f, 6f, 21f)
+                line(6f, 21f, 6f, 17f)
+                line(12f, 7f, 12f, 14f)
+                line(8.5f, 10.5f, 15.5f, 10.5f)
+                line(17f, 15f, 17f, 19f)
+                line(15f, 17f, 19f, 17f)
             }
             BrowserGlyphType.DOWNLOAD -> {
                 line(12f, 3f, 12f, 15f)
