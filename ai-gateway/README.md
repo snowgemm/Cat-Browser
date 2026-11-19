@@ -32,9 +32,14 @@ A Vercel Hobby project has been created and linked to `snowgemm/Cat-Browser`:
 - Runtime: Node.js `22.x`
 - Production branch: `main`
 
-It has **not** been deployed. No domain and no environment variables are configured yet. Deployment is intentionally held until the owner has prepared the required secrets.
+A production deployment has been created automatically after a push to the linked Git repository and reached `READY`:
 
-Vercel currently has SSO protection enabled for all deployment domains except custom domains. A native Android client cannot complete Vercel's interactive SSO flow. Before enabling the Android connection, either attach a domain you control (custom domains are outside this SSO rule) or deliberately review the deployment-protection setting. Do not remove protection until the bearer token is high-entropy, rate limiting is configured, and the HTTPS endpoint is ready.
+- Deployment: `dpl_7C2u6HrqHSxg2Ec4PF1SoYsHv4vE`
+- Deployment URL: `https://cat-browser-ai-gateway-bylp4powl-slg-7f71.vercel.app`
+
+However, **the API is not operational yet**. No environment variables and no custom domain are configured. Requests reach the handler only after deployment protection is passed, and the handler returns HTTP 503 until `OPENAI_API_KEY` and `CAT_AI_GATEWAY_TOKEN` are set.
+
+Vercel currently has SSO protection enabled for all deployment domains except custom domains. A native Android client cannot complete Vercel's interactive SSO flow. Before enabling the Android connection, attach a domain you control (custom domains are outside this SSO rule), or deliberately review the deployment-protection setting only after a high-entropy gateway token and hosting-level rate limits are in place. Do not leave an unauthenticated endpoint exposed.
 
 ## Deploy
 
