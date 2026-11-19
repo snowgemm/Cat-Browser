@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.ui
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -23,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal data class BrowserAddressSuggestion(
     val title: String,
@@ -38,15 +43,44 @@ internal data class BrowserAddressSuggestion(
     val tabId: String? = null
 )
 
+internal const val HOME_APPEARANCE_PREFERENCES = "cat_browser_appearance"
+internal const val HOME_WALLPAPER_URI_KEY = "new_tab_wallpaper_uri"
+
 @Composable
 internal fun NewTabPage(
     isPrivate: Boolean,
     bookmarks: List<BrowserEntry>,
     recentHistory: List<BrowserEntry>,
+    openTabCount: Int,
     onOpenUrl: (String) -> Unit,
     onFocusAddress: () -> Unit,
     onAddShortcut: (String, String) -> Boolean
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val wallpaperUri = remember(context) {
+        context.getSharedPreferences(HOME_APPEARANCE_PREFERENCES, android.content.Context.MODE_PRIVATE)
+            .getString(HOME_WALLPAPER_URI_KEY, null)
+    }
+    val wallpaperBitmap by produceState<Bitmap?>(null, wallpaperUri) {
+        value = null
+        if (!wallpaperUri.isNullOrBlank()) {
+            value = withContext(Dispatchers.IO) {
+                decodeHomeWallpaper(context, Uri.parse(wallpaperUri))
+            }
+        }
+    }
+    val hasWallpaper = wallpaperBitmap != null
+    val heroTextColor = if (hasWallpaper) androidx.compose.ui.graphics.Color.White
+        else MaterialTheme.colorScheme.onBackground
+    val mutedTextColor = if (hasWallpaper) androidx.compose.ui.graphics.Color.White.copy(alpha = 0.78f)
+        else MaterialTheme.colorScheme.onSurfaceVariant
+    val sectionCardColor = if (hasWallpaper) androidx.compose.ui.graphics.Color(0xCC192634)
+        else MaterialTheme.colorScheme.surfaceVariant
+    val tileColor = if (hasWallpaper) androidx.compose.ui.graphics.Color(0xB8202D3C)
+        else MaterialTheme.colorScheme.surface
+    val recentCardColor = if (hasWallpaper) androidx.compose.ui.graphics.Color(0xCC192634)
+        else MaterialTheme.colorScheme.surface
+
     var showAddDialog by remember { mutableStateOf(false) }
     var shortcutTitle by remember { mutableStateOf("") }
     var shortcutUrl by remember { mutableStateOf("") }
@@ -60,7 +94,8 @@ internal fun NewTabPage(
     val shortcutEntries = remember(bookmarks, visibleHistory, isPrivate) {
         buildList {
             val seenHosts = mutableSetOf<String>()
-            bookmarks.filter { it.url.startsWith("https://", true) || it.url.startsWith("http://", true) }
+            bookmarks
+                .filter { it.url.startsWith("https://", true) || it.url.startsWith("http://", true) }
                 .forEach { entry ->
                     if (seenHosts.add(siteHost(entry.url))) add(entry)
                 }
@@ -72,234 +107,280 @@ internal fun NewTabPage(
         }.take(8)
     }
 
-    Column(
-        Modifier.fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 18.dp)
+    Box(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        wallpaperBitmap?.let { bitmap ->
             Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
+                bitmap = bitmap.asImageBitmap(),
                 contentDescription = null,
-                modifier = Modifier.size(38.dp)
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Cat Browser",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    if (isPrivate) "Không gian duyệt riêng tư" else "Không gian duyệt web của bạn",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-            if (isPrivate) {
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Text(
-                        "ẨN DANH",
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.7.sp
-                    )
-                }
-            }
+            Box(
+                Modifier.fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.44f))
+            )
         }
 
-        Spacer(Modifier.height(22.dp))
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(animationSpec = tween(260)) + slideInVertically(
-                animationSpec = spring(dampingRatio = 0.88f, stiffness = 420f)
-            ) { it / 12 }
+        Column(
+            Modifier.fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 20.dp)
         ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(26.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Column(
-                    Modifier.padding(horizontal = 19.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(13.dp)
-                ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier.size(42.dp)
+                )
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
                     Text(
-                        if (isPrivate) "Duyệt web riêng tư" else "Bắt đầu khám phá",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.headlineSmall,
+                        "Cat Browser",
+                        color = heroTextColor,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        if (isPrivate)
-                            "Cat Browser không lưu lịch sử duyệt web của tab ẩn danh trên thiết bị."
-                        else
-                            "Mọi thứ bạn cần để tiếp tục hành trình trên web, ngay tại đây.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (isPrivate) "Không gian duyệt riêng tư" else "Không gian duyệt web của bạn",
+                        color = mutedTextColor,
                         style = MaterialTheme.typography.bodySmall
                     )
+                }
+                if (isPrivate) {
                     Surface(
-                        onClick = onFocusAddress,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(17.dp),
-                        color = MaterialTheme.colorScheme.surface
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.secondaryContainer
                     ) {
-                        Row(
-                            Modifier.padding(horizontal = 14.dp, vertical = 15.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "⌕",
-                                color = MaterialTheme.colorScheme.primary,
-                                fontSize = 24.sp
-                            )
-                            Spacer(Modifier.width(11.dp))
-                            Text(
-                                "Tìm kiếm hoặc nhập địa chỉ",
-                                modifier = Modifier.weight(1f),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp
-                            )
-                            Text(
-                                "›",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 23.sp
-                            )
-                        }
+                        Text(
+                            "ẨN DANH",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.7.sp
+                        )
                     }
                 }
             }
-        }
 
-        Spacer(Modifier.height(25.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Trang web yêu thích",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            if (!isPrivate) {
-                TextButton(onClick = {
-                    shortcutTitle = ""
-                    shortcutUrl = ""
-                    shortcutError = null
-                    showAddDialog = true
-                }) { Text("＋ Thêm") }
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            shortcutEntries.forEach { entry ->
-                ShortcutTile(
-                    entry = entry,
-                    allowNetworkIcon = !isPrivate,
-                    onClick = { onOpenUrl(entry.url) }
-                )
-            }
-            if (!isPrivate) {
-                AddShortcutTile {
-                    shortcutTitle = ""
-                    shortcutUrl = ""
-                    shortcutError = null
-                    showAddDialog = true
-                }
-            }
-            if (shortcutEntries.isEmpty() && isPrivate) {
-                Text(
-                    "Dấu trang đã lưu sẽ xuất hiện tại đây.",
-                    modifier = Modifier.padding(vertical = 14.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "Gần đây",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f)
-            )
-            if (!isPrivate && visibleHistory.isNotEmpty()) {
-                Text(
-                    visibleHistory.size.coerceAtMost(200).toString() + " gần nhất",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp
-                )
-            }
-        }
-
-        when {
-            isPrivate -> Text(
-                "Lịch sử thường không xuất hiện trong tab ẩn danh.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 10.dp)
-            )
-            visibleHistory.isEmpty() -> Surface(
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        "Chưa có website gần đây",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        "Những trang bạn truy cập sẽ được hiển thị gọn tại đây.",
-                        modifier = Modifier.padding(top = 4.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-            else -> {
-                visibleHistory.take(6).chunked(2).forEach { row ->
+            if (isPrivate) {
+                Spacer(Modifier.height(18.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = sectionCardColor
+                ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        row.forEach { entry ->
-                            RecentSiteCard(
-                                entry = entry,
-                                allowNetworkIcon = true,
-                                onClick = { onOpenUrl(entry.url) },
-                                modifier = Modifier.weight(1f)
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("◉", color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 18.sp)
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Tab ẩn danh",
+                                color = heroTextColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "Cat Browser không lưu lịch sử của phiên này trên thiết bị.",
+                                color = mutedTextColor,
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(22.dp))
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn(tween(260)) + slideInVertically(
+                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 430f)
+                    ) { it / 14 }
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        color = sectionCardColor
+                    ) {
+                        Column(
+                            Modifier.padding(horizontal = 17.dp, vertical = 17.dp),
+                            verticalArrangement = Arrangement.spacedBy(15.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Không gian của bạn",
+                                    modifier = Modifier.weight(1f),
+                                    color = heroTextColor,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "TRÊN THIẾT BỊ",
+                                    color = mutedTextColor,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.7.sp
+                                )
+                            }
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                HomeStatCell(bookmarks.size.toString(), "Dấu trang", Modifier.weight(1f), heroTextColor, mutedTextColor)
+                                Box(
+                                    Modifier.width(1.dp).height(38.dp)
+                                        .background(mutedTextColor.copy(alpha = 0.35f))
+                                )
+                                HomeStatCell(visibleHistory.size.toString(), "Website gần đây", Modifier.weight(1f), heroTextColor, mutedTextColor)
+                                Box(
+                                    Modifier.width(1.dp).height(38.dp)
+                                        .background(mutedTextColor.copy(alpha = 0.35f))
+                                )
+                                HomeStatCell(openTabCount.coerceAtLeast(1).toString(), "Tab thường", Modifier.weight(1f), heroTextColor, mutedTextColor)
+                            }
+                        }
                     }
                 }
             }
-        }
 
-        Spacer(Modifier.height(24.dp))
-        Text(
-            if (isPrivate) "Tab ẩn danh không ghi lịch sử vào Cat Browser."
-            else "Dấu trang và lịch sử được lưu trên thiết bị của bạn.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-            style = MaterialTheme.typography.labelSmall
-        )
+            Spacer(Modifier.height(25.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Trang web yêu thích",
+                    color = heroTextColor,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (!isPrivate) {
+                    TextButton(onClick = {
+                        shortcutTitle = ""
+                        shortcutUrl = ""
+                        shortcutError = null
+                        showAddDialog = true
+                    }) { Text("＋ Thêm") }
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                shortcutEntries.forEach { entry ->
+                    ShortcutTile(
+                        entry = entry,
+                        allowNetworkIcon = !isPrivate,
+                        containerColor = tileColor,
+                        onClick = { onOpenUrl(entry.url) }
+                    )
+                }
+                if (!isPrivate) {
+                    AddShortcutTile(
+                        containerColor = tileColor
+                    ) {
+                        shortcutTitle = ""
+                        shortcutUrl = ""
+                        shortcutError = null
+                        showAddDialog = true
+                    }
+                }
+                if (shortcutEntries.isEmpty() && isPrivate) {
+                    Text(
+                        "Dấu trang đã lưu sẽ xuất hiện tại đây.",
+                        modifier = Modifier.padding(vertical = 14.dp),
+                        color = mutedTextColor,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Truy cập gần đây",
+                    color = heroTextColor,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (!isPrivate && visibleHistory.isNotEmpty()) {
+                    Text(
+                        visibleHistory.size.toString() + " website",
+                        color = mutedTextColor,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+
+            when {
+                isPrivate -> Text(
+                    "Lịch sử thường không xuất hiện trong tab ẩn danh.",
+                    color = mutedTextColor,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+                visibleHistory.isEmpty() -> Surface(
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = recentCardColor
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(
+                            "Chưa có website gần đây",
+                            color = heroTextColor,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            "Những trang bạn truy cập sẽ được hiển thị tại đây.",
+                            modifier = Modifier.padding(top = 4.dp),
+                            color = mutedTextColor,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+                else -> {
+                    visibleHistory.take(6).chunked(2).forEach { row ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(9.dp)
+                        ) {
+                            row.forEach { entry ->
+                                RecentSiteCard(
+                                    entry = entry,
+                                    allowNetworkIcon = true,
+                                    containerColor = recentCardColor,
+                                    onClick = { onOpenUrl(entry.url) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(26.dp))
+            Text(
+                if (isPrivate) "Tab ẩn danh không ghi lịch sử vào Cat Browser."
+                else "Dấu trang, lịch sử và ảnh nền được lưu cục bộ trên thiết bị.",
+                color = mutedTextColor.copy(alpha = 0.85f),
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
     }
 
     if (showAddDialog) {
@@ -340,6 +421,58 @@ internal fun NewTabPage(
                 TextButton(onClick = { showAddDialog = false }) { Text("Hủy") }
             }
         )
+    }
+}
+
+@Composable
+private fun HomeStatCell(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    valueColor: androidx.compose.ui.graphics.Color,
+    labelColor: androidx.compose.ui.graphics.Color
+) {
+    Column(
+        modifier.padding(horizontal = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            value,
+            color = valueColor,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            label,
+            color = labelColor,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+private fun decodeHomeWallpaper(context: android.content.Context, uri: Uri): Bitmap? {
+    return try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > 1600 || bounds.outHeight / sampleSize > 2400) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+            inPreferredConfig = Bitmap.Config.RGB_565
+        }
+        context.contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        }
+    } catch (_: Exception) {
+        null
     }
 }
 
@@ -388,13 +521,14 @@ private fun FaviconBadge(
 private fun ShortcutTile(
     entry: BrowserEntry,
     allowNetworkIcon: Boolean,
+    containerColor: Color,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
         modifier = Modifier.width(82.dp),
         shape = RoundedCornerShape(17.dp),
-        color = MaterialTheme.colorScheme.surface
+        color = containerColor
     ) {
         Column(
             Modifier.padding(horizontal = 6.dp, vertical = 12.dp),
@@ -423,12 +557,12 @@ private fun ShortcutTile(
 }
 
 @Composable
-private fun AddShortcutTile(onClick: () -> Unit) {
+private fun AddShortcutTile(containerColor: Color, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier.width(82.dp),
         shape = RoundedCornerShape(17.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = containerColor
     ) {
         Column(
             Modifier.padding(horizontal = 6.dp, vertical = 12.dp),
@@ -458,6 +592,7 @@ private fun AddShortcutTile(onClick: () -> Unit) {
 private fun RecentSiteCard(
     entry: BrowserEntry,
     allowNetworkIcon: Boolean,
+    containerColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -465,7 +600,7 @@ private fun RecentSiteCard(
         onClick = onClick,
         modifier = modifier.heightIn(min = 78.dp),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface
+        color = containerColor
     ) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 10.dp),
