@@ -306,7 +306,7 @@ private fun BrowserMainScreen(
         }
     }
 
-    LaunchedEffect(tab.id, tab.url, tab.isLoading, tab.progress, attachedGeckoView) {
+    LaunchedEffect(tab.id, tab.url, tab.isLoading, attachedGeckoView) {
         val view = attachedGeckoView ?: return@LaunchedEffect
         if (!tab.isPrivate && tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100) {
             delay(450)
@@ -319,27 +319,31 @@ private fun BrowserMainScreen(
         }
     }
 
-    val addressSuggestions = buildList {
-        val query = address.text.trim()
-        fun matches(title: String, url: String): Boolean =
-            query.isBlank() || title.contains(query, ignoreCase = true) ||
-                url.contains(query, ignoreCase = true)
+    val addressSuggestions by remember(tab.id) {
+        derivedStateOf {
+            buildList {
+                val query = address.text.trim()
+                fun matches(title: String, url: String): Boolean =
+                    query.isBlank() || title.contains(query, ignoreCase = true) ||
+                        url.contains(query, ignoreCase = true)
 
-        controller.tabs
-            .filter { it.id != tab.id && it.isPrivate == tab.isPrivate && it.url.startsWith("http", true) }
-            .filter { matches(it.title, it.url) }
-            .forEach {
-                add(BrowserAddressSuggestion(it.title.ifBlank { it.url }, it.url, "Tab đang mở", it.id))
-            }
-        controller.bookmarks
-            .filter { matches(it.title, it.url) }
-            .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Dấu trang")) }
-        if (!tab.isPrivate) {
-            controller.history
-                .filter { matches(it.title, it.url) }
-                .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Lịch sử")) }
+                controller.tabs
+                    .filter { it.id != tab.id && it.isPrivate == tab.isPrivate && it.url.startsWith("http", true) }
+                    .filter { matches(it.title, it.url) }
+                    .forEach {
+                        add(BrowserAddressSuggestion(it.title.ifBlank { it.url }, it.url, "Tab đang mở", it.id))
+                    }
+                controller.bookmarks
+                    .filter { matches(it.title, it.url) }
+                    .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Dấu trang")) }
+                if (!tab.isPrivate) {
+                    controller.history
+                        .filter { matches(it.title, it.url) }
+                        .forEach { add(BrowserAddressSuggestion(it.title, it.url, "Lịch sử")) }
+                }
+            }.distinctBy { it.url }.take(8)
         }
-    }.distinctBy { it.url }.take(8)
+    }
 
     fun navigate() {
         val input = address.text.trim()
@@ -1550,17 +1554,22 @@ private fun TabsOverview(
     var tabFilter by remember { mutableStateOf("all") }
     val cardCoordinates = remember { mutableMapOf<String, LayoutCoordinates>() }
     var draggingTabId by remember { mutableStateOf<String?>(null) }
+    var lastReorderTargetId by remember { mutableStateOf<String?>(null) }
     val canReorderTabs = tabSearch.isBlank() && tabFilter == "all"
-    val visibleTabs = controller.tabs.filter { tab ->
-        val matchesFilter = when (tabFilter) {
-            "regular" -> !tab.isPrivate
-            "private" -> tab.isPrivate
-            else -> true
+    val visibleTabs by remember(controller) {
+        derivedStateOf {
+            controller.tabs.filter { tab ->
+                val matchesFilter = when (tabFilter) {
+                    "regular" -> !tab.isPrivate
+                    "private" -> tab.isPrivate
+                    else -> true
+                }
+                matchesFilter && (
+                    tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
+                        tab.url.contains(tabSearch, ignoreCase = true)
+                )
+            }
         }
-        matchesFilter && (
-            tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
-                tab.url.contains(tabSearch, ignoreCase = true)
-        )
     }
     Column(
         Modifier.fillMaxSize()
@@ -1652,7 +1661,11 @@ private fun TabsOverview(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            gridItems(visibleTabs, key = { it.id }) { tab ->
+            gridItems(
+                visibleTabs,
+                key = { it.id },
+                contentType = { "tab-card" }
+            ) { tab ->
                 val domain = tab.url
                     .removePrefix("https://")
                     .removePrefix("http://")
@@ -1714,19 +1727,33 @@ private fun TabsOverview(
                         .pointerInput(tab.id, canReorderTabs) {
                             if (canReorderTabs) {
                                 detectDragGesturesAfterLongPress(
-                                    onDragStart = { draggingTabId = tab.id },
-                                    onDragEnd = { draggingTabId = null },
-                                    onDragCancel = { draggingTabId = null },
+                                    onDragStart = {
+                                        draggingTabId = tab.id
+                                        lastReorderTargetId = null
+                                    },
+                                    onDragEnd = {
+                                        draggingTabId = null
+                                        lastReorderTargetId = null
+                                    },
+                                    onDragCancel = {
+                                        draggingTabId = null
+                                        lastReorderTargetId = null
+                                    },
                                     onDrag = { change, _ ->
                                         val position = cardCoordinates[tab.id]
-                                            ?.localToRoot(change.position) ?: return@detectDragGesturesAfterLongPress
+                                            ?.localToRoot(change.position)
+                                            ?: return@detectDragGesturesAfterLongPress
                                         val targetId = visibleTabs.firstOrNull { candidate ->
                                             cardCoordinates[candidate.id]
                                                 ?.boundsInRoot()
                                                 ?.contains(position) == true
                                         }?.id
-                                        if (targetId != null && targetId != tab.id) {
-                                            controller.moveTab(tab.id, targetId)
+                                        if (targetId == null || targetId == tab.id) {
+                                            lastReorderTargetId = null
+                                        } else if (targetId != lastReorderTargetId) {
+                                            if (controller.moveTab(tab.id, targetId)) {
+                                                lastReorderTargetId = targetId
+                                            }
                                         }
                                         change.consume()
                                     }
