@@ -247,7 +247,7 @@ internal fun NewTabPage(
                                     Modifier.width(1.dp).height(38.dp)
                                         .background(mutedTextColor.copy(alpha = 0.35f))
                                 )
-                                HomeStatCell(openTabCount.coerceAtLeast(1).toString(), "Tab thường", Modifier.weight(1f), heroTextColor, mutedTextColor)
+                                HomeStatCell(openTabCount.toString(), "Tab thường", Modifier.weight(1f), heroTextColor, mutedTextColor)
                             }
                         }
                     }
