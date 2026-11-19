@@ -40,6 +40,8 @@ class CatBrowserApplication : Application() {
         if (!::geckoRuntime.isInitialized) {
             logPreviousMainProcessExit()
             geckoRuntime = GeckoRuntime.create(this)
+            // Keep aggregate tracker-blocking events locally so New Tab can show real privacy stats.
+            geckoRuntime.settings.contentBlocking.setContentBlockingDatabaseStatus(true)
         }
         if (!::browserController.isInitialized) {
             browserController = BrowserController(this, geckoRuntime)
