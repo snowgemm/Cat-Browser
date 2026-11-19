@@ -237,7 +237,7 @@ test("rejects a function output that has no matching function call", async () =>
   const req = validRequest("198.51.100.17");
   req.body.inputItems = [
     { role: "user", content: [{ type: "input_text", text: "Hello" }] },
-    { type: "function_call_output", call_id: "missing_call", output: "{\\"ok\\":true}" }
+    { type: "function_call_output", call_id: "missing_call", output: JSON.stringify({ ok: true }) }
   ];
   const res = responseRecorder();
   await handler(req, res);
