@@ -17,6 +17,14 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
 
+      - name: Set up Node.js for AI gateway checks
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Check AI gateway JavaScript
+        run: npm run check --prefix ai-gateway
+
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
