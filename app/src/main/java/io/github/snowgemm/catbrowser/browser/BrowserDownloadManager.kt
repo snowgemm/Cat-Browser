@@ -306,7 +306,7 @@ class BrowserDownloadManager(context: Context) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
             if (item.outputUri != null) runCatching { resolver.delete(item.outputUri!!, null, null) }
             temporaryFile?.delete()
-            updateOnMain(item, onChanged)
+            updateOnMain(item, onChanged) {
                 it.status = BrowserDownloadStatus.CANCELLED
                 it.errorMessage = "Đã hủy tải xuống."
             }
@@ -314,7 +314,7 @@ class BrowserDownloadManager(context: Context) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
             if (item.outputUri != null) runCatching { resolver.delete(item.outputUri!!, null, null) }
             temporaryFile?.delete()
-            updateOnMain(item, onChanged)
+            updateOnMain(item, onChanged) {
                 if (item.isCancelled) {
                     it.status = BrowserDownloadStatus.CANCELLED
                     it.errorMessage = "Đã hủy tải xuống."
