@@ -12,11 +12,11 @@ val releaseVersionCode = providers.environmentVariable("CAT_VERSION_CODE").orNul
 val releaseVersionName = providers.environmentVariable("CAT_VERSION_NAME").orNull
 val hasReleaseSigning =
     listOf(
-    releaseKeystorePath,
-    releaseStorePassword,
-    releaseKeyAlias,
-    releaseKeyPassword,
-).all { !it.isNullOrBlank() }
+        releaseKeystorePath,
+        releaseStorePassword,
+        releaseKeyAlias,
+        releaseKeyPassword,
+    ).all { !it.isNullOrBlank() }
 
 android {
     namespace = "io.github.snowgemm.catbrowser"
