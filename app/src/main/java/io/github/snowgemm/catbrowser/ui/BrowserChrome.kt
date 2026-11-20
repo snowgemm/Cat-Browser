@@ -50,8 +50,28 @@ private val CatLightColorScheme = lightColorScheme(
 
 
 internal enum class BrowserGlyphType {
-    BACK, FORWARD, LOCK, GLOBE, CLEAR, CLOSE, GO, TABS, MORE, INCOGNITO,
-    SEARCH, DOWNLOAD, PRINT, HOME, RELOAD, BOOKMARK, EXTENSIONS, BOOKS, HISTORY, NEW_TAB, SETTINGS, AI
+    BACK,
+    FORWARD,
+    LOCK,
+    GLOBE,
+    CLEAR,
+    CLOSE,
+    GO,
+    TABS,
+    MORE,
+    INCOGNITO,
+    SEARCH,
+    DOWNLOAD,
+    PRINT,
+    HOME,
+    RELOAD,
+    BOOKMARK,
+    EXTENSIONS,
+    BOOKS,
+    HISTORY,
+    NEW_TAB,
+    SETTINGS,
+    AI,
 }
 
 @Composable
@@ -151,20 +171,20 @@ internal fun BrowserGlyph(
                     topLeft = point(4f, 8f),
                     size = Size(16f * unit, 9f * unit),
                     cornerRadius = CornerRadius(2f * unit),
-                    style = Stroke(strokeWidth)
+                    style = Stroke(strokeWidth),
                 )
                 drawRoundRect(
                     tint,
                     topLeft = point(7f, 3f),
                     size = Size(10f * unit, 7f * unit),
                     cornerRadius = CornerRadius(1f * unit),
-                    style = Stroke(strokeWidth)
+                    style = Stroke(strokeWidth),
                 )
                 drawRect(
                     tint,
                     topLeft = point(7f, 14f),
                     size = Size(10f * unit, 7f * unit),
-                    style = Stroke(strokeWidth)
+                    style = Stroke(strokeWidth),
                 )
                 line(9f, 17f, 15f, 17f)
                 line(9f, 19f, 14f, 19f)
