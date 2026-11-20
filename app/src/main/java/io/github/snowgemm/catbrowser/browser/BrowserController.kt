@@ -1093,7 +1093,7 @@ class BrowserController(
 
     fun printTab(tabId: String): Boolean {
         val session = tabs.firstOrNull { it.id == tabId }?.session
-            ?.takeIf { it.isOpen } ?: return false
+            ?.takeIf { it.isOpen && it.printDelegate != null } ?: return false
         session.printPageContent()
         return true
     }
@@ -1323,7 +1323,8 @@ class BrowserController(
                 val newTab = BrowserTab(
                     initialUrl = safeUrl,
                     initialTitle = "New tab",
-                    isPrivate = tab.isPrivate
+                    isPrivate = tab.isPrivate,
+                    initialDesktopMode = tab.isDesktopMode
                 )
                 tabs.add(newTab)
                 ensureSession(newTab, loadCurrentUrl = false)
