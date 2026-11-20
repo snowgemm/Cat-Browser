@@ -4,7 +4,6 @@ import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserTabGroupPolicyTest {
@@ -20,12 +19,18 @@ class BrowserTabGroupPolicyTest {
     fun normalizeNameRespectsMaximumLength() {
         val normalized = BrowserTabGroupPolicy.normalizeName("a".repeat(60))
 
-        assertEquals(BrowserTabGroupPolicy.MAX_NAME_LENGTH, normalized.length)
+        assertEquals(
+            BrowserTabGroupPolicy.MAX_NAME_LENGTH,
+            normalized.length,
+        )
     }
 
     @Test
     fun normalizeColorIndexClampsToPaletteBounds() {
-        assertEquals(0, BrowserTabGroupPolicy.normalizeColorIndex(-1))
+        assertEquals(
+            0,
+            BrowserTabGroupPolicy.normalizeColorIndex(-1),
+        )
         assertEquals(
             BrowserTabGroupPolicy.COLOR_COUNT - 1,
             BrowserTabGroupPolicy.normalizeColorIndex(BrowserTabGroupPolicy.COLOR_COUNT),
@@ -34,14 +39,20 @@ class BrowserTabGroupPolicyTest {
 
     @Test
     fun privateTabsNeverRetainGroupMembership() {
-        val tab = BrowserTab(isPrivate = true, initialGroupId = "group-private")
+        val tab = BrowserTab(
+            isPrivate = true,
+            initialGroupId = "group-private",
+        )
 
         assertNull(tab.groupId)
     }
 
     @Test
     fun regularTabsCanRetainGroupMembership() {
-        val tab = BrowserTab(isPrivate = false, initialGroupId = "group-regular")
+        val tab = BrowserTab(
+            isPrivate = false,
+            initialGroupId = "group-regular",
+        )
 
         assertEquals("group-regular", tab.groupId)
     }
@@ -86,8 +97,12 @@ class BrowserTabGroupPolicyTest {
         assertEquals(group.id, restored.tabs.single().groupId)
         assertEquals(listOf(group), restored.groups)
         assertEquals("regular-tab", restored.selectedTabId)
-        assertFalse(preferences.getString("tabs", "").orEmpty().contains("private.example"))
-        assertFalse(preferences.getString("tab_groups", "").orEmpty().contains("private"))
+        assertFalse(
+            preferences.getString("tabs", "").orEmpty().contains("private.example"),
+        )
+        assertFalse(
+            preferences.getString("tab_groups", "").orEmpty().contains("private"),
+        )
     }
 }
 
@@ -96,23 +111,40 @@ private class InMemorySharedPreferences : SharedPreferences {
 
     override fun getAll(): MutableMap<String, *> = values.toMutableMap()
 
-    override fun getString(key: String, defValue: String?): String? =
-        values[key] as? String ?: defValue
+    override fun getString(
+        key: String,
+        defValue: String?,
+    ): String? = values[key] as? String ?: defValue
 
     override fun getStringSet(
         key: String,
         defValues: MutableSet<String>?,
-    ): MutableSet<String>? = (values[key] as? Set<*>)?.filterIsInstance<String>()?.toMutableSet()
-        ?: defValues?.toMutableSet()
+    ): MutableSet<String>? {
+        return (values[key] as? Set<*>)
+            ?.filterIsInstance<String>()
+            ?.toMutableSet()
+            ?: defValues?.toMutableSet()
+    }
 
-    override fun getInt(key: String, defValue: Int): Int = values[key] as? Int ?: defValue
+    override fun getInt(
+        key: String,
+        defValue: Int,
+    ): Int = values[key] as? Int ?: defValue
 
-    override fun getLong(key: String, defValue: Long): Long = values[key] as? Long ?: defValue
+    override fun getLong(
+        key: String,
+        defValue: Long,
+    ): Long = values[key] as? Long ?: defValue
 
-    override fun getFloat(key: String, defValue: Float): Float = values[key] as? Float ?: defValue
+    override fun getFloat(
+        key: String,
+        defValue: Float,
+    ): Float = values[key] as? Float ?: defValue
 
-    override fun getBoolean(key: String, defValue: Boolean): Boolean =
-        values[key] as? Boolean ?: defValue
+    override fun getBoolean(
+        key: String,
+        defValue: Boolean,
+    ): Boolean = values[key] as? Boolean ?: defValue
 
     override fun contains(key: String): Boolean = key in values
 
@@ -130,39 +162,62 @@ private class InMemorySharedPreferences : SharedPreferences {
         private val updates = mutableMapOf<String, Any?>()
         private var shouldClear = false
 
-        override fun putString(key: String, value: String?): SharedPreferences.Editor = apply {
+        override fun putString(
+            key: String,
+            value: String?,
+        ): SharedPreferences.Editor {
             updates[key] = value
+            return this
         }
 
         override fun putStringSet(
             key: String,
             values: MutableSet<String>?,
-        ): SharedPreferences.Editor = apply {
+        ): SharedPreferences.Editor {
             updates[key] = values?.toSet()
+            return this
         }
 
-        override fun putInt(key: String, value: Int): SharedPreferences.Editor = apply {
+        override fun putInt(
+            key: String,
+            value: Int,
+        ): SharedPreferences.Editor {
             updates[key] = value
+            return this
         }
 
-        override fun putLong(key: String, value: Long): SharedPreferences.Editor = apply {
+        override fun putLong(
+            key: String,
+            value: Long,
+        ): SharedPreferences.Editor {
             updates[key] = value
+            return this
         }
 
-        override fun putFloat(key: String, value: Float): SharedPreferences.Editor = apply {
+        override fun putFloat(
+            key: String,
+            value: Float,
+        ): SharedPreferences.Editor {
             updates[key] = value
+            return this
         }
 
-        override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor = apply {
+        override fun putBoolean(
+            key: String,
+            value: Boolean,
+        ): SharedPreferences.Editor {
             updates[key] = value
+            return this
         }
 
-        override fun remove(key: String): SharedPreferences.Editor = apply {
+        override fun remove(key: String): SharedPreferences.Editor {
             updates[key] = null
+            return this
         }
 
-        override fun clear(): SharedPreferences.Editor = apply {
+        override fun clear(): SharedPreferences.Editor {
             shouldClear = true
+            return this
         }
 
         override fun commit(): Boolean {
