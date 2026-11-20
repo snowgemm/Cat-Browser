@@ -25,10 +25,11 @@ class BrowserJourneyBenchmark {
     fun coldStartup() =
         benchmarkRule.measureRepeated(
             packageName = TARGET_PACKAGE,
-            metrics = listOf(
-                StartupTimingMetric(),
-                MemoryUsageMetric(MemoryUsageMetric.Mode.Max),
-            ),
+            metrics =
+                listOf(
+                    StartupTimingMetric(),
+                    MemoryUsageMetric(MemoryUsageMetric.Mode.Max),
+                ),
             iterations = 5,
             startupMode = StartupMode.COLD,
             setupBlock = { pressHome() },
@@ -40,10 +41,11 @@ class BrowserJourneyBenchmark {
     fun tabSwitcherGridScroll() =
         benchmarkRule.measureRepeated(
             packageName = TARGET_PACKAGE,
-            metrics = listOf(
-                FrameTimingMetric(),
-                MemoryUsageMetric(MemoryUsageMetric.Mode.Max),
-            ),
+            metrics =
+                listOf(
+                    FrameTimingMetric(),
+                    MemoryUsageMetric(MemoryUsageMetric.Mode.Max),
+                ),
             iterations = 5,
             startupMode = StartupMode.WARM,
             setupBlock = {
@@ -52,14 +54,20 @@ class BrowserJourneyBenchmark {
                 startActivityAndWait()
 
                 repeat(7) {
-                    device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
-                        ?.click() ?: error("Không tìm thấy nút mở Tab Switcher.")
-                    device.wait(Until.findObject(By.text("Tab thường")), UI_TIMEOUT_MS)
-                        ?.click() ?: error("Không tìm thấy nút tạo tab thường.")
+                    val openTabsButton =
+                        device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
+                    checkNotNull(openTabsButton) { "Không tìm thấy nút mở Tab Switcher." }.click()
+
+                    val newTabButton =
+                        device.wait(Until.findObject(By.text("Tab thường")), UI_TIMEOUT_MS)
+                    checkNotNull(newTabButton) { "Không tìm thấy nút tạo tab thường." }.click()
                 }
 
-                device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
-                    ?.click() ?: error("Không thể mở Tab Switcher sau khi tạo tab.")
+                val openTabsButton =
+                    device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
+                checkNotNull(openTabsButton) {
+                    "Không thể mở Tab Switcher sau khi tạo tab."
+                }.click()
                 check(device.wait(Until.findObject(By.textContains("8/20")), UI_TIMEOUT_MS) != null) {
                     "Tab Switcher chưa hiển thị đủ 8 tab để benchmark cuộn."
                 }
