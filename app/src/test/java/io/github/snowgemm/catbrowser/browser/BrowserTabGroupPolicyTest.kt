@@ -6,6 +6,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
+private typealias PreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener
+
 class BrowserTabGroupPolicyTest {
     @Test
     fun normalizeNameTrimsAndCollapsesWhitespace() {
@@ -139,9 +141,9 @@ private class InMemorySharedPreferences : SharedPreferences {
 
     override fun edit(): SharedPreferences.Editor = MemoryEditor()
 
-    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun registerOnSharedPreferenceChangeListener(listener: PreferenceListener?) = Unit
 
-    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun unregisterOnSharedPreferenceChangeListener(listener: PreferenceListener?) = Unit
 
     private inner class MemoryEditor : SharedPreferences.Editor {
         private val updates = mutableMapOf<String, Any?>()
