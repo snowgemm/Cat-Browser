@@ -4,10 +4,11 @@ internal data class BrowserPageSecurity(
     val isSecure: Boolean,
     val isException: Boolean,
     val activeMixedContentLoaded: Boolean,
-    val passiveMixedContentLoaded: Boolean
+    val passiveMixedContentLoaded: Boolean,
 ) {
     val isVerifiedSecure: Boolean
-        get() = isSecure &&
+        get() =
+            isSecure &&
             !isException &&
             !activeMixedContentLoaded &&
             !passiveMixedContentLoaded
