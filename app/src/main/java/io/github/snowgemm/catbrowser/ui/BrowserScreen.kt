@@ -179,11 +179,16 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                 controller = controller,
                 onOpenTabs = { destination = BrowserDestination.TABS },
                 onOpenExtensions = { destination = BrowserDestination.EXTENSIONS },
+                onOpenAssistant = { destination = BrowserDestination.ASSISTANT },
                 onOpenSettings = {
                     settingsReturnDestination = BrowserDestination.BROWSER
                     destination = BrowserDestination.SETTINGS
                 },
                 onOpenDownloads = { destination = BrowserDestination.DOWNLOADS }
+            )
+            BrowserDestination.ASSISTANT -> AssistantScreen(
+                controller = controller,
+                onBack = { destination = BrowserDestination.BROWSER }
             )
             BrowserDestination.TABS -> TabsOverview(
                 controller = controller,
@@ -210,4 +215,4 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
     }
 }
 
-private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, SETTINGS, DOWNLOADS }
+private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, ASSISTANT, SETTINGS, DOWNLOADS }
