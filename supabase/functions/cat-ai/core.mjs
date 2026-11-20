@@ -1,7 +1,7 @@
 export const MODEL = "gemini-3.8-flash";
 export const MAX_BODY_BYTES = 28 * 1024;
 export const MAX_INPUT_ITEMS = 32;
-export const MAX_TOOL_OUTPUT_CHARS = 2_000;
+export const MAX_TOOL_OUTPUT_CHARS = 6_000;
 export const MAX_OUTPUT_TEXT_CHARS = 12_000;
 
 export const instructions = `
