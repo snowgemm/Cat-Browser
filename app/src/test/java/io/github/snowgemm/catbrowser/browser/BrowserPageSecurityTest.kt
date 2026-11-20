@@ -9,11 +9,11 @@ class BrowserPageSecurityTest {
     fun verifiedSecureConnectionShowsSecureIndicator() {
         val security =
             BrowserPageSecurity(
-            isSecure = true,
-            isException = false,
-            activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = false,
-        )
+                isSecure = true,
+                isException = false,
+                activeMixedContentLoaded = false,
+                passiveMixedContentLoaded = false,
+            )
 
         assertTrue(security.isVerifiedSecure)
     }
@@ -22,11 +22,11 @@ class BrowserPageSecurityTest {
     fun securityExceptionDoesNotShowSecureIndicator() {
         val security =
             BrowserPageSecurity(
-            isSecure = true,
-            isException = true,
-            activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = false,
-        )
+                isSecure = true,
+                isException = true,
+                activeMixedContentLoaded = false,
+                passiveMixedContentLoaded = false,
+            )
 
         assertFalse(security.isVerifiedSecure)
     }
@@ -35,11 +35,11 @@ class BrowserPageSecurityTest {
     fun loadedActiveMixedContentDoesNotShowSecureIndicator() {
         val security =
             BrowserPageSecurity(
-            isSecure = true,
-            isException = false,
-            activeMixedContentLoaded = true,
-            passiveMixedContentLoaded = false,
-        )
+                isSecure = true,
+                isException = false,
+                activeMixedContentLoaded = true,
+                passiveMixedContentLoaded = false,
+            )
 
         assertFalse(security.isVerifiedSecure)
     }
@@ -48,10 +48,10 @@ class BrowserPageSecurityTest {
     fun loadedPassiveMixedContentDoesNotShowSecureIndicator() {
         val security =
             BrowserPageSecurity(
-            isSecure = true,
-            isException = false,
-            activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = true,
+                isSecure = true,
+                isException = false,
+                activeMixedContentLoaded = false,
+                passiveMixedContentLoaded = true,
             )
 
         assertFalse(security.isVerifiedSecure)
