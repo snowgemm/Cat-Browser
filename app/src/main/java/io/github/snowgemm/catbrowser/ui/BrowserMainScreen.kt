@@ -85,13 +85,13 @@ private val CatLightColorScheme = lightColorScheme(
     outline = Color(0xFFD2DCE8)
 )
 
-
 private fun suggestedPdfFileName(title: String): String {
-    val safeTitle = title
-        .replace(Regex("""[\\/:*?"<>|]"""), "_")
-        .trim()
-        .take(80)
-        .ifBlank { "Cat Browser page" }
+    val safeTitle =
+        title
+            .replace(Regex("""[\\/:*?"<>|]"""), "_")
+            .trim()
+            .take(80)
+            .ifBlank { "Cat Browser page" }
     return "$safeTitle.pdf"
 }
 
@@ -104,7 +104,7 @@ internal fun BrowserMainScreen(
     onOpenExtensions: () -> Unit,
     onOpenAssistant: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenDownloads: () -> Unit
+    onOpenDownloads: () -> Unit,
 ) {
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
@@ -251,9 +251,10 @@ internal fun BrowserMainScreen(
     ) { uri ->
         controller.extensionsManager.resolveSaveAsRequest(uri)
     }
-    val pdfSaveLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/pdf")
-    ) { uri ->
+    val pdfSaveLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/pdf"),
+        ) { uri ->
         val targetTabId = pendingPdfTabId
         pendingPdfTabId = null
         if (uri != null && targetTabId != null) {
@@ -797,7 +798,7 @@ internal fun BrowserMainScreen(
                 BrowserMenuListAction(
                     BrowserGlyphType.GLOBE,
                     if (tab.isDesktopMode) "Dùng giao diện di động" else "Yêu cầu trang máy tính",
-                    subtitle = if (tab.isDesktopMode) "Đang bật chế độ máy tính" else "Đang dùng chế độ di động"
+                    subtitle = if (tab.isDesktopMode) "Đang bật chế độ máy tính" else "Đang dùng chế độ di động",
                 ) {
                     showMenu = false
                     controller.setDesktopMode(tab.id, !tab.isDesktopMode)
@@ -806,7 +807,7 @@ internal fun BrowserMainScreen(
                     BrowserGlyphType.DOWNLOAD,
                     "Lưu trang thành PDF",
                     subtitle = "Lưu bản sao PDF vào vị trí bạn chọn",
-                    enabled = tab.session?.isOpen == true && !controller.isPdfExporting
+                    enabled = tab.session?.isOpen == true && !controller.isPdfExporting,
                 ) {
                     showMenu = false
                     pendingPdfTabId = tab.id
@@ -816,7 +817,7 @@ internal fun BrowserMainScreen(
                     BrowserGlyphType.PRINT,
                     "In trang",
                     subtitle = "Mở hộp thoại in của Android",
-                    enabled = tab.session?.isOpen == true
+                    enabled = tab.session?.isOpen == true,
                 ) {
                     showMenu = false
                     if (!controller.printTab(tab.id)) {
