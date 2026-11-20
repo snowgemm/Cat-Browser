@@ -37,7 +37,7 @@ internal class ReplaceableDecision<T> {
     private var pending: ((T) -> Unit)? = null
 
     fun replace(next: (T) -> Unit, rejectedValue: T) {
-        pending?.invoke(rejectedValue)
+        pending?.let { callback -> runCatching { callback(rejectedValue) } }
         pending = next
     }
 
@@ -52,7 +52,7 @@ internal object ExtensionSourcePolicy {
     fun isTrustedAmoDownloadUrl(value: String): Boolean {
         val uri = runCatching { URI(value) }.getOrNull() ?: return false
         return uri.scheme.equals("https", ignoreCase = true) &&
-            uri.host.equals("addons.mozilla.org", ignoreCase = true) &&
+            uri.host?.equals("addons.mozilla.org", ignoreCase = true) == true &&
             uri.rawUserInfo == null &&
             uri.rawQuery == null &&
             uri.rawFragment == null &&
