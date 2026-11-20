@@ -214,6 +214,8 @@ class BrowserExtensionsManager(
         kind: ExtensionPermissionPrompt.Kind,
         decision: (Boolean, Boolean) -> Unit
     ) {
+        // Resolve any older GeckoView prompt instead of leaving its result pending.
+        runCatching { pendingPermissionDecision?.invoke(false, false) }
         pendingPermissionDecision = decision
         permissionPrompt = ExtensionPermissionPrompt(
             extensionName = extension.metaData.name?.takeIf(String::isNotBlank) ?: extension.id,
