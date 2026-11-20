@@ -25,7 +25,11 @@ import io.github.snowgemm.catbrowser.browser.ExtensionPermissionPrompt
 import org.mozilla.geckoview.WebExtension
 
 @Composable
-fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
+fun ExtensionsScreen(
+    manager: BrowserExtensionsManager,
+    onBack: () -> Unit,
+    onOpenListing: (String) -> Unit
+) {
     var query by remember { mutableStateOf("") }
     var section by remember { mutableStateOf("discover") }
     var pendingRemoval by remember { mutableStateOf<WebExtension?>(null) }
@@ -71,6 +75,9 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                 Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.End
             ) {
+                TextButton(onClick = { onOpenListing("https://addons.mozilla.org/android/") }) {
+                    Text("Kho Mozilla")
+                }
                 TextButton(
                     onClick = { xpiPicker.launch(arrayOf("*/*")) },
                     enabled = !manager.isWorking
@@ -115,7 +122,7 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                 )
                 Row(Modifier.fillMaxWidth().padding(top = 9.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("◉  Mozilla Add-ons · Android", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    Text("Nguồn chính thức · Mozilla Add-ons", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     Spacer(Modifier.weight(1f))
                     if (manager.catalog.isNotEmpty()) Text(manager.catalog.size.toString() + " kết quả",
                         color = MaterialTheme.colorScheme.primary, fontSize = 11.sp)
@@ -133,16 +140,41 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                 "discover" -> when {
                     manager.isSearching && manager.catalog.isEmpty() -> ExtensionState(
                         "Đang tìm tiện ích", "Đang tải dữ liệu từ Mozilla Add-ons…", Modifier.weight(1f), true)
-                    manager.catalog.isEmpty() -> ExtensionState(
-                        if (manager.isSearching) "Chưa có kết quả" else "Khám phá tiện ích",
-                        if (manager.isSearching) "Thử từ khoá khác hoặc kiểm tra kết nối mạng."
-                        else "Tìm kiếm tiện ích tương thích Android để bắt đầu.",
-                        Modifier.weight(1f), false)
+                    manager.catalog.isEmpty() -> Column(
+                        Modifier.weight(1f).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        ExtensionState(
+                            if (manager.isSearching) "Đang tải tiện ích" else "Chưa có kết quả",
+                            if (manager.isSearching) "Đang truy vấn danh mục Mozilla Add-ons."
+                            else "Thử từ khoá khác hoặc mở trực tiếp kho Mozilla Add-ons.",
+                            Modifier.fillMaxWidth(),
+                            manager.isSearching
+                        )
+                        if (!manager.isSearching) {
+                            OutlinedButton(
+                                onClick = { manager.searchCatalog(query) },
+                                modifier = Modifier.padding(top = 12.dp)
+                            ) {
+                                Text("Tải lại danh sách")
+                            }
+                            TextButton(
+                                onClick = { onOpenListing("https://addons.mozilla.org/android/") }
+                            ) {
+                                Text("Duyệt trên Mozilla Add-ons")
+                            }
+                        }
+                    }
                     else -> LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(11.dp)) {
                         items(manager.catalog, key = { it.id }) { entry ->
-                            CatalogExtensionCard(entry, manager.isInstalled(entry), manager.isWorking) {
-                                manager.install(entry)
-                            }
+                            CatalogExtensionCard(
+                                entry = entry,
+                                installed = manager.isInstalled(entry),
+                                busy = manager.isWorking,
+                                onInstall = { manager.install(entry) },
+                                onOpenListing = onOpenListing
+                            )
                         }
                     }
                 }
@@ -172,7 +204,7 @@ fun ExtensionsScreen(manager: BrowserExtensionsManager, onBack: () -> Unit) {
                 }
             }
 
-            Text("Cat dùng GeckoView để xác minh gói cài đặt và quyền. Không phải mọi Chrome Extension đều tương thích.",
+            Text("Danh mục Android của Mozilla không đảm bảo mọi tiện ích đều tương thích GeckoView. Cat xác minh chữ ký và quyền trước khi cài.",
                 Modifier.padding(top = 10.dp, bottom = 9.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp, lineHeight = 14.sp)
         }
@@ -232,7 +264,13 @@ private fun ExtensionTab(label: String, selected: Boolean, modifier: Modifier, o
 }
 
 @Composable
-private fun CatalogExtensionCard(entry: ExtensionCatalogEntry, installed: Boolean, busy: Boolean, onInstall: () -> Unit) {
+private fun CatalogExtensionCard(
+    entry: ExtensionCatalogEntry,
+    installed: Boolean,
+    busy: Boolean,
+    onInstall: () -> Unit,
+    onOpenListing: (String) -> Unit
+) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(15.dp)) {
@@ -251,7 +289,7 @@ private fun CatalogExtensionCard(entry: ExtensionCatalogEntry, installed: Boolea
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 }
                 Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                    Text("ANDROID", Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
+                    Text("AMO", Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
                         color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -260,8 +298,21 @@ private fun CatalogExtensionCard(entry: ExtensionCatalogEntry, installed: Boolea
                 maxLines = 3, overflow = TextOverflow.Ellipsis)
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("v" + entry.version, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-                Button(onClick = onInstall, enabled = !busy && !installed, shape = RoundedCornerShape(11.dp)) {
-                    Text(if (installed) "Đã cài" else "Cài đặt")
+                TextButton(onClick = { onOpenListing(entry.listingUrl) }) {
+                    Text("Chi tiết")
+                }
+                Button(
+                    onClick = onInstall,
+                    enabled = !busy && !installed && entry.downloadUrl != null,
+                    shape = RoundedCornerShape(11.dp)
+                ) {
+                    Text(
+                        when {
+                            installed -> "Đã cài"
+                            entry.downloadUrl == null -> "Chưa có XPI"
+                            else -> "Cài đặt"
+                        }
+                    )
                 }
             }
         }

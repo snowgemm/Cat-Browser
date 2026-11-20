@@ -202,9 +202,14 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                     destination = BrowserDestination.BROWSER
                 }
             )
-            BrowserDestination.EXTENSIONS -> ExtensionsScreen(controller.extensionsManager) {
-                destination = BrowserDestination.BROWSER
-            }
+            BrowserDestination.EXTENSIONS -> ExtensionsScreen(
+                manager = controller.extensionsManager,
+                onBack = { destination = BrowserDestination.BROWSER },
+                onOpenListing = { url ->
+                    controller.openExternalUrl(url)
+                    destination = BrowserDestination.BROWSER
+                }
+            )
             BrowserDestination.SETTINGS -> SettingsScreen(controller) {
                 destination = settingsReturnDestination
             }
