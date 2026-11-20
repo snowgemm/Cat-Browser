@@ -1,31 +1,32 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package io.github.snowgemm.catbrowser.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,41 +36,55 @@ import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import io.github.snowgemm.catbrowser.browser.BrowserTab
 import io.github.snowgemm.catbrowser.browser.BrowserTabGroup
 import io.github.snowgemm.catbrowser.browser.BrowserTabGroupPolicy
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
+private val CatDarkColorScheme =
+    darkColorScheme(
+        primary = Color(0xFFA9C9F7),
+        onPrimary = Color(0xFF10243C),
+        secondary = Color(0xFFE6C47D),
+        onSecondary = Color(0xFF2A210F),
+        background = Color(0xFF10161E),
+        onBackground = Color(0xFFF1F4F8),
+        surface = Color(0xFF1B2633),
+        onSurface = Color(0xFFF1F4F8),
+        surfaceVariant = Color(0xFF293747),
+        onSurfaceVariant = Color(0xFFBAC7D5),
+        outline = Color(0xFF405164),
+        secondaryContainer = Color(0xFF34465C),
+        onSecondaryContainer = Color(0xFFEAF1FB),
+    )
 
-private val CatDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFA9C9F7), onPrimary = Color(0xFF10243C),
-    secondary = Color(0xFFE6C47D), onSecondary = Color(0xFF2A210F),
-    background = Color(0xFF10161E), onBackground = Color(0xFFF1F4F8),
-    surface = Color(0xFF1B2633), onSurface = Color(0xFFF1F4F8),
-    surfaceVariant = Color(0xFF293747), onSurfaceVariant = Color(0xFFBAC7D5),
-    outline = Color(0xFF405164), secondaryContainer = Color(0xFF34465C),
-    onSecondaryContainer = Color(0xFFEAF1FB)
-)
+private val CatLightColorScheme =
+    lightColorScheme(
+        primary = Color(0xFF416B9B),
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFFDCE9F8),
+        onPrimaryContainer = Color(0xFF173451),
+        secondary = Color(0xFF8F713B),
+        onSecondary = Color.White,
+        secondaryContainer = Color(0xFFF1E7D4),
+        onSecondaryContainer = Color(0xFF392B13),
+        background = Color(0xFFF3F6FA),
+        onBackground = Color(0xFF1B2530),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF1B2530),
+        surfaceVariant = Color(0xFFE8EEF5),
+        onSurfaceVariant = Color(0xFF526171),
+        outline = Color(0xFFD2DCE8),
+    )
 
-private val CatLightColorScheme = lightColorScheme(
-    primary = Color(0xFF416B9B), onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE9F8), onPrimaryContainer = Color(0xFF173451),
-    secondary = Color(0xFF8F713B), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF1E7D4), onSecondaryContainer = Color(0xFF392B13),
-    background = Color(0xFFF3F6FA), onBackground = Color(0xFF1B2530),
-    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1B2530),
-    surfaceVariant = Color(0xFFE8EEF5), onSurfaceVariant = Color(0xFF526171),
-    outline = Color(0xFFD2DCE8)
-)
+private val tabGroupColorPalette =
+    listOf(
+        Color(0xFF5795E8),
+        Color(0xFFB17AE8),
+        Color(0xFF4FAE87),
+        Color(0xFFE1A34B),
+        Color(0xFFE17C92),
+        Color(0xFF6F87C5),
+    )
 
-private val tabGroupColorPalette = listOf(
-    Color(0xFF5795E8),
-    Color(0xFFB17AE8),
-    Color(0xFF4FAE87),
-    Color(0xFFE1A34B),
-    Color(0xFFE17C92),
-    Color(0xFF6F87C5),
-)
-
-private fun tabGroupColor(colorIndex: Int): Color =
-    tabGroupColorPalette[BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)]
-
+private fun tabGroupColor(colorIndex: Int): Color = tabGroupColorPalette[BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)]
 
 @Composable
 @Suppress("ktlint:standard:function-naming")
@@ -77,7 +92,7 @@ internal fun TabsOverview(
     controller: BrowserController,
     onBack: () -> Unit,
     onNewTab: () -> Unit,
-    onNewPrivateTab: () -> Unit
+    onNewPrivateTab: () -> Unit,
 ) {
     var tabSearch by remember { mutableStateOf("") }
     var tabFilter by remember { mutableStateOf("regular") }
@@ -101,16 +116,19 @@ internal fun TabsOverview(
     val visibleTabs by remember(controller, tabFilter, selectedGroupId, tabSearch) {
         derivedStateOf {
             controller.tabs.filter { tab ->
-                val matchesMode = when (tabFilter) {
-                    "regular" -> !tab.isPrivate && tab.groupId == null
-                    "private" -> tab.isPrivate
-                    "groups" -> selectedGroupId != null && tab.groupId == selectedGroupId
-                    else -> false
-                }
-                matchesMode && (
-                    tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
-                        tab.url.contains(tabSearch, ignoreCase = true)
-                )
+                val matchesMode =
+                    when (tabFilter) {
+                        "regular" -> !tab.isPrivate && tab.groupId == null
+                        "private" -> tab.isPrivate
+                        "groups" -> selectedGroupId != null && tab.groupId == selectedGroupId
+                        else -> false
+                    }
+                matchesMode &&
+                    (
+                        tabSearch.isBlank() ||
+                            tab.title.contains(tabSearch, ignoreCase = true) ||
+                            tab.url.contains(tabSearch, ignoreCase = true)
+                    )
             }
         }
     }
@@ -121,8 +139,10 @@ internal fun TabsOverview(
                     group.name.contains(tabSearch, ignoreCase = true) ||
                     controller.tabs.any { tab ->
                         tab.groupId == group.id &&
-                            (tab.title.contains(tabSearch, ignoreCase = true) ||
-                                tab.url.contains(tabSearch, ignoreCase = true))
+                            (
+                                tab.title.contains(tabSearch, ignoreCase = true) ||
+                                    tab.url.contains(tabSearch, ignoreCase = true)
+                            )
                     }
             }
         }
@@ -134,15 +154,16 @@ internal fun TabsOverview(
         }
     }
     Column(
-        Modifier.fillMaxSize()
+        Modifier
+            .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .navigationBarsPadding()
+            .navigationBarsPadding(),
     ) {
         if (isGroupDetail && selectedGroup != null) {
             Row(
                 Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = { selectedGroupId = null }) {
                     BrowserGlyph(BrowserGlyphType.BACK, iconSize = 21.dp)
@@ -150,7 +171,7 @@ internal fun TabsOverview(
                 Box(
                     Modifier
                         .size(11.dp)
-                        .background(tabGroupColor(selectedGroup.colorIndex), CircleShape)
+                        .background(tabGroupColor(selectedGroup.colorIndex), CircleShape),
                 )
                 Spacer(Modifier.width(9.dp))
                 Text(
@@ -159,7 +180,7 @@ internal fun TabsOverview(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Box {
                     IconButton(onClick = { showGroupMenu = true }) {
@@ -167,7 +188,7 @@ internal fun TabsOverview(
                     }
                     DropdownMenu(
                         expanded = showGroupMenu,
-                        onDismissRequest = { showGroupMenu = false }
+                        onDismissRequest = { showGroupMenu = false },
                     ) {
                         DropdownMenuItem(
                             text = { Text("Chỉnh sửa nhóm") },
@@ -177,7 +198,7 @@ internal fun TabsOverview(
                                 groupName = selectedGroup.name
                                 groupColorIndex = selectedGroup.colorIndex
                                 showGroupDialog = true
-                            }
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text("Bỏ nhóm") },
@@ -186,7 +207,7 @@ internal fun TabsOverview(
                                 controller.deleteTabGroup(selectedGroup.id)
                                 selectedGroupId = null
                                 tabFilter = "regular"
-                            }
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text("Đóng các tab trong nhóm") },
@@ -195,7 +216,7 @@ internal fun TabsOverview(
                                 controller.closeTabGroup(selectedGroup.id)
                                 selectedGroupId = null
                                 tabFilter = "regular"
-                            }
+                            },
                         )
                     }
                 }
@@ -203,14 +224,14 @@ internal fun TabsOverview(
         } else {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 tabModeAction(
                     icon = BrowserGlyphType.TABS,
                     label = "Thường",
                     count = controller.ungroupedTabCount,
                     selected = tabFilter == "regular",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     tabFilter = "regular"
                     selectedGroupId = null
@@ -222,7 +243,7 @@ internal fun TabsOverview(
                     label = "Riêng tư",
                     count = controller.privateTabCount,
                     selected = tabFilter == "private",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     tabFilter = "private"
                     selectedGroupId = null
@@ -234,7 +255,7 @@ internal fun TabsOverview(
                     label = "Nhóm",
                     count = controller.groupedTabCount,
                     selected = tabFilter == "groups",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     tabFilter = "groups"
                     selectedGroupId = null
@@ -249,26 +270,29 @@ internal fun TabsOverview(
                 Column(
                     Modifier.fillMaxWidth().weight(1f).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     BrowserGlyph(
                         BrowserGlyphType.TABS,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                        iconSize = 42.dp
+                        iconSize = 42.dp,
                     )
                     Text(
-                        if (tabSearch.isBlank()) "Chưa có nhóm tab"
-                        else "Không tìm thấy nhóm phù hợp",
+                        if (tabSearch.isBlank()) {
+                            "Chưa có nhóm tab"
+                        } else {
+                            "Không tìm thấy nhóm phù hợp"
+                        },
                         modifier = Modifier.padding(top = 14.dp),
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     if (tabSearch.isBlank()) {
                         Text(
                             "Chọn ít nhất hai tab thường rồi tạo nhóm từ menu.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -276,7 +300,7 @@ internal fun TabsOverview(
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     items(visibleGroups, key = { it.id }) { group ->
                         tabGroupCard(
@@ -290,7 +314,7 @@ internal fun TabsOverview(
                                 showGroupDialog = true
                             },
                             onDelete = { controller.deleteTabGroup(group.id) },
-                            onClose = { controller.closeTabGroup(group.id) }
+                            onClose = { controller.closeTabGroup(group.id) },
                         )
                     }
                 }
@@ -302,12 +326,12 @@ internal fun TabsOverview(
                 Column(
                     Modifier.fillMaxWidth().weight(1f).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     BrowserGlyph(
                         if (tabFilter == "private") BrowserGlyphType.INCOGNITO else BrowserGlyphType.TABS,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                        iconSize = 42.dp
+                        iconSize = 42.dp,
                     )
                     Text(
                         if (tabSearch.isBlank()) {
@@ -321,14 +345,14 @@ internal fun TabsOverview(
                         },
                         modifier = Modifier.padding(top = 14.dp),
                         color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
                     )
                     if (tabSearch.isBlank() && tabFilter == "private") {
                         Text(
                             "Tab riêng tư sẽ xuất hiện ở đây.",
                             modifier = Modifier.padding(top = 5.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -341,11 +365,11 @@ internal fun TabsOverview(
                 modifier = Modifier.weight(1f),
                 contentPadding =
                     PaddingValues(
-                    start = 14.dp,
-                    end = 14.dp,
-                    top = 4.dp,
-                    bottom = 18.dp,
-                ),
+                        start = 14.dp,
+                        end = 14.dp,
+                        top = 4.dp,
+                        bottom = 18.dp,
+                    ),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -362,11 +386,12 @@ internal fun TabsOverview(
                             .ifBlank { "Trang mới" }
                     val mark = domain.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
                     val active = tab.id == controller.selectedTabId
-                    val selected = if (isSelectingTabs) {
-                        tab.id in selectedTabIds
-                    } else {
-                        active
-                    }
+                    val selected =
+                        if (isSelectingTabs) {
+                            tab.id in selectedTabIds
+                        } else {
+                            active
+                        }
                     val cardBackground =
                         if (tab.isPrivate) {
                             Color(0xFF292431)
@@ -415,11 +440,12 @@ internal fun TabsOverview(
                     Surface(
                         onClick = {
                             if (isSelectingTabs) {
-                                selectedTabIds = if (tab.id in selectedTabIds) {
-                                    selectedTabIds - tab.id
-                                } else {
-                                    selectedTabIds + tab.id
-                                }
+                                selectedTabIds =
+                                    if (tab.id in selectedTabIds) {
+                                        selectedTabIds - tab.id
+                                    } else {
+                                        selectedTabIds + tab.id
+                                    }
                             } else {
                                 controller.selectTab(tab.id)
                                 onBack()
@@ -432,75 +458,76 @@ internal fun TabsOverview(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                            .height(210.dp)
-                            .animateContentSize()
-                            .animateItem()
-                            .graphicsLayer {
-                                alpha = if (draggingTabId == tab.id) 0.84f else 1f
-                                scaleX = cardScale
-                                scaleY = cardScale
-                            }.onGloballyPositioned { cardCoordinates[tab.id] = it }
-                            .pointerInput(tab.id, canReorderTabs) {
-                                if (canReorderTabs) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = {
-                                            draggingTabId = tab.id
-                                            lastReorderTargetId = null
-                                        },
-                                        onDragEnd = {
-                                            draggingTabId = null
-                                            lastReorderTargetId = null
-                                        },
-                                        onDragCancel = {
-                                            draggingTabId = null
-                                            lastReorderTargetId = null
-                                        },
-                                        onDrag = { change, _ ->
-                                            val position =
-                                                cardCoordinates[tab.id]
-                                                    ?.localToRoot(change.position)
-                                                    ?: return@detectDragGesturesAfterLongPress
-                                            val targetId =
-                                                visibleTabs.firstOrNull { candidate ->
-                                                cardCoordinates[candidate.id]
-                                                    ?.boundsInRoot()
-                                                    ?.contains(position) == true
-                                            }?.id
-                                            if (targetId == null || targetId == tab.id) {
+                                .height(210.dp)
+                                .animateContentSize()
+                                .animateItem()
+                                .graphicsLayer {
+                                    alpha = if (draggingTabId == tab.id) 0.84f else 1f
+                                    scaleX = cardScale
+                                    scaleY = cardScale
+                                }.onGloballyPositioned { cardCoordinates[tab.id] = it }
+                                .pointerInput(tab.id, canReorderTabs) {
+                                    if (canReorderTabs) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                draggingTabId = tab.id
                                                 lastReorderTargetId = null
-                                            } else if (targetId != lastReorderTargetId) {
-                                                if (controller.moveTab(tab.id, targetId)) {
-                                                    lastReorderTargetId = targetId
+                                            },
+                                            onDragEnd = {
+                                                draggingTabId = null
+                                                lastReorderTargetId = null
+                                            },
+                                            onDragCancel = {
+                                                draggingTabId = null
+                                                lastReorderTargetId = null
+                                            },
+                                            onDrag = { change, _ ->
+                                                val position =
+                                                    cardCoordinates[tab.id]
+                                                        ?.localToRoot(change.position)
+                                                        ?: return@detectDragGesturesAfterLongPress
+                                                val targetId =
+                                                    visibleTabs
+                                                        .firstOrNull { candidate ->
+                                                            cardCoordinates[candidate.id]
+                                                                ?.boundsInRoot()
+                                                                ?.contains(position) == true
+                                                        }?.id
+                                                if (targetId == null || targetId == tab.id) {
+                                                    lastReorderTargetId = null
+                                                } else if (targetId != lastReorderTargetId) {
+                                                    if (controller.moveTab(tab.id, targetId)) {
+                                                        lastReorderTargetId = targetId
+                                                    }
                                                 }
-                                            }
-                                            change.consume()
-                                        },
-                                    )
-                                }
-                            },
+                                                change.consume()
+                                            },
+                                        )
+                                    }
+                                },
                     ) {
                         Column(
                             modifier =
                                 Modifier
                                     .fillMaxSize()
-                                .padding(8.dp),
+                                    .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Row(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
-                                    .height(30.dp),
+                                        .height(30.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(7.dp),
                                     color =
                                         if (tab.isPrivate) {
-                                        Color(0xFF443B50)
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    },
+                                            Color(0xFF443B50)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
                                     modifier = Modifier.size(25.dp),
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
@@ -508,10 +535,10 @@ internal fun TabsOverview(
                                             text = mark,
                                             color =
                                                 if (tab.isPrivate) {
-                                                Color(0xFFE6DDF0)
-                                            } else {
-                                                MaterialTheme.colorScheme.primary
-                                            },
+                                                    Color(0xFFE6DDF0)
+                                                } else {
+                                                    MaterialTheme.colorScheme.primary
+                                                },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 12.sp,
                                         )
@@ -544,7 +571,7 @@ internal fun TabsOverview(
                                     Modifier
                                         .fillMaxWidth()
                                         .weight(1f)
-                                    .clip(RoundedCornerShape(11.dp)),
+                                        .clip(RoundedCornerShape(11.dp)),
                             ) {
                                 tab.previewBitmap?.let { preview ->
                                     Image(
@@ -557,7 +584,7 @@ internal fun TabsOverview(
                                     modifier =
                                         Modifier
                                             .fillMaxSize()
-                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     BrowserGlyph(
@@ -591,23 +618,26 @@ internal fun TabsOverview(
                                 }
                                 Spacer(Modifier.weight(1f))
                                 when {
-                                    isSelectingTabs && selected -> Text(
-                                        text = "Đã chọn",
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    isSelectingTabs -> Text(
-                                        text = "Chạm để chọn",
-                                        color = cardMuted,
-                                        fontSize = 10.sp,
-                                    )
-                                    active -> Text(
-                                        text = "Đang mở",
-                                        color = MaterialTheme.colorScheme.primary,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
+                                    isSelectingTabs && selected ->
+                                        Text(
+                                            text = "Đã chọn",
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                    isSelectingTabs ->
+                                        Text(
+                                            text = "Chạm để chọn",
+                                            color = cardMuted,
+                                            fontSize = 10.sp,
+                                        )
+                                    active ->
+                                        Text(
+                                            text = "Đang mở",
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
                                 }
                             }
                         }
@@ -616,7 +646,6 @@ internal fun TabsOverview(
             }
         }
 
-
         if (isSelectingTabs) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -624,9 +653,10 @@ internal fun TabsOverview(
                 tonalElevation = 2.dp,
             ) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -640,7 +670,7 @@ internal fun TabsOverview(
                             onClick = {
                                 isSelectingTabs = false
                                 selectedTabIds = emptySet()
-                            }
+                            },
                         ) {
                             Text("Hủy")
                         }
@@ -653,8 +683,9 @@ internal fun TabsOverview(
                                 groupColorIndex = 0
                                 showGroupDialog = true
                             },
-                            enabled = selectedTabIds.size >= 2 &&
-                                controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS,
+                            enabled =
+                                selectedTabIds.size >= 2 &&
+                                    controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS,
                             modifier = Modifier.weight(1f),
                         ) {
                             Text("Tạo nhóm")
@@ -713,8 +744,9 @@ internal fun TabsOverview(
                                 leadingIcon = {
                                     BrowserGlyph(BrowserGlyphType.TABS, iconSize = 18.dp)
                                 },
-                                enabled = visibleTabs.isNotEmpty() &&
-                                    tabFilter != "private",
+                                enabled =
+                                    visibleTabs.isNotEmpty() &&
+                                        tabFilter != "private",
                                 onClick = {
                                     showMoreMenu = false
                                     selectedTabIds = emptySet()
@@ -723,8 +755,9 @@ internal fun TabsOverview(
                             )
                             DropdownMenuItem(
                                 text = { Text("Khôi phục tab đã đóng") },
-                                enabled = controller.recentlyClosedTabs.isNotEmpty() &&
-                                    controller.canCreateTab,
+                                enabled =
+                                    controller.recentlyClosedTabs.isNotEmpty() &&
+                                        controller.canCreateTab,
                                 onClick = {
                                     showMoreMenu = false
                                     if (controller.restoreRecentlyClosedTab()) onBack()
@@ -775,7 +808,7 @@ internal fun TabsOverview(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        if (isGroupDetail) "Tab mới trong nhóm" else "Tab thường"
+                                        if (isGroupDetail) "Tab mới trong nhóm" else "Tab thường",
                                     )
                                 },
                                 leadingIcon = {
@@ -836,14 +869,15 @@ internal fun TabsOverview(
                                     onClick = { groupColorIndex = index },
                                     shape = CircleShape,
                                     color = color,
-                                    border = if (groupColorIndex == index) {
-                                        androidx.compose.foundation.BorderStroke(
-                                            3.dp,
-                                            MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    } else {
-                                        null
-                                    },
+                                    border =
+                                        if (groupColorIndex == index) {
+                                            androidx.compose.foundation.BorderStroke(
+                                                3.dp,
+                                                MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        } else {
+                                            null
+                                        },
                                     modifier = Modifier.size(30.dp),
                                 ) {}
                             }
@@ -852,25 +886,32 @@ internal fun TabsOverview(
                 },
                 confirmButton = {
                     TextButton(
-                        enabled = groupName.isNotBlank() &&
-                            (editingGroupId != null ||
-                                (selectedTabIds.size >= 2 &&
-                                    controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS)),
+                        enabled =
+                            groupName.isNotBlank() &&
+                                (
+                                    editingGroupId != null ||
+                                        (
+                                            selectedTabIds.size >= 2 &&
+                                                controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS
+                                        )
+                                ),
                         onClick = {
-                            val saved = if (editingGroupId == null) {
-                                controller.createTabGroup(
-                                    tabIds = selectedTabIds,
-                                    name = groupName,
-                                    colorIndex = groupColorIndex,
-                                )
-                            } else {
-                                val updated = controller.updateTabGroup(
-                                    groupId = editingGroupId.orEmpty(),
-                                    name = groupName,
-                                    colorIndex = groupColorIndex,
-                                )
-                                if (updated) editingGroup else null
-                            }
+                            val saved =
+                                if (editingGroupId == null) {
+                                    controller.createTabGroup(
+                                        tabIds = selectedTabIds,
+                                        name = groupName,
+                                        colorIndex = groupColorIndex,
+                                    )
+                                } else {
+                                    val updated =
+                                        controller.updateTabGroup(
+                                            groupId = editingGroupId.orEmpty(),
+                                            name = groupName,
+                                            colorIndex = groupColorIndex,
+                                        )
+                                    if (updated) editingGroup else null
+                                }
                             if (saved != null) {
                                 tabFilter = "groups"
                                 selectedGroupId = saved.id
@@ -921,7 +962,7 @@ internal fun TabsOverview(
                                     Box(
                                         Modifier
                                             .size(10.dp)
-                                            .background(tabGroupColor(group.colorIndex), CircleShape)
+                                            .background(tabGroupColor(group.colorIndex), CircleShape),
                                     )
                                     Spacer(Modifier.width(10.dp))
                                     Text(group.name, maxLines = 1)
@@ -955,10 +996,11 @@ private fun tabGroupCard(
         onClick = onOpen,
         shape = RoundedCornerShape(17.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            groupColor.copy(alpha = 0.85f),
-        ),
+        border =
+            androidx.compose.foundation.BorderStroke(
+                1.dp,
+                groupColor.copy(alpha = 0.85f),
+            ),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
@@ -969,7 +1011,7 @@ private fun tabGroupCard(
                 Box(
                     Modifier
                         .size(10.dp)
-                        .background(groupColor, CircleShape)
+                        .background(groupColor, CircleShape),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
@@ -1017,17 +1059,19 @@ private fun tabGroupCard(
             }
             val previews = tabs.mapNotNull { it.previewBitmap }.take(3)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(74.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(74.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 if (previews.isEmpty()) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
                         BrowserGlyph(
@@ -1042,10 +1086,11 @@ private fun tabGroupCard(
                             bitmap = preview.asImageBitmap(),
                             contentDescription = "Xem trước nhóm ${group.name}",
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(9.dp)),
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clip(RoundedCornerShape(9.dp)),
                         )
                     }
                 }
@@ -1074,16 +1119,16 @@ private fun tabModeAction(
         shape = RoundedCornerShape(13.dp),
         color =
             if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            Color.Transparent
-        },
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                Color.Transparent
+            },
         contentColor =
             if (selected) {
-            MaterialTheme.colorScheme.onSecondaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+                MaterialTheme.colorScheme.onSecondaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
     ) {
         Row(
             modifier =
@@ -1097,10 +1142,10 @@ private fun tabModeAction(
                 icon,
                 tint =
                     if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 iconSize = 18.dp,
             )
             Spacer(Modifier.width(6.dp))
@@ -1130,7 +1175,7 @@ internal fun EntryDialog(
     onDismiss: () -> Unit,
     onSelect: (BrowserEntry) -> Unit,
     onClear: (() -> Unit)? = null,
-    isLoading: Boolean = false
+    isLoading: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1140,7 +1185,7 @@ internal fun EntryDialog(
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 18.dp),
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(10.dp))
@@ -1159,7 +1204,7 @@ internal fun EntryDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp,
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -1178,6 +1223,6 @@ internal fun EntryDialog(
             if (onClear != null) {
                 TextButton(onClick = onDismiss) { Text("Đóng") }
             }
-        }
+        },
     )
 }

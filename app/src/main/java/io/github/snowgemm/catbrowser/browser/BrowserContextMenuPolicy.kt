@@ -19,13 +19,14 @@ internal object BrowserContextMenuPolicy {
     private const val MAX_CONTEXT_URL_LENGTH = 8_192
 
     fun safeWebUrl(value: String?): String? {
-        val candidate = value
-            ?.trim()
-            ?.takeIf {
-                it.isNotEmpty() &&
-                    it.length <= MAX_CONTEXT_URL_LENGTH &&
-                    it.none(Char::isWhitespace)
-            } ?: return null
+        val candidate =
+            value
+                ?.trim()
+                ?.takeIf {
+                    it.isNotEmpty() &&
+                        it.length <= MAX_CONTEXT_URL_LENGTH &&
+                        it.none(Char::isWhitespace)
+                } ?: return null
 
         if (
             !candidate.startsWith("https://", ignoreCase = true) &&

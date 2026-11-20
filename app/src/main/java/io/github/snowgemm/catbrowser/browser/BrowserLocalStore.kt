@@ -8,7 +8,7 @@ import java.util.UUID
 internal data class RestoredBrowserTabs(
     val tabs: List<BrowserTab>,
     val selectedTabId: String,
-    val groups: List<BrowserTabGroup>
+    val groups: List<BrowserTabGroup>,
 )
 
 /**
@@ -18,37 +18,43 @@ internal data class RestoredBrowserTabs(
  * installations continue to restore regular tabs without a migration.
  */
 internal class BrowserLocalStore(
-    private val preferences: SharedPreferences
+    private val preferences: SharedPreferences,
 ) {
-    fun restoreTabs(defaultUrl: String, maxTabs: Int): RestoredBrowserTabs {
+    fun restoreTabs(
+        defaultUrl: String,
+        maxTabs: Int,
+    ): RestoredBrowserTabs {
         val savedGroups = readTabGroups()
         val savedGroupIds = savedGroups.mapTo(mutableSetOf()) { it.id }
         val saved = readArray(KEY_TABS)
-        val restoredTabs = buildList {
-            for (index in 0 until minOf(saved.length(), maxTabs)) {
-                val item = saved.optJSONObject(index) ?: continue
-                val url = item.optString("url", defaultUrl)
-                if (!isWebUrl(url)) continue
+        val restoredTabs =
+            buildList {
+                for (index in 0 until minOf(saved.length(), maxTabs)) {
+                    val item = saved.optJSONObject(index) ?: continue
+                    val url = item.optString("url", defaultUrl)
+                    if (!isWebUrl(url)) continue
 
-                val groupId = item.optString("groupId")
-                    .takeIf { it in savedGroupIds }
+                    val groupId =
+                        item
+                            .optString("groupId")
+                            .takeIf { it in savedGroupIds }
 
-                add(
-                    BrowserTab(
-                        id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
-                        initialUrl = url,
-                        initialTitle = item.optString("title").ifBlank { "Restored tab" },
-                        initialDesktopMode = item.optBoolean("desktopMode", false),
-                        initialGroupId = groupId
+                    add(
+                        BrowserTab(
+                            id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
+                            initialUrl = url,
+                            initialTitle = item.optString("title").ifBlank { "Restored tab" },
+                            initialDesktopMode = item.optBoolean("desktopMode", false),
+                            initialGroupId = groupId,
+                        ),
                     )
-                )
+                }
             }
-        }
         val restoredGroupIds = restoredTabs.mapNotNullTo(mutableSetOf()) { it.groupId }
         return RestoredBrowserTabs(
             tabs = restoredTabs,
             selectedTabId = preferences.getString(KEY_ACTIVE_TAB, "").orEmpty(),
-            groups = savedGroups.filter { it.id in restoredGroupIds }
+            groups = savedGroups.filter { it.id in restoredGroupIds },
         )
     }
 
@@ -57,33 +63,35 @@ internal class BrowserLocalStore(
             .sortedByDescending { it.timestamp }
             .take(maxEntries)
 
-    fun readBookmarks(): List<BrowserEntry> =
-        readEntries(KEY_BOOKMARKS).sortedByDescending { it.timestamp }
+    fun readBookmarks(): List<BrowserEntry> = readEntries(KEY_BOOKMARKS).sortedByDescending { it.timestamp }
 
     fun saveTabs(
         tabs: List<BrowserTab>,
         selectedTabId: String,
         defaultUrl: String,
-        groups: List<BrowserTabGroup>
+        groups: List<BrowserTabGroup>,
     ) {
         // Private-tab URLs and group assignments must never enter app-owned storage.
         val persistentTabs = tabs.filter(::shouldPersistBrowserTab)
-        val persistentSelectedTabId = selectedTabId
-            .takeIf { id -> persistentTabs.any { it.id == id } }
-            ?: persistentTabs.firstOrNull()?.id.orEmpty()
+        val persistentSelectedTabId =
+            selectedTabId
+                .takeIf { id -> persistentTabs.any { it.id == id } }
+                ?: persistentTabs.firstOrNull()?.id.orEmpty()
         val assignedGroupIds = persistentTabs.mapNotNullTo(mutableSetOf()) { it.groupId }
-        val persistentGroups = groups
-            .filter { it.id in assignedGroupIds }
-            .distinctBy { it.id }
+        val persistentGroups =
+            groups
+                .filter { it.id in assignedGroupIds }
+                .distinctBy { it.id }
         val persistentGroupIds = persistentGroups.mapTo(mutableSetOf()) { it.id }
 
         val tabsArray = JSONArray()
         persistentTabs.forEach { tab ->
-            val item = JSONObject()
-                .put("id", tab.id)
-                .put("url", if (isWebUrl(tab.url)) tab.url else defaultUrl)
-                .put("title", tab.title.take(200))
-                .put("desktopMode", tab.isDesktopMode)
+            val item =
+                JSONObject()
+                    .put("id", tab.id)
+                    .put("url", if (isWebUrl(tab.url)) tab.url else defaultUrl)
+                    .put("title", tab.title.take(200))
+                    .put("desktopMode", tab.isDesktopMode)
             tab.groupId?.takeIf { it in persistentGroupIds }?.let { groupId ->
                 item.put("groupId", groupId)
             }
@@ -98,11 +106,12 @@ internal class BrowserLocalStore(
                 JSONObject()
                     .put("id", group.id)
                     .put("name", name)
-                    .put("colorIndex", BrowserTabGroupPolicy.normalizeColorIndex(group.colorIndex))
+                    .put("colorIndex", BrowserTabGroupPolicy.normalizeColorIndex(group.colorIndex)),
             )
         }
 
-        preferences.edit()
+        preferences
+            .edit()
             .putString(KEY_TABS, tabsArray.toString())
             .putString(KEY_ACTIVE_TAB, persistentSelectedTabId)
             .putString(KEY_TAB_GROUPS, groupsArray.toString())
@@ -117,14 +126,18 @@ internal class BrowserLocalStore(
         writeEntries(KEY_BOOKMARKS, entries)
     }
 
-    fun recordHistoryVisit(visit: BrowserEntry, maxEntries: Int) {
-        val saved = runCatching { readEntries(KEY_HISTORY).toMutableList() }
-            .getOrDefault(mutableListOf())
+    fun recordHistoryVisit(
+        visit: BrowserEntry,
+        maxEntries: Int,
+    ) {
+        val saved =
+            runCatching { readEntries(KEY_HISTORY).toMutableList() }
+                .getOrDefault(mutableListOf())
         saved.removeAll { it.url == visit.url }
         saved.add(0, visit)
         writeEntries(
             KEY_HISTORY,
-            saved.sortedByDescending { it.timestamp }.take(maxEntries)
+            saved.sortedByDescending { it.timestamp }.take(maxEntries),
         )
     }
 
@@ -138,9 +151,11 @@ internal class BrowserLocalStore(
         return buildList {
             for (index in 0 until saved.length()) {
                 val item = saved.optJSONObject(index) ?: continue
-                val id = item.optString("id")
-                    .takeIf { it.isNotBlank() && it.length <= MAX_GROUP_ID_LENGTH }
-                    ?: continue
+                val id =
+                    item
+                        .optString("id")
+                        .takeIf { it.isNotBlank() && it.length <= MAX_GROUP_ID_LENGTH }
+                        ?: continue
                 if (!seenIds.add(id)) continue
                 val name = BrowserTabGroupPolicy.normalizeName(item.optString("name"))
                 if (name.isBlank()) continue
@@ -148,10 +163,11 @@ internal class BrowserLocalStore(
                     BrowserTabGroup(
                         id = id,
                         name = name,
-                        colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(
-                            item.optInt("colorIndex", 0)
-                        )
-                    )
+                        colorIndex =
+                            BrowserTabGroupPolicy.normalizeColorIndex(
+                                item.optInt("colorIndex", 0),
+                            ),
+                    ),
                 )
                 if (size >= BrowserTabGroupPolicy.MAX_GROUPS) break
             }
@@ -169,8 +185,8 @@ internal class BrowserLocalStore(
                     BrowserEntry(
                         title = item.optString("title").ifBlank { url },
                         url = url,
-                        timestamp = item.optLong("timestamp")
-                    )
+                        timestamp = item.optLong("timestamp"),
+                    ),
                 )
             }
         }
@@ -183,7 +199,10 @@ internal class BrowserLocalStore(
             JSONArray()
         }
 
-    private fun writeEntries(key: String, entries: List<BrowserEntry>) {
+    private fun writeEntries(
+        key: String,
+        entries: List<BrowserEntry>,
+    ) {
         preferences.edit().putString(key, entriesToJson(entries).toString()).apply()
     }
 
@@ -194,7 +213,7 @@ internal class BrowserLocalStore(
                 JSONObject()
                     .put("title", entry.title.take(200))
                     .put("url", entry.url)
-                    .put("timestamp", entry.timestamp)
+                    .put("timestamp", entry.timestamp),
             )
         }
         return array

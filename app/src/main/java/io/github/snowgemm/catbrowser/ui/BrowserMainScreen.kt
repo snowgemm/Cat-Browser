@@ -1,3 +1,5 @@
+@file:Suppress("ktlint:standard:no-wildcard-imports")
+
 package io.github.snowgemm.catbrowser.ui
 
 import android.app.Activity
@@ -10,17 +12,17 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,14 +34,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -47,46 +49,60 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.browser.BrowserContextResourceType
-import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
-import io.github.snowgemm.catbrowser.R
+import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.update.UpdateChannel
-import kotlin.math.abs
 import kotlinx.coroutines.delay
 import org.mozilla.geckoview.GeckoView
+import kotlin.math.abs
 
+private val CatDarkColorScheme =
+    darkColorScheme(
+        primary = Color(0xFFA9C9F7),
+        onPrimary = Color(0xFF10243C),
+        secondary = Color(0xFFE6C47D),
+        onSecondary = Color(0xFF2A210F),
+        background = Color(0xFF10161E),
+        onBackground = Color(0xFFF1F4F8),
+        surface = Color(0xFF1B2633),
+        onSurface = Color(0xFFF1F4F8),
+        surfaceVariant = Color(0xFF293747),
+        onSurfaceVariant = Color(0xFFBAC7D5),
+        outline = Color(0xFF405164),
+        secondaryContainer = Color(0xFF34465C),
+        onSecondaryContainer = Color(0xFFEAF1FB),
+    )
 
-private val CatDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFA9C9F7), onPrimary = Color(0xFF10243C),
-    secondary = Color(0xFFE6C47D), onSecondary = Color(0xFF2A210F),
-    background = Color(0xFF10161E), onBackground = Color(0xFFF1F4F8),
-    surface = Color(0xFF1B2633), onSurface = Color(0xFFF1F4F8),
-    surfaceVariant = Color(0xFF293747), onSurfaceVariant = Color(0xFFBAC7D5),
-    outline = Color(0xFF405164), secondaryContainer = Color(0xFF34465C),
-    onSecondaryContainer = Color(0xFFEAF1FB)
-)
-
-private val CatLightColorScheme = lightColorScheme(
-    primary = Color(0xFF416B9B), onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE9F8), onPrimaryContainer = Color(0xFF173451),
-    secondary = Color(0xFF8F713B), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF1E7D4), onSecondaryContainer = Color(0xFF392B13),
-    background = Color(0xFFF3F6FA), onBackground = Color(0xFF1B2530),
-    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1B2530),
-    surfaceVariant = Color(0xFFE8EEF5), onSurfaceVariant = Color(0xFF526171),
-    outline = Color(0xFFD2DCE8)
-)
+private val CatLightColorScheme =
+    lightColorScheme(
+        primary = Color(0xFF416B9B),
+        onPrimary = Color.White,
+        primaryContainer = Color(0xFFDCE9F8),
+        onPrimaryContainer = Color(0xFF173451),
+        secondary = Color(0xFF8F713B),
+        onSecondary = Color.White,
+        secondaryContainer = Color(0xFFF1E7D4),
+        onSecondaryContainer = Color(0xFF392B13),
+        background = Color(0xFFF3F6FA),
+        onBackground = Color(0xFF1B2530),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF1B2530),
+        surfaceVariant = Color(0xFFE8EEF5),
+        onSurfaceVariant = Color(0xFF526171),
+        outline = Color(0xFFD2DCE8),
+    )
 
 private fun suggestedPdfFileName(title: String): String {
     val safeTitle =
@@ -98,6 +114,7 @@ private fun suggestedPdfFileName(title: String): String {
     return "$safeTitle.pdf"
 }
 
+@Suppress("ktlint:standard:function-naming")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BrowserMainScreen(
@@ -123,14 +140,16 @@ internal fun BrowserMainScreen(
 
     var promptRefresh by remember { mutableIntStateOf(0) }
     val updateManager = controller.updateManager
-    val promptChannel = remember(updateManager.stableState, updateManager.betaState, updateManager.betaEnabled, promptRefresh) {
-        updateManager.nextPromptChannel()
-    }
-    val promptState = when (promptChannel) {
-        UpdateChannel.STABLE -> updateManager.stableState
-        UpdateChannel.BETA -> updateManager.betaState
-        null -> null
-    }
+    val promptChannel =
+        remember(updateManager.stableState, updateManager.betaState, updateManager.betaEnabled, promptRefresh) {
+            updateManager.nextPromptChannel()
+        }
+    val promptState =
+        when (promptChannel) {
+            UpdateChannel.STABLE -> updateManager.stableState
+            UpdateChannel.BETA -> updateManager.betaState
+            null -> null
+        }
 
     LaunchedEffect(showHistory) {
         if (showHistory) controller.loadHistory()
@@ -170,25 +189,29 @@ internal fun BrowserMainScreen(
         tab.url,
         tab.isLoading,
         attachedGeckoView,
-        controller.isAppForegrounded
+        controller.isAppForegrounded,
     ) {
         if (!controller.isAppForegrounded) return@LaunchedEffect
         val view = attachedGeckoView ?: return@LaunchedEffect
-        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            context.getSystemService(PowerManager::class.java)?.currentThermalStatus
-                ?: PowerManager.THERMAL_STATUS_NONE
-        } else {
-            PowerManager.THERMAL_STATUS_NONE
-        }
-        if (!tab.isPrivate && tab.previewBitmap == null &&
+        val thermalStatus =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                context.getSystemService(PowerManager::class.java)?.currentThermalStatus
+                    ?: PowerManager.THERMAL_STATUS_NONE
+            } else {
+                PowerManager.THERMAL_STATUS_NONE
+            }
+        if (!tab.isPrivate &&
+            tab.previewBitmap == null &&
             thermalStatus < PowerManager.THERMAL_STATUS_MODERATE &&
-            tab.url.startsWith("http", ignoreCase = true) && !tab.isLoading && tab.progress >= 100
+            tab.url.startsWith("http", ignoreCase = true) &&
+            !tab.isLoading &&
+            tab.progress >= 100
         ) {
             delay(450)
             if (attachedGeckoView === view && view.getSession() === tab.session) {
                 view.capturePixels().accept(
                     { bitmap -> bitmap?.let { controller.updateTabPreview(tab.id, it) } },
-                    { /* Preview is optional; keep the previous thumbnail on capture errors. */ }
+                    { /* Preview is optional; keep the previous thumbnail on capture errors. */ },
                 )
             }
         }
@@ -198,8 +221,13 @@ internal fun BrowserMainScreen(
         derivedStateOf {
             buildList {
                 val query = address.text.trim()
-                fun matches(title: String, url: String): Boolean =
-                    query.isBlank() || title.contains(query, ignoreCase = true) ||
+
+                fun matches(
+                    title: String,
+                    url: String,
+                ): Boolean =
+                    query.isBlank() ||
+                        title.contains(query, ignoreCase = true) ||
                         url.contains(query, ignoreCase = true)
 
                 controller.tabs
@@ -246,19 +274,21 @@ internal fun BrowserMainScreen(
         }
     }
 
-    val androidPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val request = controller.pendingAndroidPermissionRequest
-        controller.resolveAndroidPermissionRequest(
-            request != null && areRequestedAndroidPermissionsGranted(request.permissions, results)
-        )
-    }
-    val extensionSaveAsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri ->
-        controller.extensionsManager.resolveSaveAsRequest(uri)
-    }
+    val androidPermissionLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) { results ->
+            val request = controller.pendingAndroidPermissionRequest
+            controller.resolveAndroidPermissionRequest(
+                request != null && areRequestedAndroidPermissionsGranted(request.permissions, results),
+            )
+        }
+    val extensionSaveAsLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/octet-stream"),
+        ) { uri ->
+            controller.extensionsManager.resolveSaveAsRequest(uri)
+        }
     val pdfSaveLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("application/pdf"),
@@ -283,9 +313,10 @@ internal fun BrowserMainScreen(
 
     LaunchedEffect(controller.pendingAndroidPermissionRequest?.id) {
         val request = controller.pendingAndroidPermissionRequest ?: return@LaunchedEffect
-        val alreadyGranted = request.permissions.all { permission ->
-            context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
-        }
+        val alreadyGranted =
+            request.permissions.all { permission ->
+                context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+            }
         if (alreadyGranted) {
             controller.resolveAndroidPermissionRequest(true)
         } else {
@@ -305,27 +336,29 @@ internal fun BrowserMainScreen(
     }
 
     Column(
-        Modifier.fillMaxSize()
+        Modifier
+            .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .then(if (tab.isFullScreen) Modifier else Modifier.statusBarsPadding())
             .then(if (tab.isFullScreen) Modifier else Modifier.navigationBarsPadding())
-            .imePadding()
+            .imePadding(),
     ) {
         AnimatedVisibility(
             visible = tab.isPrivate && !tab.isFullScreen,
             enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 4 },
-            exit = fadeOut(tween(120))
+            exit = fadeOut(tween(120)),
         ) {
             Row(
-                Modifier.fillMaxWidth()
+                Modifier
+                    .fillMaxWidth()
                     .background(Color(0xFF292431))
                     .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 BrowserGlyph(
                     BrowserGlyphType.INCOGNITO,
                     tint = Color(0xFFE6DDF0),
-                    iconSize = 19.dp
+                    iconSize = 19.dp,
                 )
                 Spacer(Modifier.width(10.dp))
                 Column {
@@ -333,12 +366,12 @@ internal fun BrowserMainScreen(
                         "Chế độ ẩn danh",
                         color = Color(0xFFF2EDF7),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                     Text(
                         "Không lưu lịch sử trên máy; website và mạng vẫn có thể thấy lượt truy cập.",
                         color = Color(0xFFC9C0D2),
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
                     )
                 }
             }
@@ -347,18 +380,18 @@ internal fun BrowserMainScreen(
         AnimatedVisibility(
             visible = showFind && !tab.isFullScreen,
             enter = fadeIn(tween(150)) + slideInVertically(tween(150)) { -it / 3 },
-            exit = fadeOut(tween(100))
+            exit = fadeOut(tween(100)),
         ) {
             Surface(
                 Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
                 color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(16.dp),
-                tonalElevation = 2.dp
+                tonalElevation = 2.dp,
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     OutlinedTextField(
                         value = findQuery,
@@ -366,7 +399,7 @@ internal fun BrowserMainScreen(
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         label = { Text("Tìm trong trang") },
-                        textStyle = MaterialTheme.typography.bodyMedium
+                        textStyle = MaterialTheme.typography.bodyMedium,
                     )
                     val result = controller.findInPageResult
                     Text(
@@ -378,17 +411,17 @@ internal fun BrowserMainScreen(
                             else -> result.current.toString() + "/" + result.total
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
                     )
                     DockAction(
                         BrowserGlyphType.BACK,
                         "Kết quả trước",
-                        findQuery.isNotBlank()
+                        findQuery.isNotBlank(),
                     ) { controller.findNextInPage(false) }
                     DockAction(
                         BrowserGlyphType.FORWARD,
                         "Kết quả tiếp",
-                        findQuery.isNotBlank()
+                        findQuery.isNotBlank(),
                     ) { controller.findNextInPage(true) }
                     DockAction(BrowserGlyphType.CLEAR, "Đóng tìm kiếm", true) {
                         showFind = false
@@ -404,20 +437,21 @@ internal fun BrowserMainScreen(
         AnimatedVisibility(
             visible = tab.error != null && !tab.isFullScreen,
             enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
-            exit = fadeOut(tween(100))
+            exit = fadeOut(tween(100)),
         ) {
             tab.error?.let { message ->
                 Row(
-                    Modifier.fillMaxWidth()
+                    Modifier
+                        .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                         .padding(start = 15.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         message,
                         Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
                     )
                     TextButton(onClick = { controller.stopOrReload() }) { Text("Thử lại") }
                 }
@@ -426,41 +460,46 @@ internal fun BrowserMainScreen(
 
         Surface(
             Modifier.fillMaxWidth().weight(1f),
-            color = MaterialTheme.colorScheme.background
+            color = MaterialTheme.colorScheme.background,
         ) {
             when {
-                addressFocused -> AddressSuggestionsPanel(
-                    query = address.text,
-                    suggestions = addressSuggestions,
-                    onSelect = { suggestion ->
-                        if (suggestion.tabId != null) controller.selectTab(suggestion.tabId)
-                        else controller.openEntry(suggestion.url)
-                        keyboard?.hide()
-                        focusManager.clearFocus()
-                    },
-                    onSearch = ::navigate,
-                    onDismiss = {
-                        addressFocused = false
-                        focusManager.clearFocus()
-                        keyboard?.hide()
-                    }
-                )
-                tab.url == START_PAGE_URL && tab.session == null -> NewTabPage(
-                    isPrivate = tab.isPrivate,
-                    bookmarks = controller.bookmarks.toList(),
-                    recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
-                    openTabCount = controller.regularTabCount,
-                    privacyStats = controller.privacyStats,
-                    trackingProtectionEnabled = controller.trackingProtectionEnabled,
-                    onRefreshPrivacyStats = { controller.refreshPrivacyStats(force = true) },
-                    onOpenUrl = controller::openEntry,
-                    onFocusAddress = {
-                        addressFocused = true
-                        addressFocusRequester.requestFocus()
-                        keyboard?.show()
-                    },
-                    onAddShortcut = if (tab.isPrivate) { _, _ -> false } else controller::addBookmark
-                )
+                addressFocused ->
+                    AddressSuggestionsPanel(
+                        query = address.text,
+                        suggestions = addressSuggestions,
+                        onSelect = { suggestion ->
+                            if (suggestion.tabId != null) {
+                                controller.selectTab(suggestion.tabId)
+                            } else {
+                                controller.openEntry(suggestion.url)
+                            }
+                            keyboard?.hide()
+                            focusManager.clearFocus()
+                        },
+                        onSearch = ::navigate,
+                        onDismiss = {
+                            addressFocused = false
+                            focusManager.clearFocus()
+                            keyboard?.hide()
+                        },
+                    )
+                tab.url == START_PAGE_URL && tab.session == null ->
+                    NewTabPage(
+                        isPrivate = tab.isPrivate,
+                        bookmarks = controller.bookmarks.toList(),
+                        recentHistory = if (tab.isPrivate) emptyList() else controller.history.toList(),
+                        openTabCount = controller.regularTabCount,
+                        privacyStats = controller.privacyStats,
+                        trackingProtectionEnabled = controller.trackingProtectionEnabled,
+                        onRefreshPrivacyStats = { controller.refreshPrivacyStats(force = true) },
+                        onOpenUrl = controller::openEntry,
+                        onFocusAddress = {
+                            addressFocused = true
+                            addressFocusRequester.requestFocus()
+                            keyboard?.show()
+                        },
+                        onAddShortcut = if (tab.isPrivate) { _, _ -> false } else controller::addBookmark,
+                    )
                 else -> {
                     val session = tab.session
                     if (session == null) {
@@ -492,7 +531,7 @@ internal fun BrowserMainScreen(
                                     if (attachedGeckoView === view) attachedGeckoView = null
                                     controller.onSessionViewDetached(tab.id, session)
                                     view.releaseSession()
-                                }
+                                },
                             )
                         }
                     }
@@ -501,204 +540,221 @@ internal fun BrowserMainScreen(
         }
 
         if (!tab.isFullScreen) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-            color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(
-                0.5.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)
-            ),
-            tonalElevation = 1.dp
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border =
+                    androidx.compose.foundation.BorderStroke(
+                        0.5.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+                    ),
+                tonalElevation = 1.dp,
             ) {
-                Surface(
-                    modifier = Modifier.weight(1f)
-                        .height(if (addressFocused) 52.dp else 48.dp)
-                        .animateContentSize()
-                        .pointerInput(tab.id, addressFocused, controller.tabs.size) {
-                            if (!addressFocused && controller.tabs.size > 1) {
-                                var dragDistance = 0f
-                                detectHorizontalDragGestures(
-                                    onDragStart = { dragDistance = 0f },
-                                    onHorizontalDrag = { _, amount -> dragDistance += amount },
-                                    onDragEnd = {
-                                        if (abs(dragDistance) >= tabSwipeThreshold) {
-                                            controller.selectAdjacentTab(if (dragDistance < 0f) 1 else -1)
-                                        }
-                                        dragDistance = 0f
-                                    },
-                                    onDragCancel = { dragDistance = 0f }
-                                )
-                            }
-                        },
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        if (addressFocused) MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
-                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
-                    )
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Column(Modifier.fillMaxWidth()) {
-                        Row(
-                            Modifier.height(if (addressFocused) 48.dp else 46.dp)
-                                .padding(start = 12.dp, end = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            BrowserGlyph(
-                                when {
-                                    addressFocused -> BrowserGlyphType.SEARCH
-                                    isVerifiedSecure -> BrowserGlyphType.LOCK
-                                    else -> BrowserGlyphType.GLOBE
-                                },
-                                modifier = Modifier.size(18.dp).semantics {
-                                    contentDescription = when {
-                                        addressFocused -> "Tìm kiếm"
-                                        isVerifiedSecure -> "Kết nối HTTPS an toàn"
-                                        else -> "Kết nối chưa được xác minh"
+                    Surface(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .height(if (addressFocused) 52.dp else 48.dp)
+                                .animateContentSize()
+                                .pointerInput(tab.id, addressFocused, controller.tabs.size) {
+                                    if (!addressFocused && controller.tabs.size > 1) {
+                                        var dragDistance = 0f
+                                        detectHorizontalDragGestures(
+                                            onDragStart = { dragDistance = 0f },
+                                            onHorizontalDrag = { _, amount -> dragDistance += amount },
+                                            onDragEnd = {
+                                                if (abs(dragDistance) >= tabSwipeThreshold) {
+                                                    controller.selectAdjacentTab(if (dragDistance < 0f) 1 else -1)
+                                                }
+                                                dragDistance = 0f
+                                            },
+                                            onDragCancel = { dragDistance = 0f },
+                                        )
                                     }
                                 },
-                                tint = if (isVerifiedSecure) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.width(9.dp))
-                            BasicTextField(
-                                value = address,
-                                onValueChange = { address = it },
-                                modifier = Modifier.weight(1f).focusRequester(addressFocusRequester).onFocusChanged { state ->
-                                    if (state.isFocused && !addressFocused) {
-                                        address = address.copy(selection = TextRange(0, address.text.length))
-                                    } else if (!state.isFocused && addressFocused) {
-                                        address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
-                                    }
-                                    addressFocused = state.isFocused
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border =
+                            androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (addressFocused) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
+                                } else {
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.65f)
                                 },
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 13.sp
-                                ),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                                keyboardActions = KeyboardActions(onGo = { navigate() }),
-                                decorationBox = { inner ->
-                                    Box {
-                                        if (address.text.isEmpty()) {
-                                            Text(
-                                                "Tìm kiếm hoặc nhập địa chỉ",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                fontSize = 12.sp,
-                                                maxLines = 1
-                                            )
-                                        }
-                                        inner()
-                                    }
-                                }
-                            )
-                            if (addressFocused) {
-                                if (address.text.isNotBlank()) {
-                                    DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
-                                }
-                                DockAction(
-                                    if (address.text.isNotEmpty()) BrowserGlyphType.CLEAR else BrowserGlyphType.CLOSE,
-                                    if (address.text.isNotEmpty()) "Xoá nội dung" else "Đóng gợi ý",
-                                    true
-                                ) {
-                                    if (address.text.isNotEmpty()) {
-                                        address = TextFieldValue("")
-                                    } else {
-                                        addressFocused = false
-                                        focusManager.clearFocus()
-                                        keyboard?.hide()
-                                    }
-                                }
-                            } else if (tab.isLoading) {
-                                Text(
-                                    tab.progress.toString() + "%",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
+                            ),
+                    ) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Row(
+                                Modifier
+                                    .height(if (addressFocused) 48.dp else 46.dp)
+                                    .padding(start = 12.dp, end = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BrowserGlyph(
+                                    when {
+                                        addressFocused -> BrowserGlyphType.SEARCH
+                                        isVerifiedSecure -> BrowserGlyphType.LOCK
+                                        else -> BrowserGlyphType.GLOBE
+                                    },
+                                    modifier =
+                                        Modifier.size(18.dp).semantics {
+                                            contentDescription =
+                                                when {
+                                                    addressFocused -> "Tìm kiếm"
+                                                    isVerifiedSecure -> "Kết nối HTTPS an toàn"
+                                                    else -> "Kết nối chưa được xác minh"
+                                                }
+                                        },
+                                    tint =
+                                        if (isVerifiedSecure) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                 )
-                            } else {
-                                DockAction(BrowserGlyphType.GO, "Truy cập", true) { navigate() }
+                                Spacer(Modifier.width(9.dp))
+                                BasicTextField(
+                                    value = address,
+                                    onValueChange = { address = it },
+                                    modifier =
+                                        Modifier.weight(1f).focusRequester(addressFocusRequester).onFocusChanged { state ->
+                                            if (state.isFocused && !addressFocused) {
+                                                address = address.copy(selection = TextRange(0, address.text.length))
+                                            } else if (!state.isFocused && addressFocused) {
+                                                address = TextFieldValue(tab.url.takeUnless { it == START_PAGE_URL }.orEmpty())
+                                            }
+                                            addressFocused = state.isFocused
+                                        },
+                                    singleLine = true,
+                                    textStyle =
+                                        MaterialTheme.typography.bodyMedium.copy(
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontSize = 13.sp,
+                                        ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                    keyboardActions = KeyboardActions(onGo = { navigate() }),
+                                    decorationBox = { inner ->
+                                        Box {
+                                            if (address.text.isEmpty()) {
+                                                Text(
+                                                    "Tìm kiếm hoặc nhập địa chỉ",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 12.sp,
+                                                    maxLines = 1,
+                                                )
+                                            }
+                                            inner()
+                                        }
+                                    },
+                                )
+                                if (addressFocused) {
+                                    if (address.text.isNotBlank()) {
+                                        DockAction(BrowserGlyphType.GO, "Tìm kiếm hoặc truy cập", true) { navigate() }
+                                    }
+                                    DockAction(
+                                        if (address.text.isNotEmpty()) BrowserGlyphType.CLEAR else BrowserGlyphType.CLOSE,
+                                        if (address.text.isNotEmpty()) "Xoá nội dung" else "Đóng gợi ý",
+                                        true,
+                                    ) {
+                                        if (address.text.isNotEmpty()) {
+                                            address = TextFieldValue("")
+                                        } else {
+                                            addressFocused = false
+                                            focusManager.clearFocus()
+                                            keyboard?.hide()
+                                        }
+                                    }
+                                } else if (tab.isLoading) {
+                                    Text(
+                                        tab.progress.toString() + "%",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                } else {
+                                    DockAction(BrowserGlyphType.GO, "Truy cập", true) { navigate() }
+                                }
                             }
-                        }
-                        AnimatedVisibility(
-                            visible = tab.isLoading && !addressFocused,
-                            enter = fadeIn(tween(120)),
-                            exit = fadeOut(tween(90))
-                        ) {
-                            LinearProgressIndicator(
-                                progress = { tab.progress.coerceIn(0, 100) / 100f },
-                                modifier = Modifier.fillMaxWidth().height(2.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
+                            AnimatedVisibility(
+                                visible = tab.isLoading && !addressFocused,
+                                enter = fadeIn(tween(120)),
+                                exit = fadeOut(tween(90)),
+                            ) {
+                                LinearProgressIndicator(
+                                    progress = { tab.progress.coerceIn(0, 100) / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                )
+                            }
                         }
                     }
-                }
 
-                if (!addressFocused) {
-                    if (extensionActions.isNotEmpty()) {
-                        Row(
-                            Modifier.widthIn(max = 88.dp).horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            extensionActions.take(2).forEach { action ->
-                                Surface(
-                                    onClick = { action.action.click() },
-                                    modifier = Modifier.size(38.dp).semantics {
-                                        contentDescription = action.title
-                                    },
-                                    shape = RoundedCornerShape(13.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        val iconBitmap = action.iconBitmap
-                                        if (iconBitmap != null) {
-                                            Image(
-                                                bitmap = iconBitmap.asImageBitmap(),
-                                                contentDescription = action.title,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        } else {
-                                            Text(
-                                                action.extensionName.firstOrNull()?.uppercase() ?: "E",
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                        action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
-                                            Surface(
-                                                modifier = Modifier.align(Alignment.TopEnd),
-                                                color = Color(action.badgeBackgroundColor ?: 0xFF59616D.toInt()),
-                                                shape = RoundedCornerShape(6.dp)
-                                            ) {
-                                                Text(
-                                                    badge.take(4),
-                                                    Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
-                                                    color = MaterialTheme.colorScheme.onPrimary,
-                                                    fontSize = 8.sp,
-                                                    lineHeight = 9.sp
+                    if (!addressFocused) {
+                        if (extensionActions.isNotEmpty()) {
+                            Row(
+                                Modifier.widthIn(max = 88.dp).horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                            ) {
+                                extensionActions.take(2).forEach { action ->
+                                    Surface(
+                                        onClick = { action.action.click() },
+                                        modifier =
+                                            Modifier.size(38.dp).semantics {
+                                                contentDescription = action.title
+                                            },
+                                        shape = RoundedCornerShape(13.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            val iconBitmap = action.iconBitmap
+                                            if (iconBitmap != null) {
+                                                Image(
+                                                    bitmap = iconBitmap.asImageBitmap(),
+                                                    contentDescription = action.title,
+                                                    modifier = Modifier.size(22.dp),
                                                 )
+                                            } else {
+                                                Text(
+                                                    action.extensionName.firstOrNull()?.uppercase() ?: "E",
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                )
+                                            }
+                                            action.badgeText?.takeIf(String::isNotBlank)?.let { badge ->
+                                                Surface(
+                                                    modifier = Modifier.align(Alignment.TopEnd),
+                                                    color = Color(action.badgeBackgroundColor ?: 0xFF59616D.toInt()),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                ) {
+                                                    Text(
+                                                        badge.take(4),
+                                                        Modifier.padding(horizontal = 3.dp, vertical = 1.dp),
+                                                        color = MaterialTheme.colorScheme.onPrimary,
+                                                        fontSize = 8.sp,
+                                                        lineHeight = 9.sp,
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+                        TabSwitcherAction(controller.tabs.size, onOpenTabs)
+                        DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
                     }
-                    TabSwitcherAction(controller.tabs.size, onOpenTabs)
-                    DockAction(BrowserGlyphType.MORE, "Menu", true) { showMenu = true }
                 }
             }
-        }
         }
     }
 
@@ -711,46 +767,48 @@ internal fun BrowserMainScreen(
             }
             controller.dismissContextMenu()
         }
-        val resourceLabel = when (request.resourceType) {
-            BrowserContextResourceType.IMAGE -> "ảnh"
-            BrowserContextResourceType.VIDEO -> "video"
-            BrowserContextResourceType.AUDIO -> "âm thanh"
-            BrowserContextResourceType.NONE -> "nội dung"
-        }
+        val resourceLabel =
+            when (request.resourceType) {
+                BrowserContextResourceType.IMAGE -> "ảnh"
+                BrowserContextResourceType.VIDEO -> "video"
+                BrowserContextResourceType.AUDIO -> "âm thanh"
+                BrowserContextResourceType.NONE -> "nội dung"
+            }
 
         ModalBottomSheet(
             onDismissRequest = controller::dismissContextMenu,
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp
+            tonalElevation = 3.dp,
         ) {
             Column(
-                Modifier.fillMaxWidth()
+                Modifier
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 20.dp)
+                    .padding(bottom = 20.dp),
             ) {
                 Text(
                     request.title ?: if (request.linkUrl != null) "Liên kết" else "Tùy chọn $resourceLabel",
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 request.linkUrl?.let { url ->
                     BrowserMenuListAction(
                         BrowserGlyphType.GLOBE,
                         "Mở liên kết trong tab mới",
                         subtitle = url,
-                        enabled = controller.canCreateTab
+                        enabled = controller.canCreateTab,
                     ) {
                         controller.openContextMenuTargetInNewTab(url)
                     }
                     BrowserMenuListAction(
                         BrowserGlyphType.BOOKMARK,
                         "Sao chép địa chỉ liên kết",
-                        subtitle = url
+                        subtitle = url,
                     ) {
                         copyContextUrl(url)
                     }
@@ -764,14 +822,14 @@ internal fun BrowserMainScreen(
                         },
                         "Mở $resourceLabel trong tab mới",
                         subtitle = url,
-                        enabled = controller.canCreateTab
+                        enabled = controller.canCreateTab,
                     ) {
                         controller.openContextMenuTargetInNewTab(url)
                     }
                     BrowserMenuListAction(
                         BrowserGlyphType.GLOBE,
                         "Sao chép địa chỉ $resourceLabel",
-                        subtitle = url
+                        subtitle = url,
                     ) {
                         copyContextUrl(url)
                     }
@@ -786,28 +844,29 @@ internal fun BrowserMainScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp
+            tonalElevation = 3.dp,
         ) {
             Column(
-                Modifier.fillMaxWidth()
+                Modifier
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 20.dp)
+                    .padding(bottom = 20.dp),
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.secondaryContainer,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(40.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(
                                 painter = painterResource(R.drawable.ic_launcher_foreground),
                                 contentDescription = "Cat Browser",
-                                modifier = Modifier.size(29.dp)
+                                modifier = Modifier.size(29.dp),
                             )
                         }
                     }
@@ -819,69 +878,105 @@ internal fun BrowserMainScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                     Surface(
                         shape = RoundedCornerShape(50),
-                        color = if (tab.isPrivate) Color(0xFF443B50)
-                            else MaterialTheme.colorScheme.secondaryContainer
+                        color =
+                            if (tab.isPrivate) {
+                                Color(0xFF443B50)
+                            } else {
+                                MaterialTheme.colorScheme.secondaryContainer
+                            },
                     ) {
                         Text(
                             if (tab.isPrivate) "ẨN DANH" else "ĐANG DUYỆT",
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            color = if (tab.isPrivate) Color(0xFFF2EDF7)
-                                else MaterialTheme.colorScheme.onSecondaryContainer,
+                            color =
+                                if (tab.isPrivate) {
+                                    Color(0xFFF2EDF7)
+                                } else {
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                                },
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.45.sp
+                            letterSpacing = 0.45.sp,
                         )
                     }
                 }
                 Row(Modifier.fillMaxWidth()) {
                     BrowserMenuAction(BrowserGlyphType.BACK, "Quay lại", Modifier.weight(1f), tab.canGoBack) {
-                        showMenu = false; controller.goBack()
+                        showMenu = false
+                        controller.goBack()
                     }
                     BrowserMenuAction(BrowserGlyphType.FORWARD, "Tiến tới", Modifier.weight(1f), tab.canGoForward) {
-                        showMenu = false; controller.goForward()
+                        showMenu = false
+                        controller.goForward()
                     }
                     BrowserMenuAction(
                         if (tab.isLoading) BrowserGlyphType.CLEAR else BrowserGlyphType.RELOAD,
                         if (tab.isLoading) "Dừng tải" else "Tải lại",
-                        Modifier.weight(1f)
-                    ) { showMenu = false; controller.stopOrReload() }
+                        Modifier.weight(1f),
+                    ) {
+                        showMenu = false
+                        controller.stopOrReload()
+                    }
                 }
                 Row(Modifier.fillMaxWidth()) {
                     BrowserMenuAction(BrowserGlyphType.NEW_TAB, "Tab mới", Modifier.weight(1f), controller.tabs.size < 20) {
-                        showMenu = false; controller.newTab()
+                        showMenu = false
+                        controller.newTab()
                     }
                     BrowserMenuAction(BrowserGlyphType.INCOGNITO, "Tab ẩn danh", Modifier.weight(1f), controller.tabs.size < 20) {
-                        showMenu = false; controller.newPrivateTab()
+                        showMenu = false
+                        controller.newPrivateTab()
                     }
                     BrowserMenuAction(BrowserGlyphType.HOME, "Trang chủ", Modifier.weight(1f)) {
-                        showMenu = false; controller.goHome()
+                        showMenu = false
+                        controller.goHome()
                     }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-                Text("THƯ VIỆN", modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
-                    color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                BrowserMenuListAction(BrowserGlyphType.BOOKS, "Dấu trang",
-                    subtitle = controller.bookmarks.size.toString() + " mục") {
-                    showMenu = false; showBookmarks = true
+                HorizontalDivider(
+                    Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                )
+                Text(
+                    "THƯ VIỆN",
+                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
+                BrowserMenuListAction(
+                    BrowserGlyphType.BOOKS,
+                    "Dấu trang",
+                    subtitle = controller.bookmarks.size.toString() + " mục",
+                ) {
+                    showMenu = false
+                    showBookmarks = true
                 }
                 BrowserMenuListAction(BrowserGlyphType.HISTORY, "Lịch sử") {
-                    showMenu = false; showHistory = true
+                    showMenu = false
+                    showHistory = true
                 }
                 BrowserMenuListAction(BrowserGlyphType.DOWNLOAD, "Tải xuống") {
-                    showMenu = false; onOpenDownloads()
+                    showMenu = false
+                    onOpenDownloads()
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-                Text("CÔNG CỤ", modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
-                    color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                HorizontalDivider(
+                    Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                )
+                Text(
+                    "CÔNG CỤ",
+                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                )
                 BrowserMenuListAction(
                     BrowserGlyphType.GLOBE,
                     if (tab.isDesktopMode) "Dùng giao diện di động" else "Yêu cầu trang máy tính",
@@ -912,41 +1007,57 @@ internal fun BrowserMainScreen(
                     }
                 }
                 BrowserMenuListAction(BrowserGlyphType.SEARCH, "Tìm trong trang") {
-                    showMenu = false; showFind = true
+                    showMenu = false
+                    showFind = true
                 }
                 BrowserMenuListAction(BrowserGlyphType.EXTENSIONS, "Tiện ích mở rộng") {
-                    showMenu = false; onOpenExtensions()
+                    showMenu = false
+                    onOpenExtensions()
                 }
                 BrowserMenuListAction(
                     BrowserGlyphType.AI,
                     "Cat AI",
-                    subtitle = "Trợ lý có kiểm soát thao tác"
+                    subtitle = "Trợ lý có kiểm soát thao tác",
                 ) {
-                    showMenu = false; onOpenAssistant()
+                    showMenu = false
+                    onOpenAssistant()
                 }
                 if (controller.recentlyClosedTabs.isNotEmpty()) {
-                    BrowserMenuListAction(BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
-                        subtitle = "Tab gần đây đã đóng", enabled = controller.tabs.size < 20) {
-                        showMenu = false; controller.restoreRecentlyClosedTab()
+                    BrowserMenuListAction(
+                        BrowserGlyphType.RELOAD,
+                        "Mở lại tab vừa đóng",
+                        subtitle = "Tab gần đây đã đóng",
+                        enabled = controller.tabs.size < 20,
+                    ) {
+                        showMenu = false
+                        controller.restoreRecentlyClosedTab()
                     }
                 }
                 if (controller.privateTabCount > 0) {
-                    BrowserMenuListAction(BrowserGlyphType.CLOSE, "Đóng tất cả tab ẩn danh",
-                        subtitle = controller.privateTabCount.toString() + " tab") {
-                        showMenu = false; controller.closeAllPrivateTabs()
+                    BrowserMenuListAction(
+                        BrowserGlyphType.CLOSE,
+                        "Đóng tất cả tab ẩn danh",
+                        subtitle = controller.privateTabCount.toString() + " tab",
+                    ) {
+                        showMenu = false
+                        controller.closeAllPrivateTabs()
                     }
                 }
-                HorizontalDivider(Modifier.padding(vertical = 8.dp),
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                HorizontalDivider(
+                    Modifier.padding(vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                )
                 BrowserMenuListAction(BrowserGlyphType.SETTINGS, "Cài đặt") {
-                    showMenu = false; onOpenSettings()
+                    showMenu = false
+                    onOpenSettings()
                 }
                 if (!tab.isPrivate) {
                     BrowserMenuListAction(
                         BrowserGlyphType.BOOKMARK,
-                        if (controller.isBookmarked(tab.url)) "Bỏ trang khỏi dấu trang" else "Thêm vào dấu trang"
+                        if (controller.isBookmarked(tab.url)) "Bỏ trang khỏi dấu trang" else "Thêm vào dấu trang",
                     ) {
-                        showMenu = false; controller.toggleBookmark()
+                        showMenu = false
+                        controller.toggleBookmark()
                     }
                 }
             }
@@ -964,15 +1075,28 @@ internal fun BrowserMainScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Phiên bản " + promptState.version, fontWeight = FontWeight.SemiBold)
                     if (promptState.releaseNotes.isNotBlank()) {
-                        Text(promptState.releaseNotes, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall, maxLines = 8, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            promptState.releaseNotes,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 8,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                     if (promptState.isDownloading) {
                         LinearProgressIndicator(progress = { promptState.progress / 100f }, modifier = Modifier.fillMaxWidth())
                         Text("Đang tải " + promptState.progress + "%", style = MaterialTheme.typography.labelSmall)
                     }
-                    Text(promptState.message, color = if (promptState.error) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        promptState.message,
+                        color =
+                            if (promptState.error) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             },
             confirmButton = {
@@ -984,14 +1108,16 @@ internal fun BrowserMainScreen(
                             promptState.updateAvailable -> updateManager.downloadUpdate(promptChannel)
                             else -> updateManager.checkForUpdates(promptChannel)
                         }
-                    }
+                    },
                 ) {
-                    Text(when {
-                        promptState.downloaded -> "Cài đặt ngay"
-                        promptState.isDownloading -> "Đang tải…"
-                        promptState.updateAvailable -> "Tải cập nhật"
-                        else -> "Thử lại"
-                    })
+                    Text(
+                        when {
+                            promptState.downloaded -> "Cài đặt ngay"
+                            promptState.isDownloading -> "Đang tải…"
+                            promptState.updateAvailable -> "Tải cập nhật"
+                            else -> "Thử lại"
+                        },
+                    )
                 }
             },
             dismissButton = {
@@ -999,7 +1125,7 @@ internal fun BrowserMainScreen(
                     updateManager.dismissUpdatePrompt(promptChannel)
                     promptRefresh++
                 }) { Text("Để sau") }
-            }
+            },
         )
     }
 
@@ -1009,9 +1135,12 @@ internal fun BrowserMainScreen(
             controller.history,
             "Chưa có lịch sử duyệt web.",
             { showHistory = false },
-            { controller.openEntry(it.url); showHistory = false },
+            {
+                controller.openEntry(it.url)
+                showHistory = false
+            },
             { controller.clearHistory() },
-            isLoading = !controller.isHistoryLoaded || controller.isHistoryLoading
+            isLoading = !controller.isHistoryLoaded || controller.isHistoryLoading,
         )
     }
     if (showBookmarks) {
@@ -1020,8 +1149,11 @@ internal fun BrowserMainScreen(
             controller.bookmarks,
             "Bạn chưa lưu trang nào.",
             { showBookmarks = false },
-            { controller.openEntry(it.url); showBookmarks = false },
-            isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading
+            {
+                controller.openEntry(it.url)
+                showBookmarks = false
+            },
+            isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading,
         )
     }
 
@@ -1033,26 +1165,26 @@ internal fun BrowserMainScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(
                         prompt.origin + " muốn sử dụng: " + prompt.permissionLabel + ".",
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     if (prompt.isPrivate) {
                         Text(
                             "Yêu cầu đến từ tab ẩn danh. Lựa chọn này không được lưu thành quyền lâu dài.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     } else {
                         Text(
                             "Cat Browser sẽ ghi nhớ lựa chọn cho website này. Bạn có thể quản lý quyền đã lưu trong Cài đặt.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     if (prompt.isIrreversible) {
                         Text(
                             "Lưu ý: quyền lưu trữ lâu dài có giới hạn thu hồi theo GeckoView.",
                             color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
@@ -1066,7 +1198,7 @@ internal fun BrowserMainScreen(
                 TextButton(onClick = { controller.resolveSitePermission(false) }) {
                     Text("Chặn")
                 }
-            }
+            },
         )
     }
 
@@ -1074,17 +1206,17 @@ internal fun BrowserMainScreen(
         Dialog(
             onDismissRequest = {
                 controller.extensionsManager.closePopup(popupState.session)
-            }
+            },
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(0.96f).heightIn(min = 300.dp, max = 560.dp),
                 shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.surface
+                color = MaterialTheme.colorScheme.surface,
             ) {
                 Column(Modifier.fillMaxWidth()) {
                     Row(
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             popupState.extensionName,
@@ -1092,12 +1224,12 @@ internal fun BrowserMainScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                         IconButton(
                             onClick = {
                                 controller.extensionsManager.closePopup(popupState.session)
-                            }
+                            },
                         ) {
                             BrowserGlyph(BrowserGlyphType.CLOSE)
                         }
@@ -1117,7 +1249,7 @@ internal fun BrowserMainScreen(
                         },
                         onRelease = { view ->
                             view.releaseSession()
-                        }
+                        },
                     )
                 }
             }
@@ -1137,13 +1269,13 @@ internal fun BrowserMainScreen(
                         Text(
                             "Yêu cầu đến từ tab ẩn danh.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                     Text(
                         "Android có thể hiển thị thêm hộp thoại quyền thiết bị.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.bodySmall,
                     )
                 }
             },
@@ -1156,7 +1288,7 @@ internal fun BrowserMainScreen(
                 TextButton(onClick = { controller.resolveMediaPermission(false) }) {
                     Text("Từ chối")
                 }
-            }
+            },
         )
     }
 }

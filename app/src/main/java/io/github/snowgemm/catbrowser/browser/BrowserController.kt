@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
@@ -20,7 +21,6 @@ import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.MediaSession
 import org.mozilla.geckoview.PictureInPictureController
 import org.mozilla.geckoview.StorageController
-import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.WebResponse
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -33,13 +33,14 @@ private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 @OptIn(ExperimentalGeckoViewApi::class)
 class BrowserController(
     context: Context,
-    private val runtime: GeckoRuntime
+    private val runtime: GeckoRuntime,
 ) {
     private val appContext = context.applicationContext
-    private val preferences = appContext.getSharedPreferences(
-        PREFERENCES_NAME,
-        Context.MODE_PRIVATE
-    )
+    private val preferences =
+        appContext.getSharedPreferences(
+            PREFERENCES_NAME,
+            Context.MODE_PRIVATE,
+        )
     private val localStore = BrowserLocalStore(preferences)
     val updateManager = BrowserUpdateManager(appContext)
 
@@ -51,15 +52,16 @@ class BrowserController(
     var searchEngine by mutableStateOf(preferences.getString(KEY_SEARCH_ENGINE, SEARCH_DUCKDUCKGO) ?: SEARCH_DUCKDUCKGO)
         private set
     var homePage by mutableStateOf(
-        preferences.getString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL)
+        preferences
+            .getString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL)
             ?.takeUnless { it == LEGACY_DEFAULT_HOME_PAGE_URL }
-            ?: DEFAULT_HOME_PAGE_URL
+            ?: DEFAULT_HOME_PAGE_URL,
     )
         private set
     var startupMode by mutableStateOf(preferences.getString(KEY_STARTUP_MODE, STARTUP_CONTINUE) ?: STARTUP_CONTINUE)
         private set
     var trackingProtectionEnabled by mutableStateOf(
-        preferences.getBoolean(KEY_TRACKING_PROTECTION, true)
+        preferences.getBoolean(KEY_TRACKING_PROTECTION, true),
     )
         private set
 
@@ -71,19 +73,21 @@ class BrowserController(
     val tabGroups = mutableStateListOf<BrowserTabGroup>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
-    val extensionsManager = BrowserExtensionsManager(
-        runtime = runtime,
-        context = appContext,
-        downloadManager = downloadManager,
-        sessionProvider = { tabs.mapNotNull { it.session } },
-        onCreateTabFromExtension = ::createExtensionTab,
-        onActivateSession = ::activateExtensionTab,
-        onCloseSession = ::closeExtensionTab,
-        onOpenOptionsPage = ::openExtensionOptionsPage,
-        onRestoreBrowserFocus = {
-            activeTab?.session?.let(::activateExtensionTab)
-        }
-    )
+    val extensionsManager =
+        BrowserExtensionsManager(
+            runtime = runtime,
+            context = appContext,
+            downloadManager = downloadManager,
+            sessionProvider = { tabs.mapNotNull { it.session } },
+            onCreateTabFromExtension = ::createExtensionTab,
+            onActivateSession = ::activateExtensionTab,
+            onCloseSession = ::closeExtensionTab,
+            onOpenOptionsPage = ::openExtensionOptionsPage,
+            onRestoreBrowserFocus = {
+                activeTab?.session?.let(::activateExtensionTab)
+            },
+        )
+
     // Kept in memory only; private tabs are never added here.
     val recentlyClosedTabs = mutableStateListOf<BrowserEntry>()
 
@@ -138,12 +142,14 @@ class BrowserController(
     private val storageHandler = Handler(storageHandlerThread.looper)
     private val privacyStatsHandlerThread = HandlerThread("CatBrowserPrivacyStats").apply { start() }
     private val privacyStatsHandler = Handler(privacyStatsHandlerThread.looper)
-    private val dataExecutor = Executors.newSingleThreadExecutor { task ->
-        Thread(task, "CatBrowserData").apply { isDaemon = true }
-    }
-    private val pdfWriterExecutor = Executors.newSingleThreadExecutor { task ->
-        Thread(task, "CatBrowserPdfWriter").apply { isDaemon = true }
-    }
+    private val dataExecutor =
+        Executors.newSingleThreadExecutor { task ->
+            Thread(task, "CatBrowserData").apply { isDaemon = true }
+        }
+    private val pdfWriterExecutor =
+        Executors.newSingleThreadExecutor { task ->
+            Thread(task, "CatBrowserPdfWriter").apply { isDaemon = true }
+        }
     private var privacyStatsRequestVersion = 0
     private var privacyStatsRequestInFlight = false
     private var privacyStatsRefreshQueued = false
@@ -205,10 +211,11 @@ class BrowserController(
         if (tabs.size >= MAX_TABS) return
 
         val validGroupId = groupId?.takeIf { id -> tabGroups.any { it.id == id } }
-        val tab = BrowserTab(
-            initialUrl = resolvedHomePageUrl(),
-            initialGroupId = validGroupId
-        )
+        val tab =
+            BrowserTab(
+                initialUrl = resolvedHomePageUrl(),
+                initialGroupId = validGroupId,
+            )
         tabs.add(tab)
         selectTab(tab.id)
     }
@@ -216,11 +223,12 @@ class BrowserController(
     fun newPrivateTab() {
         if (tabs.size >= MAX_TABS) return
 
-        val tab = BrowserTab(
-            initialUrl = resolvedHomePageUrl(),
-            initialTitle = "Tab ẩn danh",
-            isPrivate = true
-        )
+        val tab =
+            BrowserTab(
+                initialUrl = resolvedHomePageUrl(),
+                initialTitle = "Tab ẩn danh",
+                isPrivate = true,
+            )
         tabs.add(tab)
         selectTab(tab.id)
     }
@@ -246,15 +254,16 @@ class BrowserController(
         }
 
         dismissContextMenu()
-        val newTab = BrowserTab(
-            initialUrl = safeUrl,
-            initialTitle = safeUrl,
-            isPrivate = sourceTab.isPrivate,
-            initialDesktopMode = sourceTab.isDesktopMode,
-            initialGroupId = sourceTab.groupId
-        ).apply {
-            pendingReferrerSession = sourceSession
-        }
+        val newTab =
+            BrowserTab(
+                initialUrl = safeUrl,
+                initialTitle = safeUrl,
+                isPrivate = sourceTab.isPrivate,
+                initialDesktopMode = sourceTab.isDesktopMode,
+                initialGroupId = sourceTab.groupId,
+            ).apply {
+                pendingReferrerSession = sourceSession
+            }
         tabs.add(newTab)
         selectTab(newTab.id)
         persistTabs()
@@ -264,7 +273,7 @@ class BrowserController(
     fun createTabGroup(
         tabIds: Collection<String>,
         name: String,
-        colorIndex: Int
+        colorIndex: Int,
     ): BrowserTabGroup? {
         val normalizedName = BrowserTabGroupPolicy.normalizeName(name)
         val selectedIds = tabIds.toSet()
@@ -277,11 +286,12 @@ class BrowserController(
             return null
         }
 
-        val group = BrowserTabGroup(
-            id = UUID.randomUUID().toString(),
-            name = normalizedName,
-            colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)
-        )
+        val group =
+            BrowserTabGroup(
+                id = UUID.randomUUID().toString(),
+                name = normalizedName,
+                colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex),
+            )
         tabGroups.add(group)
         selectedTabs.forEach { it.groupId = group.id }
         pruneEmptyTabGroups()
@@ -289,7 +299,10 @@ class BrowserController(
         return group
     }
 
-    fun assignTabToGroup(tabId: String, groupId: String?): Boolean {
+    fun assignTabToGroup(
+        tabId: String,
+        groupId: String?,
+    ): Boolean {
         val tab = tabs.firstOrNull { it.id == tabId } ?: return false
         if (tab.isPrivate) return false
         if (groupId != null && tabGroups.none { it.id == groupId }) return false
@@ -301,16 +314,21 @@ class BrowserController(
         return true
     }
 
-    fun updateTabGroup(groupId: String, name: String, colorIndex: Int): Boolean {
+    fun updateTabGroup(
+        groupId: String,
+        name: String,
+        colorIndex: Int,
+    ): Boolean {
         val index = tabGroups.indexOfFirst { it.id == groupId }
         if (index < 0) return false
         val normalizedName = BrowserTabGroupPolicy.normalizeName(name)
         if (normalizedName.isBlank()) return false
 
-        tabGroups[index] = tabGroups[index].copy(
-            name = normalizedName,
-            colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)
-        )
+        tabGroups[index] =
+            tabGroups[index].copy(
+                name = normalizedName,
+                colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex),
+            )
         persistTabs()
         return true
     }
@@ -339,27 +357,33 @@ class BrowserController(
         tabGroups.removeAll { it.id !in activeGroupIds }
     }
 
-    fun updateTabPreview(tabId: String, bitmap: Bitmap) {
+    fun updateTabPreview(
+        tabId: String,
+        bitmap: Bitmap,
+    ) {
         val tab = tabs.firstOrNull { it.id == tabId } ?: return
         val maxWidth = 320
         val maxHeight = 180
-        val scale = minOf(
-            1f,
-            maxWidth.toFloat() / bitmap.width.coerceAtLeast(1),
-            maxHeight.toFloat() / bitmap.height.coerceAtLeast(1)
-        )
+        val scale =
+            minOf(
+                1f,
+                maxWidth.toFloat() / bitmap.width.coerceAtLeast(1),
+                maxHeight.toFloat() / bitmap.height.coerceAtLeast(1),
+            )
         val width = (bitmap.width * scale).toInt().coerceAtLeast(1)
         val height = (bitmap.height * scale).toInt().coerceAtLeast(1)
-        val scaled = if (width == bitmap.width && height == bitmap.height) {
-            bitmap
-        } else {
-            Bitmap.createScaledBitmap(bitmap, width, height, true)
-        }
-        val compact = if (scaled.config != Bitmap.Config.RGB_565) {
-            runCatching { scaled.copy(Bitmap.Config.RGB_565, false) }.getOrNull() ?: scaled
-        } else {
-            scaled
-        }
+        val scaled =
+            if (width == bitmap.width && height == bitmap.height) {
+                bitmap
+            } else {
+                Bitmap.createScaledBitmap(bitmap, width, height, true)
+            }
+        val compact =
+            if (scaled.config != Bitmap.Config.RGB_565) {
+                runCatching { scaled.copy(Bitmap.Config.RGB_565, false) }.getOrNull() ?: scaled
+            } else {
+                scaled
+            }
 
         if (compact !== scaled && !scaled.isRecycled) scaled.recycle()
         if (compact !== bitmap && !bitmap.isRecycled) bitmap.recycle()
@@ -518,9 +542,9 @@ class BrowserController(
             runCatching {
                 GeckoSession(sessionSettings).also { it.open(runtime) }
             }.getOrElse {
-            sourceSession.sessionPictureInPicture.exit()
-            return
-        }
+                sourceSession.sessionPictureInPicture.exit()
+                return
+            }
 
         pictureInPictureSourceSession = sourceSession
         pictureInPictureSession = pipSession
@@ -635,7 +659,10 @@ class BrowserController(
         }
     }
 
-    fun moveTab(tabId: String, targetId: String): Boolean {
+    fun moveTab(
+        tabId: String,
+        targetId: String,
+    ): Boolean {
         if (tabId == targetId) return false
         val fromIndex = tabs.indexOfFirst { it.id == tabId }
         val targetIndex = tabs.indexOfFirst { it.id == targetId }
@@ -657,7 +684,7 @@ class BrowserController(
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
                 )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
@@ -685,7 +712,7 @@ class BrowserController(
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
                 )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
@@ -721,8 +748,8 @@ class BrowserController(
                 BrowserEntry(
                     title = removed.title.ifBlank { removed.url },
                     url = removed.url,
-                    timestamp = System.currentTimeMillis()
-                )
+                    timestamp = System.currentTimeMillis(),
+                ),
             )
             while (recentlyClosedTabs.size > MAX_RECENTLY_CLOSED) {
                 recentlyClosedTabs.removeAt(recentlyClosedTabs.lastIndex)
@@ -792,7 +819,10 @@ class BrowserController(
         navigateToUrl(destination, value)
     }
 
-    private fun navigateToUrl(destination: String, originalInput: String) {
+    private fun navigateToUrl(
+        destination: String,
+        originalInput: String,
+    ) {
         val tab = activeTab ?: return
         if (tab.isFullScreen) tab.session?.exitFullScreen()
         tab.isFullScreen = false
@@ -810,9 +840,10 @@ class BrowserController(
             tab.loadPendingUntilAttached = false
             tab.pendingOriginalInput = null
             session.load(
-                GeckoSession.Loader()
+                GeckoSession
+                    .Loader()
                     .uri(destination)
-                    .originalInput(originalInput)
+                    .originalInput(originalInput),
             )
         } else {
             tab.loadPendingUntilAttached = true
@@ -822,16 +853,17 @@ class BrowserController(
     }
 
     /** Browser context exposed to Cat AI deliberately excludes every private tab. */
-    fun assistantListTabs(): List<AssistantTabSnapshot> = tabs
-        .filterNot { it.isPrivate }
-        .map { tab ->
-            AssistantTabSnapshot(
-                id = tab.id,
-                title = tab.title.ifBlank { if (tab.url == START_PAGE_URL) "Tab mới" else tab.url },
-                url = tab.url.takeUnless { it == START_PAGE_URL }.orEmpty(),
-                active = tab.id == selectedTabId
-            )
-        }
+    fun assistantListTabs(): List<AssistantTabSnapshot> =
+        tabs
+            .filterNot { it.isPrivate }
+            .map { tab ->
+                AssistantTabSnapshot(
+                    id = tab.id,
+                    title = tab.title.ifBlank { if (tab.url == START_PAGE_URL) "Tab mới" else tab.url },
+                    url = tab.url.takeUnless { it == START_PAGE_URL }.orEmpty(),
+                    active = tab.id == selectedTabId,
+                )
+            }
 
     fun assistantActiveTab(): AssistantTabSnapshot? =
         activeTab?.takeUnless { it.isPrivate }?.let { tab ->
@@ -839,7 +871,7 @@ class BrowserController(
                 id = tab.id,
                 title = tab.title.ifBlank { if (tab.url == START_PAGE_URL) "Tab mới" else tab.url },
                 url = tab.url.takeUnless { it == START_PAGE_URL }.orEmpty(),
-                active = true
+                active = true,
             )
         }
 
@@ -899,15 +931,17 @@ class BrowserController(
         activeTab?.takeIf { it.canGoForward }?.session?.goForward()
     }
 
-    private fun resolvedHomePageUrl(): String = when (homePage) {
-        SEARCH_HOME_PAGE_URL -> when (searchEngine) {
-            SEARCH_GOOGLE -> "https://www.google.com/"
-            SEARCH_BING -> "https://www.bing.com/"
-            SEARCH_BRAVE -> "https://search.brave.com/"
-            else -> "https://duckduckgo.com/"
+    private fun resolvedHomePageUrl(): String =
+        when (homePage) {
+            SEARCH_HOME_PAGE_URL ->
+                when (searchEngine) {
+                    SEARCH_GOOGLE -> "https://www.google.com/"
+                    SEARCH_BING -> "https://www.bing.com/"
+                    SEARCH_BRAVE -> "https://search.brave.com/"
+                    else -> "https://duckduckgo.com/"
+                }
+            else -> homePage
         }
-        else -> homePage
-    }
 
     fun goHome() {
         if (homePage == SEARCH_HOME_PAGE_URL) {
@@ -967,9 +1001,10 @@ class BrowserController(
         if (isHistoryLoaded || isHistoryLoading) return
         isHistoryLoading = true
         dataExecutor.execute {
-            val entries = runCatching {
-                localStore.readHistory(MAX_HISTORY)
-            }.getOrDefault(emptyList())
+            val entries =
+                runCatching {
+                    localStore.readHistory(MAX_HISTORY)
+                }.getOrDefault(emptyList())
 
             dataHandler.post {
                 if (!isHistoryLoaded) history.addAll(entries)
@@ -983,9 +1018,10 @@ class BrowserController(
         if (isBookmarksLoaded || isBookmarksLoading) return
         isBookmarksLoading = true
         dataExecutor.execute {
-            val entries = runCatching {
-                localStore.readBookmarks()
-            }.getOrDefault(emptyList())
+            val entries =
+                runCatching {
+                    localStore.readBookmarks()
+                }.getOrDefault(emptyList())
 
             dataHandler.post {
                 if (!isBookmarksLoaded) bookmarks.addAll(entries)
@@ -1018,27 +1054,31 @@ class BrowserController(
                 BrowserEntry(
                     title = tab.title.ifBlank { tab.url },
                     url = tab.url,
-                    timestamp = System.currentTimeMillis()
-                )
+                    timestamp = System.currentTimeMillis(),
+                ),
             )
         }
         persistBookmarks()
     }
 
-    fun addBookmark(title: String, inputUrl: String): Boolean {
+    fun addBookmark(
+        title: String,
+        inputUrl: String,
+    ): Boolean {
         if (!isBookmarksLoaded) {
             loadBookmarks()
             return false
         }
         val url = BrowserUrlResolver.resolveAddress(inputUrl) ?: return false
         if (!isWebUrl(url)) return false
-        val cleanTitle = title.trim().take(100).ifBlank {
-            Uri.parse(url).host ?: url
-        }
+        val cleanTitle =
+            title.trim().take(100).ifBlank {
+                Uri.parse(url).host ?: url
+            }
         bookmarks.removeAll { it.url == url }
         bookmarks.add(
             0,
-            BrowserEntry(cleanTitle, url, System.currentTimeMillis())
+            BrowserEntry(cleanTitle, url, System.currentTimeMillis()),
         )
         persistBookmarks()
         return true
@@ -1068,11 +1108,12 @@ class BrowserController(
     }
 
     fun setHomePageMode(mode: String): Boolean {
-        val selected = when (mode) {
-            "cat" -> DEFAULT_HOME_PAGE_URL
-            "search" -> SEARCH_HOME_PAGE_URL
-            else -> return false
-        }
+        val selected =
+            when (mode) {
+                "cat" -> DEFAULT_HOME_PAGE_URL
+                "search" -> SEARCH_HOME_PAGE_URL
+                else -> return false
+            }
         homePage = selected
         preferences.edit().putString(KEY_HOME_PAGE, selected).apply()
         return true
@@ -1118,7 +1159,7 @@ class BrowserController(
                 GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
             } else {
                 GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
-            }
+            },
         )
         loadSitePermissions()
     }
@@ -1132,7 +1173,7 @@ class BrowserController(
         if (allow && callback != null) {
             callback.grant(
                 prompt.videoSources.firstOrNull(),
-                prompt.audioSources.firstOrNull()
+                prompt.audioSources.firstOrNull(),
             )
         } else {
             callback?.reject()
@@ -1191,42 +1232,46 @@ class BrowserController(
 
         privacyStatsHandler.post {
             try {
-                contentBlockingController.getTrackingDbEventsByDateRange(
-                    now - PRIVACY_STATS_RANGE_MS,
-                    now
-                ).accept(
-                    { events ->
-                        val result = aggregatePrivacyBlockingEvents(
-                            events.orEmpty().map { event ->
-                                PrivacyBlockingEvent(type = event.type, count = event.count)
-                            }
-                        )
-                        dataHandler.post {
-                            if (requestVersion == privacyStatsRequestVersion) {
-                                privacyStats = result.copy(isLoading = false, hasError = false)
-                                finishPrivacyStatsRequest()
-                            }
-                        }
-                    },
-                    { _ ->
-                        dataHandler.post {
-                            if (requestVersion == privacyStatsRequestVersion) {
-                                privacyStats = privacyStats.copy(
-                                    isLoading = false,
-                                    hasError = true
+                contentBlockingController
+                    .getTrackingDbEventsByDateRange(
+                        now - PRIVACY_STATS_RANGE_MS,
+                        now,
+                    ).accept(
+                        { events ->
+                            val result =
+                                aggregatePrivacyBlockingEvents(
+                                    events.orEmpty().map { event ->
+                                        PrivacyBlockingEvent(type = event.type, count = event.count)
+                                    },
                                 )
-                                finishPrivacyStatsRequest()
+                            dataHandler.post {
+                                if (requestVersion == privacyStatsRequestVersion) {
+                                    privacyStats = result.copy(isLoading = false, hasError = false)
+                                    finishPrivacyStatsRequest()
+                                }
                             }
-                        }
-                    }
-                )
+                        },
+                        { _ ->
+                            dataHandler.post {
+                                if (requestVersion == privacyStatsRequestVersion) {
+                                    privacyStats =
+                                        privacyStats.copy(
+                                            isLoading = false,
+                                            hasError = true,
+                                        )
+                                    finishPrivacyStatsRequest()
+                                }
+                            }
+                        },
+                    )
             } catch (_: Exception) {
                 dataHandler.post {
                     if (requestVersion == privacyStatsRequestVersion) {
-                        privacyStats = privacyStats.copy(
-                            isLoading = false,
-                            hasError = true
-                        )
+                        privacyStats =
+                            privacyStats.copy(
+                                isLoading = false,
+                                hasError = true,
+                            )
                         finishPrivacyStatsRequest()
                     }
                 }
@@ -1250,22 +1295,27 @@ class BrowserController(
         storageHandler.post {
             storageController.getAllPermissions().accept(
                 { permissions ->
-                    val entries = permissions.orEmpty().map { permission ->
-                        val host = runCatching { Uri.parse(permission.uri).host }.getOrNull()
-                        SitePermissionEntry(
-                            permission = permission,
-                            origin = host ?: permission.uri,
-                            permissionLabel = permissionLabel(permission.permission),
-                            stateLabel = when (permission.value) {
-                                GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW -> "Được phép"
-                                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY -> "Bị chặn"
-                                else -> "Mặc định"
-                            },
-                            isPrivate = permission.privateMode,
-                            canReset = permission.permission !=
-                                GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE
-                        )
-                    }.sortedWith(compareBy<SitePermissionEntry>({ it.origin }, { it.permissionLabel }))
+                    val entries =
+                        permissions
+                            .orEmpty()
+                            .map { permission ->
+                                val host = runCatching { Uri.parse(permission.uri).host }.getOrNull()
+                                SitePermissionEntry(
+                                    permission = permission,
+                                    origin = host ?: permission.uri,
+                                    permissionLabel = permissionLabel(permission.permission),
+                                    stateLabel =
+                                        when (permission.value) {
+                                            GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW -> "Được phép"
+                                            GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY -> "Bị chặn"
+                                            else -> "Mặc định"
+                                        },
+                                    isPrivate = permission.privateMode,
+                                    canReset =
+                                        permission.permission !=
+                                            GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE,
+                                )
+                            }.sortedWith(compareBy<SitePermissionEntry>({ it.origin }, { it.permissionLabel }))
 
                     dataHandler.post {
                         if (requestVersion != sitePermissionsLoadVersion) return@post
@@ -1280,7 +1330,7 @@ class BrowserController(
                         isSitePermissionsLoading = false
                         sitePermissionsMessage = error?.message ?: "Không thể tải quyền website."
                     }
-                }
+                },
             )
         }
     }
@@ -1291,7 +1341,7 @@ class BrowserController(
             runCatching {
                 storageController.setPermission(
                     entry.permission,
-                    GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT
+                    GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT,
                 )
             }.onSuccess {
                 dataHandler.post {
@@ -1306,26 +1356,27 @@ class BrowserController(
         }
     }
 
-    private fun permissionLabel(permission: Int): String = when (permission) {
-        GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION -> "Vị trí"
-        GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION -> "Thông báo"
-        GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE -> "Lưu trữ lâu dài"
-        GeckoSession.PermissionDelegate.PERMISSION_XR -> "Thực tế ảo / XR"
-        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE -> "Tự phát âm thanh"
-        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE -> "Tự phát video"
-        GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS -> "Phát nội dung DRM"
-        GeckoSession.PermissionDelegate.PERMISSION_TRACKING -> "Cho phép trình theo dõi"
-        GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS -> "Truy cập cookie bên thứ ba"
-        GeckoSession.PermissionDelegate.PERMISSION_LOCAL_DEVICE_ACCESS -> "Truy cập thiết bị cục bộ"
-        GeckoSession.PermissionDelegate.PERMISSION_LOCAL_NETWORK_ACCESS -> "Truy cập mạng cục bộ"
-        else -> "Quyền website ($permission)"
-    }
+    private fun permissionLabel(permission: Int): String =
+        when (permission) {
+            GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION -> "Vị trí"
+            GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION -> "Thông báo"
+            GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE -> "Lưu trữ lâu dài"
+            GeckoSession.PermissionDelegate.PERMISSION_XR -> "Thực tế ảo / XR"
+            GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE -> "Tự phát âm thanh"
+            GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE -> "Tự phát video"
+            GeckoSession.PermissionDelegate.PERMISSION_MEDIA_KEY_SYSTEM_ACCESS -> "Phát nội dung DRM"
+            GeckoSession.PermissionDelegate.PERMISSION_TRACKING -> "Cho phép trình theo dõi"
+            GeckoSession.PermissionDelegate.PERMISSION_STORAGE_ACCESS -> "Truy cập cookie bên thứ ba"
+            GeckoSession.PermissionDelegate.PERMISSION_LOCAL_DEVICE_ACCESS -> "Truy cập thiết bị cục bộ"
+            GeckoSession.PermissionDelegate.PERMISSION_LOCAL_NETWORK_ACCESS -> "Truy cập mạng cục bộ"
+            else -> "Quyền website ($permission)"
+        }
 
     fun clearBrowsingData(
         clearHistory: Boolean,
         clearCookiesAndSiteData: Boolean,
         clearCache: Boolean,
-        clearSitePermissions: Boolean
+        clearSitePermissions: Boolean,
     ) {
         if (isClearingData) return
         if (!clearHistory && !clearCookiesAndSiteData && !clearCache && !clearSitePermissions) {
@@ -1394,12 +1445,15 @@ class BrowserController(
                         persistTabs()
                         activateSelectedTab()
                     }
-                }
+                },
             )
         }
     }
 
-    fun findInPage(query: String, forward: Boolean = true) {
+    fun findInPage(
+        query: String,
+        forward: Boolean = true,
+    ) {
         val session = activeTab?.session ?: return
         val value = query.trim()
         if (value.isEmpty()) {
@@ -1410,42 +1464,50 @@ class BrowserController(
         val finder = session.getFinder()
         findInPageResult = null
         finder.setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL)
-        finder.find(
-            value,
-            if (forward) GeckoSession.FINDER_FIND_FORWARD
-            else GeckoSession.FINDER_FIND_BACKWARDS
-        ).accept(
-            { result ->
-                dataHandler.post {
-                    findInPageResult = result?.let {
-                        FindInPageState(it.found, it.current, it.total)
-                    } ?: FindInPageState(false, 0, 0)
-                }
-            },
-            {
-                dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
-            }
-        )
+        finder
+            .find(
+                value,
+                if (forward) {
+                    GeckoSession.FINDER_FIND_FORWARD
+                } else {
+                    GeckoSession.FINDER_FIND_BACKWARDS
+                },
+            ).accept(
+                { result ->
+                    dataHandler.post {
+                        findInPageResult = result?.let {
+                            FindInPageState(it.found, it.current, it.total)
+                        } ?: FindInPageState(false, 0, 0)
+                    }
+                },
+                {
+                    dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+                },
+            )
     }
 
     fun findNextInPage(forward: Boolean) {
         val finder = activeTab?.session?.getFinder() ?: return
-        finder.find(
-            null,
-            if (forward) GeckoSession.FINDER_FIND_FORWARD
-            else GeckoSession.FINDER_FIND_BACKWARDS
-        ).accept(
-            { result ->
-                dataHandler.post {
-                    findInPageResult = result?.let {
-                        FindInPageState(it.found, it.current, it.total)
-                    } ?: FindInPageState(false, 0, 0)
-                }
-            },
-            {
-                dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
-            }
-        )
+        finder
+            .find(
+                null,
+                if (forward) {
+                    GeckoSession.FINDER_FIND_FORWARD
+                } else {
+                    GeckoSession.FINDER_FIND_BACKWARDS
+                },
+            ).accept(
+                { result ->
+                    dataHandler.post {
+                        findInPageResult = result?.let {
+                            FindInPageState(it.found, it.current, it.total)
+                        } ?: FindInPageState(false, 0, 0)
+                    }
+                },
+                {
+                    dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+                },
+            )
     }
 
     fun clearFindInPage() {
@@ -1455,7 +1517,8 @@ class BrowserController(
 
     fun printTab(tabId: String): Boolean {
         val session =
-            tabs.firstOrNull { it.id == tabId }
+            tabs
+                .firstOrNull { it.id == tabId }
                 ?.session
                 ?.takeIf { it.isOpen && it.printDelegate != null } ?: return false
         session.printPageContent()
@@ -1472,12 +1535,13 @@ class BrowserController(
         }
 
         val session =
-            tabs.firstOrNull { it.id == tabId }
+            tabs
+                .firstOrNull { it.id == tabId }
                 ?.session
                 ?.takeIf { it.isOpen } ?: run {
-                    pdfExportMessage = "Trang chưa sẵn sàng để xuất PDF."
-                    return false
-                }
+                pdfExportMessage = "Trang chưa sẵn sàng để xuất PDF."
+                return false
+            }
 
         isPdfExporting = true
         pdfExportMessage = "Đang tạo PDF…"
@@ -1487,28 +1551,30 @@ class BrowserController(
                     result.accept(
                         { input ->
                             pdfWriterExecutor.execute {
-                                val saveResult = runCatching {
-                                    input?.use { source ->
-                                        val output = appContext.contentResolver
-                                            .openOutputStream(destinationUri, "w")
-                                            ?: error("Unable to open the selected document.")
-                                        output.use { target -> source.copyTo(target) }
-                                    } ?: error("GeckoView returned an empty PDF stream.")
-                                }
+                                val saveResult =
+                                    runCatching {
+                                        input?.use { source ->
+                                            val output =
+                                                appContext.contentResolver
+                                                    .openOutputStream(destinationUri, "w")
+                                                    ?: error("Unable to open the selected document.")
+                                            output.use { target -> source.copyTo(target) }
+                                        } ?: error("GeckoView returned an empty PDF stream.")
+                                    }
                                 dataHandler.post {
                                     isPdfExporting = false
-                                    pdfExportMessage = if (saveResult.isSuccess) {
-                                        "Đã lưu tệp PDF vào vị trí đã chọn."
-                                    } else {
-                                        "Không thể lưu tệp PDF. Hãy thử lại."
-                                    }
+                                    pdfExportMessage =
+                                        if (saveResult.isSuccess) {
+                                            "Đã lưu tệp PDF vào vị trí đã chọn."
+                                        } else {
+                                            "Không thể lưu tệp PDF. Hãy thử lại."
+                                        }
                                 }
                             }
                         },
-                        { publishPdfExportFailure() }
+                        { publishPdfExportFailure() },
                     )
-                }
-                .onFailure { publishPdfExportFailure() }
+                }.onFailure { publishPdfExportFailure() }
         }
         return true
     }
@@ -1554,11 +1620,13 @@ class BrowserController(
 
     private fun openExtensionOptionsPage(url: String) {
         val requested = Uri.parse(url)
-        val belongsToInstalledExtension = extensionsManager.installed.any { extension ->
-            val base = Uri.parse(extension.metaData.baseUrl)
-            requested.scheme == "moz-extension" &&
-                requested.host != null && requested.host == base.host
-        }
+        val belongsToInstalledExtension =
+            extensionsManager.installed.any { extension ->
+                val base = Uri.parse(extension.metaData.baseUrl)
+                requested.scheme == "moz-extension" &&
+                    requested.host != null &&
+                    requested.host == base.host
+            }
         if (!belongsToInstalledExtension) {
             extensionsManager.reportStatus("Đã chặn trang tuỳ chọn không thuộc tiện ích đã cài.")
             return
@@ -1577,15 +1645,16 @@ class BrowserController(
         val selected = activeTab ?: return
         tabs.forEach { tab ->
             tab.session?.let { session ->
-                val visible = GeckoSessionVisibilityPolicy.isVisible(
-                    isAppForegrounded,
-                    tab.id == selected.id,
-                    tab.isViewAttached
-                )
+                val visible =
+                    GeckoSessionVisibilityPolicy.isVisible(
+                        isAppForegrounded,
+                        tab.id == selected.id,
+                        tab.isViewAttached,
+                    )
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
                 )
                 runtime.webExtensionController.setTabActive(session, visible)
             }
@@ -1593,30 +1662,39 @@ class BrowserController(
         if (selected.url != START_PAGE_URL || selected.session != null) {
             ensureSession(selected)
             selected.session?.let { session ->
-                val visible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, selected.id == selectedTabId, selected.isViewAttached)
+                val visible =
+                    GeckoSessionVisibilityPolicy.isVisible(
+                        isAppForegrounded,
+                        selected.id == selectedTabId,
+                        selected.isViewAttached,
+                    )
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
                 )
             }
         }
     }
 
-    fun onSessionViewAttached(tabId: String, session: GeckoSession) {
+    fun onSessionViewAttached(
+        tabId: String,
+        session: GeckoSession,
+    ) {
         val tab = tabs.firstOrNull { it.id == tabId } ?: return
         if (tab.session !== session || !session.isOpen) return
 
         tab.isViewAttached = true
-        val visible = GeckoSessionVisibilityPolicy.isVisible(
-            isAppForegrounded,
-            tab.id == selectedTabId,
-            tab.isViewAttached
-        )
+        val visible =
+            GeckoSessionVisibilityPolicy.isVisible(
+                isAppForegrounded,
+                tab.id == selectedTabId,
+                tab.isViewAttached,
+            )
         session.setActive(visible)
         session.setFocused(visible)
         session.setPriorityHint(
-            if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+            if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
         )
         runtime.webExtensionController.setTabActive(session, visible)
 
@@ -1624,9 +1702,11 @@ class BrowserController(
             val originalInput = tab.pendingOriginalInput ?: tab.url
             tab.loadPendingUntilAttached = false
             tab.pendingOriginalInput = null
-            val loader = GeckoSession.Loader()
-                .uri(tab.url)
-                .originalInput(originalInput)
+            val loader =
+                GeckoSession
+                    .Loader()
+                    .uri(tab.url)
+                    .originalInput(originalInput)
             val referrerSession = tab.pendingReferrerSession
             tab.pendingReferrerSession = null
             if (referrerSession?.isOpen == true) loader.referrer(referrerSession)
@@ -1634,7 +1714,10 @@ class BrowserController(
         }
     }
 
-    fun onSessionViewDetached(tabId: String, session: GeckoSession) {
+    fun onSessionViewDetached(
+        tabId: String,
+        session: GeckoSession,
+    ) {
         val tab = tabs.firstOrNull { it.id == tabId } ?: return
         if (tab.session !== session) return
 
@@ -1654,231 +1737,262 @@ class BrowserController(
         }
     }
 
-    private fun ensureSession(tab: BrowserTab, loadCurrentUrl: Boolean = true) {
+    private fun ensureSession(
+        tab: BrowserTab,
+        loadCurrentUrl: Boolean = true,
+    ) {
         val existing = tab.session
         if (existing != null && existing.isOpen) return
 
         val sessionSettings =
-            GeckoSessionSettings.Builder()
+            GeckoSessionSettings
+                .Builder()
                 .usePrivateMode(tab.isPrivate)
                 .useTrackingProtection(trackingProtectionEnabled)
                 .userAgentMode(
                     BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).userAgentMode,
-                )
-                .viewportMode(
+                ).viewportMode(
                     BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).viewportMode,
-                )
-                .build()
+                ).build()
         val session = GeckoSession(sessionSettings)
         tab.session = session
         tab.isViewAttached = false
         tab.loadPendingUntilAttached = loadCurrentUrl
         tab.pendingOriginalInput = if (loadCurrentUrl) tab.url else null
 
-        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
-            override fun onLocationChange(
-                session: GeckoSession,
-                url: String?,
-                perms: List<GeckoSession.PermissionDelegate.ContentPermission>,
-                hasUserGesture: Boolean
-            ) {
-                if (tab.session !== session || url.isNullOrBlank()) return
-                if (contextMenuRequest?.tabId == tab.id && tab.url != url) {
-                    dismissContextMenu()
-                }
-                tab.url = url
-                persistTabs()
-            }
-
-            override fun onCanGoBack(session: GeckoSession, value: Boolean) {
-                if (tab.session === session) tab.canGoBack = value
-            }
-
-            override fun onCanGoForward(session: GeckoSession, value: Boolean) {
-                if (tab.session === session) tab.canGoForward = value
-            }
-
-            override fun onNewSession(
-                session: GeckoSession,
-                uri: String
-            ): GeckoResult<GeckoSession>? {
-                if (tabs.size >= MAX_TABS) return null
-
-                val safeUrl = if (isWebUrl(uri)) uri else resolvedHomePageUrl()
-                val newTab = BrowserTab(
-                    initialUrl = safeUrl,
-                    initialTitle = "New tab",
-                    isPrivate = tab.isPrivate,
-                    initialDesktopMode = tab.isDesktopMode
-                )
-                tabs.add(newTab)
-                ensureSession(newTab, loadCurrentUrl = false)
-                selectTab(newTab.id)
-                persistTabs()
-                return newTab.session?.let { GeckoResult.fromValue(it) }
-            }
-        }
-
-        session.permissionDelegate = object : GeckoSession.PermissionDelegate {
-            override fun onAndroidPermissionsRequest(
-                session: GeckoSession,
-                permissions: Array<String>?,
-                callback: GeckoSession.PermissionDelegate.Callback
-            ) {
-                val requested = permissions?.distinct().orEmpty()
-                if (requested.isEmpty()) {
-                    callback.grant()
-                    return
-                }
-                if (requested.any { it !in SUPPORTED_ANDROID_PERMISSIONS }) {
-                    callback.reject()
-                    return
+        session.navigationDelegate =
+            object : GeckoSession.NavigationDelegate {
+                override fun onLocationChange(
+                    session: GeckoSession,
+                    url: String?,
+                    perms: List<GeckoSession.PermissionDelegate.ContentPermission>,
+                    hasUserGesture: Boolean,
+                ) {
+                    if (tab.session !== session || url.isNullOrBlank()) return
+                    if (contextMenuRequest?.tabId == tab.id && tab.url != url) {
+                        dismissContextMenu()
+                    }
+                    tab.url = url
+                    persistTabs()
                 }
 
-                pendingAndroidPermissionCallback?.reject()
-                val request = AndroidPermissionRequest(
-                    id = UUID.randomUUID().toString(),
-                    permissions = requested
-                )
-                pendingAndroidPermissionCallback = callback
-                pendingAndroidPermissionSession = session
-                pendingAndroidPermissionRequest = request
+                override fun onCanGoBack(
+                    session: GeckoSession,
+                    value: Boolean,
+                ) {
+                    if (tab.session === session) tab.canGoBack = value
+                }
+
+                override fun onCanGoForward(
+                    session: GeckoSession,
+                    value: Boolean,
+                ) {
+                    if (tab.session === session) tab.canGoForward = value
+                }
+
+                override fun onNewSession(
+                    session: GeckoSession,
+                    uri: String,
+                ): GeckoResult<GeckoSession>? {
+                    if (tabs.size >= MAX_TABS) return null
+
+                    val safeUrl = if (isWebUrl(uri)) uri else resolvedHomePageUrl()
+                    val newTab =
+                        BrowserTab(
+                            initialUrl = safeUrl,
+                            initialTitle = "New tab",
+                            isPrivate = tab.isPrivate,
+                            initialDesktopMode = tab.isDesktopMode,
+                        )
+                    tabs.add(newTab)
+                    ensureSession(newTab, loadCurrentUrl = false)
+                    selectTab(newTab.id)
+                    persistTabs()
+                    return newTab.session?.let { GeckoResult.fromValue(it) }
+                }
             }
 
-            override fun onContentPermissionRequest(
-                session: GeckoSession,
-                perm: GeckoSession.PermissionDelegate.ContentPermission
-            ): GeckoResult<Int>? {
-                val result = GeckoResult<Int>()
-                if (perm.value != GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT) {
-                    result.complete(perm.value)
+        session.permissionDelegate =
+            object : GeckoSession.PermissionDelegate {
+                override fun onAndroidPermissionsRequest(
+                    session: GeckoSession,
+                    permissions: Array<String>?,
+                    callback: GeckoSession.PermissionDelegate.Callback,
+                ) {
+                    val requested = permissions?.distinct().orEmpty()
+                    if (requested.isEmpty()) {
+                        callback.grant()
+                        return
+                    }
+                    if (requested.any { it !in SUPPORTED_ANDROID_PERMISSIONS }) {
+                        callback.reject()
+                        return
+                    }
+
+                    pendingAndroidPermissionCallback?.reject()
+                    val request =
+                        AndroidPermissionRequest(
+                            id = UUID.randomUUID().toString(),
+                            permissions = requested,
+                        )
+                    pendingAndroidPermissionCallback = callback
+                    pendingAndroidPermissionSession = session
+                    pendingAndroidPermissionRequest = request
+                }
+
+                override fun onContentPermissionRequest(
+                    session: GeckoSession,
+                    perm: GeckoSession.PermissionDelegate.ContentPermission,
+                ): GeckoResult<Int>? {
+                    val result = GeckoResult<Int>()
+                    if (perm.value != GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT) {
+                        result.complete(perm.value)
+                        return result
+                    }
+                    if (pendingContentPermissionResult != null) {
+                        result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+                        return result
+                    }
+
+                    pendingContentPermissionResult = result
+                    pendingContentPermissionSession = session
+                    val origin = runCatching { Uri.parse(perm.uri).host }.getOrNull() ?: perm.uri
+                    sitePermissionPrompt =
+                        SitePermissionPrompt(
+                            origin = origin,
+                            permission = perm.permission,
+                            permissionLabel = permissionLabel(perm.permission),
+                            isPrivate = perm.privateMode,
+                            isIrreversible =
+                                perm.permission ==
+                                    GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE,
+                        )
                     return result
                 }
-                if (pendingContentPermissionResult != null) {
-                    result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
-                    return result
+
+                override fun onMediaPermissionRequest(
+                    session: GeckoSession,
+                    uri: String,
+                    video: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                    audio: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                    callback: GeckoSession.PermissionDelegate.MediaCallback,
+                ) {
+                    val videoSources =
+                        video.orEmpty().filter {
+                            it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_VIDEO &&
+                                it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_CAMERA
+                        }
+                    val audioSources =
+                        audio.orEmpty().filter {
+                            it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_AUDIO &&
+                                it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_MICROPHONE
+                        }
+                    val hasUnsupportedSource =
+                        video.orEmpty().any { it !in videoSources } ||
+                            audio.orEmpty().any { it !in audioSources }
+
+                    if (hasUnsupportedSource || (videoSources.isEmpty() && audioSources.isEmpty())) {
+                        callback.reject()
+                        return
+                    }
+                    pendingMediaPermissionCallback?.reject()
+                    pendingMediaPermissionCallback = callback
+                    pendingMediaPermissionSession = session
+                    val origin = runCatching { Uri.parse(uri).host }.getOrNull() ?: uri
+                    mediaPermissionPrompt =
+                        MediaPermissionPrompt(
+                            origin = origin,
+                            videoSources = videoSources,
+                            audioSources = audioSources,
+                            isPrivate = tab.isPrivate,
+                        )
+                }
+            }
+
+        session.contentDelegate =
+            object : GeckoSession.ContentDelegate {
+                override fun onContextMenu(
+                    session: GeckoSession,
+                    screenX: Int,
+                    screenY: Int,
+                    element: GeckoSession.ContentDelegate.ContextElement,
+                ) {
+                    if (tab.session !== session || selectedTabId != tab.id) return
+                    val linkUrl = BrowserContextMenuPolicy.safeWebUrl(element.linkUri)
+                    val resourceUrl = BrowserContextMenuPolicy.safeWebUrl(element.srcUri)
+                    if (linkUrl == null && resourceUrl == null) {
+                        dismissContextMenu()
+                        return
+                    }
+
+                    val resourceType =
+                        when (element.type) {
+                            GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE -> BrowserContextResourceType.IMAGE
+                            GeckoSession.ContentDelegate.ContextElement.TYPE_VIDEO -> BrowserContextResourceType.VIDEO
+                            GeckoSession.ContentDelegate.ContextElement.TYPE_AUDIO -> BrowserContextResourceType.AUDIO
+                            else -> BrowserContextResourceType.NONE
+                        }
+                    contextMenuSourceSession = session
+                    contextMenuRequest =
+                        BrowserContextMenuRequest(
+                            tabId = tab.id,
+                            linkUrl = linkUrl,
+                            resourceUrl = resourceUrl,
+                            resourceType = resourceType,
+                            title =
+                                listOfNotNull(element.title, element.altText, element.linkText)
+                                    .firstOrNull(String::isNotBlank)
+                                    ?.take(160),
+                        )
                 }
 
-                pendingContentPermissionResult = result
-                pendingContentPermissionSession = session
-                val origin = runCatching { Uri.parse(perm.uri).host }.getOrNull() ?: perm.uri
-                sitePermissionPrompt = SitePermissionPrompt(
-                    origin = origin,
-                    permission = perm.permission,
-                    permissionLabel = permissionLabel(perm.permission),
-                    isPrivate = perm.privateMode,
-                    isIrreversible = perm.permission ==
-                        GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE
-                )
-                return result
-            }
-
-            override fun onMediaPermissionRequest(
-                session: GeckoSession,
-                uri: String,
-                video: Array<GeckoSession.PermissionDelegate.MediaSource>?,
-                audio: Array<GeckoSession.PermissionDelegate.MediaSource>?,
-                callback: GeckoSession.PermissionDelegate.MediaCallback
-            ) {
-                val videoSources = video.orEmpty().filter {
-                    it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_VIDEO &&
-                        it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_CAMERA
-                }
-                val audioSources = audio.orEmpty().filter {
-                    it.type == GeckoSession.PermissionDelegate.MediaSource.TYPE_AUDIO &&
-                        it.source == GeckoSession.PermissionDelegate.MediaSource.SOURCE_MICROPHONE
-                }
-                val hasUnsupportedSource = video.orEmpty().any { it !in videoSources } ||
-                    audio.orEmpty().any { it !in audioSources }
-
-                if (hasUnsupportedSource || (videoSources.isEmpty() && audioSources.isEmpty())) {
-                    callback.reject()
-                    return
-                }
-                pendingMediaPermissionCallback?.reject()
-                pendingMediaPermissionCallback = callback
-                pendingMediaPermissionSession = session
-                val origin = runCatching { Uri.parse(uri).host }.getOrNull() ?: uri
-                mediaPermissionPrompt = MediaPermissionPrompt(
-                    origin = origin,
-                    videoSources = videoSources,
-                    audioSources = audioSources,
-                    isPrivate = tab.isPrivate
-                )
-            }
-        }
-
-        session.contentDelegate = object : GeckoSession.ContentDelegate {
-            override fun onContextMenu(
-                session: GeckoSession,
-                screenX: Int,
-                screenY: Int,
-                element: GeckoSession.ContentDelegate.ContextElement
-            ) {
-                if (tab.session !== session || selectedTabId != tab.id) return
-                val linkUrl = BrowserContextMenuPolicy.safeWebUrl(element.linkUri)
-                val resourceUrl = BrowserContextMenuPolicy.safeWebUrl(element.srcUri)
-                if (linkUrl == null && resourceUrl == null) {
-                    dismissContextMenu()
-                    return
+                override fun onTitleChange(
+                    session: GeckoSession,
+                    title: String?,
+                ) {
+                    if (tab.session !== session || title.isNullOrBlank()) return
+                    tab.title = title
+                    persistTabs()
                 }
 
-                val resourceType = when (element.type) {
-                    GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE -> BrowserContextResourceType.IMAGE
-                    GeckoSession.ContentDelegate.ContextElement.TYPE_VIDEO -> BrowserContextResourceType.VIDEO
-                    GeckoSession.ContentDelegate.ContextElement.TYPE_AUDIO -> BrowserContextResourceType.AUDIO
-                    else -> BrowserContextResourceType.NONE
+                override fun onCloseRequest(session: GeckoSession) {
+                    if (tab.session === session) closeTab(tab.id)
                 }
-                contextMenuSourceSession = session
-                contextMenuRequest = BrowserContextMenuRequest(
-                    tabId = tab.id,
-                    linkUrl = linkUrl,
-                    resourceUrl = resourceUrl,
-                    resourceType = resourceType,
-                    title = listOfNotNull(element.title, element.altText, element.linkText)
-                        .firstOrNull(String::isNotBlank)
-                        ?.take(160)
-                )
-            }
 
-            override fun onTitleChange(session: GeckoSession, title: String?) {
-                if (tab.session !== session || title.isNullOrBlank()) return
-                tab.title = title
-                persistTabs()
-            }
-
-            override fun onCloseRequest(session: GeckoSession) {
-                if (tab.session === session) closeTab(tab.id)
-            }
-
-            override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
-                if (tab.session === session) tab.isFullScreen = fullScreen
-            }
-
-            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
-                if (tab.session !== session) {
-                    runCatching { response.body?.close() }
-                    return
+                override fun onFullScreen(
+                    session: GeckoSession,
+                    fullScreen: Boolean,
+                ) {
+                    if (tab.session === session) tab.isFullScreen = fullScreen
                 }
-                downloadManager.enqueue(response, tab.isPrivate)
-            }
 
-            override fun onCrash(session: GeckoSession) {
-                recoverAfterContentProcessDeath(
-                    tab,
-                    session,
-                    "Trang bị dừng đột ngột. Nhấn Thử lại để tải lại trang."
-                )
-            }
+                override fun onExternalResponse(
+                    session: GeckoSession,
+                    response: WebResponse,
+                ) {
+                    if (tab.session !== session) {
+                        runCatching { response.body?.close() }
+                        return
+                    }
+                    downloadManager.enqueue(response, tab.isPrivate)
+                }
 
-            override fun onKill(session: GeckoSession) {
-                recoverAfterContentProcessDeath(
-                    tab,
-                    session,
-                    "Android đã dừng tiến trình trang. Nhấn Thử lại để tải lại trang."
-                )
+                override fun onCrash(session: GeckoSession) {
+                    recoverAfterContentProcessDeath(
+                        tab,
+                        session,
+                        "Trang bị dừng đột ngột. Nhấn Thử lại để tải lại trang.",
+                    )
+                }
+
+                override fun onKill(session: GeckoSession) {
+                    recoverAfterContentProcessDeath(
+                        tab,
+                        session,
+                        "Android đã dừng tiến trình trang. Nhấn Thử lại để tải lại trang.",
+                    )
+                }
             }
-        }
 
         session.setPictureInPictureDelegate(
             object : PictureInPictureController.SessionPictureInPicture.Delegate {
@@ -1900,64 +2014,76 @@ class BrowserController(
             },
         )
 
-        session.setMediaSessionDelegate(object : MediaSession.Delegate {
-            override fun onFullscreen(
-                session: GeckoSession,
-                mediaSession: MediaSession,
-                enabled: Boolean,
-                meta: MediaSession.ElementMetadata?
-            ) {
-                if (tab.session === session) tab.isFullScreen = enabled
-            }
-        })
-
-        session.progressDelegate = object : GeckoSession.ProgressDelegate {
-            override fun onPageStart(session: GeckoSession, url: String) {
-                if (tab.session !== session) return
-                tab.previewBitmap = null
-                tab.pageSecurity = null
-                tab.isLoading = true
-                tab.progress = 0
-                tab.error = null
-            }
-
-            override fun onProgressChange(session: GeckoSession, progress: Int) {
-                if (tab.session === session) {
-                    tab.progress = progress.coerceIn(0, 100)
+        session.setMediaSessionDelegate(
+            object : MediaSession.Delegate {
+                override fun onFullscreen(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                    enabled: Boolean,
+                    meta: MediaSession.ElementMetadata?,
+                ) {
+                    if (tab.session === session) tab.isFullScreen = enabled
                 }
-            }
+            },
+        )
 
-            override fun onSecurityChange(
-                session: GeckoSession,
-                securityInfo: GeckoSession.ProgressDelegate.SecurityInformation,
-            ) {
-                if (tab.session !== session) return
-                tab.pageSecurity =
-                    BrowserPageSecurity(
-                        isSecure = securityInfo.isSecure,
-                        isException = securityInfo.isException,
-                        activeMixedContentLoaded =
-                            securityInfo.mixedModeActive ==
-                                GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
-                        passiveMixedContentLoaded =
-                            securityInfo.mixedModePassive ==
-                                GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
-                    )
-            }
-
-            override fun onPageStop(session: GeckoSession, success: Boolean) {
-                if (tab.session !== session) return
-                tab.isLoading = false
-                tab.progress = if (success) 100 else 0
-                if (success) {
+        session.progressDelegate =
+            object : GeckoSession.ProgressDelegate {
+                override fun onPageStart(
+                    session: GeckoSession,
+                    url: String,
+                ) {
+                    if (tab.session !== session) return
+                    tab.previewBitmap = null
+                    tab.pageSecurity = null
+                    tab.isLoading = true
+                    tab.progress = 0
                     tab.error = null
-                    recordVisit(tab)
-                    if (!tab.isPrivate) refreshPrivacyStats()
-                } else {
-                    tab.error = "This page could not be loaded. Check the connection and retry."
+                }
+
+                override fun onProgressChange(
+                    session: GeckoSession,
+                    progress: Int,
+                ) {
+                    if (tab.session === session) {
+                        tab.progress = progress.coerceIn(0, 100)
+                    }
+                }
+
+                override fun onSecurityChange(
+                    session: GeckoSession,
+                    securityInfo: GeckoSession.ProgressDelegate.SecurityInformation,
+                ) {
+                    if (tab.session !== session) return
+                    tab.pageSecurity =
+                        BrowserPageSecurity(
+                            isSecure = securityInfo.isSecure,
+                            isException = securityInfo.isException,
+                            activeMixedContentLoaded =
+                                securityInfo.mixedModeActive ==
+                                    GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
+                            passiveMixedContentLoaded =
+                                securityInfo.mixedModePassive ==
+                                    GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
+                        )
+                }
+
+                override fun onPageStop(
+                    session: GeckoSession,
+                    success: Boolean,
+                ) {
+                    if (tab.session !== session) return
+                    tab.isLoading = false
+                    tab.progress = if (success) 100 else 0
+                    if (success) {
+                        tab.error = null
+                        recordVisit(tab)
+                        if (!tab.isPrivate) refreshPrivacyStats()
+                    } else {
+                        tab.error = "This page could not be loaded. Check the connection and retry."
+                    }
                 }
             }
-        }
 
         session.open(runtime)
         extensionsManager.attachSession(session)
@@ -1965,7 +2091,7 @@ class BrowserController(
         session.setActive(isVisible)
         session.setFocused(isVisible)
         session.setPriorityHint(
-            if (isVisible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+            if (isVisible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
         )
         runtime.webExtensionController.setTabActive(session, isVisible)
     }
@@ -1973,7 +2099,7 @@ class BrowserController(
     private fun recoverAfterContentProcessDeath(
         tab: BrowserTab,
         failedSession: GeckoSession,
-        message: String
+        message: String,
     ) {
         if (tab.session !== failedSession) return
 
@@ -1991,7 +2117,8 @@ class BrowserController(
             dismissContextMenu()
         }
         tab.pendingReferrerSession = null
-        tabs.filter { it.pendingReferrerSession === failedSession }
+        tabs
+            .filter { it.pendingReferrerSession === failedSession }
             .forEach { it.pendingReferrerSession = null }
         extensionsManager.detachSession(failedSession)
         tab.session = null
@@ -2006,12 +2133,13 @@ class BrowserController(
     }
 
     private fun destroySession(tab: BrowserTab) {
-        val session = tab.session ?: run {
-            tab.isFullScreen = false
-            tab.pendingReferrerSession = null
-            if (contextMenuRequest?.tabId == tab.id) dismissContextMenu()
-            return
-        }
+        val session =
+            tab.session ?: run {
+                tab.isFullScreen = false
+                tab.pendingReferrerSession = null
+                if (contextMenuRequest?.tabId == tab.id) dismissContextMenu()
+                return
+            }
         if (pictureInPictureSourceSession === session) {
             closePictureInPictureForSourceSession(
                 sourceSession = session,
@@ -2024,12 +2152,13 @@ class BrowserController(
         if (contextMenuRequest?.tabId == tab.id || contextMenuSourceSession === session) {
             dismissContextMenu()
         }
-        tabs.filter { it.pendingReferrerSession === session }
+        tabs
+            .filter { it.pendingReferrerSession === session }
             .forEach { it.pendingReferrerSession = null }
 
         if (pendingContentPermissionSession === session) {
             pendingContentPermissionResult?.complete(
-                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+                GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY,
             )
             pendingContentPermissionResult = null
             pendingContentPermissionSession = null
@@ -2067,11 +2196,12 @@ class BrowserController(
     private fun recordVisit(tab: BrowserTab) {
         if (!shouldRecordBrowserHistory(tab) || !isWebUrl(tab.url)) return
 
-        val visit = BrowserEntry(
-            title = tab.title.ifBlank { tab.url },
-            url = tab.url,
-            timestamp = System.currentTimeMillis()
-        )
+        val visit =
+            BrowserEntry(
+                title = tab.title.ifBlank { tab.url },
+                url = tab.url,
+                timestamp = System.currentTimeMillis(),
+            )
         if (isHistoryLoaded) {
             history.removeAll { it.url == tab.url }
             history.add(0, visit)
@@ -2108,7 +2238,7 @@ class BrowserController(
             tabs = tabs.toList(),
             selectedTabId = selectedTabId,
             defaultUrl = resolvedHomePageUrl(),
-            groups = tabGroups.toList()
+            groups = tabGroups.toList(),
         )
     }
 
@@ -2154,12 +2284,13 @@ class BrowserController(
         const val MIN_TABS_PER_GROUP = 2
         const val MAX_HISTORY = 200
         const val MAX_RECENTLY_CLOSED = 10
-        val SUPPORTED_ANDROID_PERMISSIONS = setOf(
-            android.Manifest.permission.ACCESS_COARSE_LOCATION,
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.CAMERA,
-            android.Manifest.permission.RECORD_AUDIO,
-            android.Manifest.permission.POST_NOTIFICATIONS
-        )
+        val SUPPORTED_ANDROID_PERMISSIONS =
+            setOf(
+                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                android.Manifest.permission.CAMERA,
+                android.Manifest.permission.RECORD_AUDIO,
+                android.Manifest.permission.POST_NOTIFICATIONS,
+            )
     }
 }

@@ -13,7 +13,7 @@ class BrowserTab internal constructor(
     initialTitle: String = "New tab",
     val isPrivate: Boolean = false,
     initialDesktopMode: Boolean = false,
-    initialGroupId: String? = null
+    initialGroupId: String? = null,
 ) {
     var url by mutableStateOf(initialUrl)
         internal set
@@ -52,5 +52,7 @@ class BrowserTab internal constructor(
 }
 
 internal fun shouldPersistBrowserTab(tab: BrowserTab): Boolean = !tab.isPrivate
+
 internal fun shouldRecordBrowserHistory(tab: BrowserTab): Boolean = !tab.isPrivate
+
 internal fun shouldAllowBookmark(tab: BrowserTab): Boolean = !tab.isPrivate
