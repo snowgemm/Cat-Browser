@@ -26,6 +26,14 @@ val extractKtlintBaseline by tasks.registering {
 
 ktlint {
     baseline.set(ktlintBaselineFile)
+
+    // Temporary, opt-in filter for formatting and checking the tab-group change only.
+    if (providers.gradleProperty("ktlintTabGroupsOnly").isPresent) {
+        filter {
+            include("**/TabsOverview.kt")
+            include("**/BrowserTabGroupPolicyTest.kt")
+        }
+    }
 }
 
 tasks.configureEach {
