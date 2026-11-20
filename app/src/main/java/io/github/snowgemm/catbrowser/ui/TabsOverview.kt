@@ -193,7 +193,6 @@ internal fun TabsOverview(
                                 controller.closeTabGroup(selectedGroup.id)
                                 selectedGroupId = null
                                 tabFilter = "regular"
-                                onBackIfNoTabs(controller, onBack)
                             }
                         )
                     }
