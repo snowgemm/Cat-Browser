@@ -4,6 +4,10 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint")
 }
 
+ktlint {
+    baseline.set(file("config/ktlint/baseline.xml"))
+}
+
 val releaseKeystorePath = providers.environmentVariable("CAT_RELEASE_KEYSTORE_PATH").orNull
 val releaseStorePassword = providers.environmentVariable("CAT_RELEASE_STORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("CAT_RELEASE_KEY_ALIAS").orNull

@@ -1,5 +1,6 @@
 plugins {
     id("com.android.test")
+    id("org.jlleitschuh.gradle.ktlint")
 }
 
 android {
