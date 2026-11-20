@@ -26,6 +26,7 @@ import io.github.snowgemm.catbrowser.ai.AiGatewayException
 import io.github.snowgemm.catbrowser.ai.AiToolCall
 import io.github.snowgemm.catbrowser.browser.AssistantTabSnapshot
 import io.github.snowgemm.catbrowser.browser.BrowserController
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -443,6 +444,8 @@ private fun continueAssistant(
             if (reply.text.isBlank()) onMessages("Mình chưa nhận được câu trả lời. Bạn có thể thử diễn đạt lại.")
             onToolRounds(0)
             onBusy(false)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: AiGatewayException) {
             onError(error.message ?: "Không thể kết nối Cat AI.")
             onBusy(false)
@@ -545,8 +548,8 @@ private fun executeApprovedTool(call: AiToolCall, controller: BrowserController)
 
 private fun AssistantTabSnapshot.toJson(): JSONObject = JSONObject()
     .put("id", id)
-    .put("title", title.take(160))
-    .put("url", url.take(2048))
+    .put("title", title.take(64))
+    .put("url", url.take(128))
     .put("active", active)
 
 private fun toolTitle(name: String): String = when (name) {
