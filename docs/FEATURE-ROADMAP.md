@@ -8,7 +8,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 
 - GeckoView-based HTTP(S) browsing with back, forward, reload and stop.
 - Multiple tabs, tab overview, persistent groups for regular tabs, tab closing and URL-level restore for regular tabs.
-- Local browsing history and bookmarks.
+- Local browsing history and bookmarks; bookmark titles can be edited, individual entries can be deleted, and the list can be sorted by name or date.
 - Configurable home page, startup behavior, four search engines and light/dark/system themes.
 - Firefox WebExtension manager with AMO search/install, local signed XPI import, enable/disable/update/uninstall, action buttons and badges, popup sessions, options-page routing, supported tab lifecycle callbacks, basic `downloads.download()` and explicit per-extension private-browsing permission. Full API compatibility reporting and physical-device validation are not complete.
 - Stable and Beta (GitHub pre-release) update channels with ABI selection and SHA-256 verification.
@@ -47,7 +47,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Tab search, preview and reorder | Implemented in overview | Search current titles/URLs; capture a scaled GeckoView preview after successful page load; long-press drag reorder in the unfiltered list; recently closed normal tabs restore last URL only. Preview images are memory-only. |
 | Desktop-site mode | Implemented; physical-device validation pending | Per-tab desktop User-Agent and viewport settings; preference is persisted for regular tabs only. |
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
-| Bookmark manager | Basic | Edit titles, folders or collections, sort, import/export and duplicate handling. |
+| Bookmark manager | Partial: edit titles, delete individual entries and sort by name or date | Folders/collections and import/export are not implemented. Duplicate URLs are collapsed to the entry with the newest saved timestamp when bookmarks load. |
 | Extension toolbar, tabs, popup and downloads | Partial; matrix and physical-device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, selected tab callbacks, downloads progress/terminal updates and Android `saveAs` picker are integrated. Public GeckoView does not expose extension pause/resume/cancel callbacks; `UNIQUIFY` is implemented, `PROMPT` delegates to Android's document picker and `OVERWRITE` conservatively falls back to a unique name. Full Firefox API coverage and Chrome Store compatibility remain unsupported or unverified. |
 | Autofill/password management | Missing | Secure storage, Android autofill integration, user consent and biometric/device-authentication safeguards where appropriate. |
 

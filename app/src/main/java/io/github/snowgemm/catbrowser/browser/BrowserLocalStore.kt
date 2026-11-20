@@ -63,7 +63,7 @@ internal class BrowserLocalStore(
             .sortedByDescending { it.timestamp }
             .take(maxEntries)
 
-    fun readBookmarks(): List<BrowserEntry> = readEntries(KEY_BOOKMARKS).sortedByDescending { it.timestamp }
+    fun readBookmarks(): List<BrowserEntry> = BrowserBookmarkPolicy.uniqueByUrl(readEntries(KEY_BOOKMARKS))
 
     fun saveTabs(
         tabs: List<BrowserTab>,

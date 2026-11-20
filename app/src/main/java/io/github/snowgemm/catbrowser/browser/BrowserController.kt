@@ -1084,6 +1084,27 @@ class BrowserController(
         return true
     }
 
+    fun renameBookmark(
+        url: String,
+        title: String,
+    ): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated = BrowserBookmarkPolicy.rename(bookmarks.toList(), url, title) ?: return false
+        bookmarks.clear()
+        bookmarks.addAll(updated)
+        persistBookmarks()
+        return true
+    }
+
+    fun removeBookmark(url: String): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated = BrowserBookmarkPolicy.remove(bookmarks.toList(), url) ?: return false
+        bookmarks.clear()
+        bookmarks.addAll(updated)
+        persistBookmarks()
+        return true
+    }
+
     fun isBookmarked(url: String): Boolean = bookmarks.any { it.url == url }
 
     fun clearHistory() {

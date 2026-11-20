@@ -33,7 +33,7 @@ Cat Browser is an independent Android browser application. Cat owns the browser 
 - Native Compose browser interface and a Cat New Tab dashboard.
 - Up to 20 regular and private tabs, persistent groups for regular tabs, tab search, tab previews, drag reordering and recently closed regular tabs.
 - Address and search input, local suggestions, adjacent-tab gestures, page loading feedback and find-in-page.
-- Local bookmarks, recent history and downloads.
+- Local bookmarks with editable titles, per-entry deletion, newest/name sorting and duplicate URL cleanup, plus recent history and downloads.
 - Long-press context menus for HTTP(S) links and image/video/audio targets: open in a new tab with the source privacy mode and group, or copy the validated address.
 - HTTP(S) links can be opened from other Android applications.
 - Configurable home page, search provider, theme and local New Tab wallpaper.

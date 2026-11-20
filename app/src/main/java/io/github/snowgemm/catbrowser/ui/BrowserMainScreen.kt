@@ -1144,15 +1144,16 @@ internal fun BrowserMainScreen(
         )
     }
     if (showBookmarks) {
-        EntryDialog(
-            "Dấu trang",
-            controller.bookmarks,
-            "Bạn chưa lưu trang nào.",
-            { showBookmarks = false },
-            {
+        BookmarkManagerDialog(
+            entries = controller.bookmarks.toList(),
+            emptyMessage = "Bạn chưa lưu trang nào.",
+            onDismiss = { showBookmarks = false },
+            onSelect = {
                 controller.openEntry(it.url)
                 showBookmarks = false
             },
+            onRename = controller::renameBookmark,
+            onDelete = controller::removeBookmark,
             isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading,
         )
     }

@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.snowgemm.catbrowser.browser.BrowserBookmarkPolicy
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
 import io.github.snowgemm.catbrowser.browser.BrowserTab
@@ -1163,6 +1164,197 @@ private fun tabModeAction(
                 )
             }
         }
+    }
+}
+
+@Composable
+@Suppress("ktlint:standard:function-naming")
+internal fun BookmarkManagerDialog(
+    entries: List<BrowserEntry>,
+    emptyMessage: String,
+    onDismiss: () -> Unit,
+    onSelect: (BrowserEntry) -> Unit,
+    onRename: (String, String) -> Boolean,
+    onDelete: (String) -> Boolean,
+    isLoading: Boolean = false,
+) {
+    var sortAlphabetically by remember { mutableStateOf(false) }
+    var editingEntry by remember { mutableStateOf<BrowserEntry?>(null) }
+    var deletingEntry by remember { mutableStateOf<BrowserEntry?>(null) }
+    var editedTitle by remember { mutableStateOf("") }
+    var editError by remember { mutableStateOf(false) }
+    val sortedEntries =
+        remember(entries, sortAlphabetically) {
+            if (sortAlphabetically) {
+                BrowserBookmarkPolicy.sortAlphabetically(entries)
+            } else {
+                entries.sortedByDescending { it.timestamp }
+            }
+        }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Dấu trang") },
+        text = {
+            Column {
+                if (isLoading) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text("Đang tải dữ liệu…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else if (entries.isEmpty()) {
+                    Text(emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = "${entries.size} dấu trang",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        TextButton(onClick = { sortAlphabetically = !sortAlphabetically }) {
+                            Text(if (sortAlphabetically) "Mới nhất" else "Tên A–Z")
+                        }
+                    }
+                    LazyColumn(Modifier.heightIn(max = 380.dp)) {
+                        items(sortedEntries, key = { it.url }) { entry ->
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                TextButton(
+                                    onClick = { onSelect(entry) },
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Column(Modifier.fillMaxWidth()) {
+                                        Text(
+                                            entry.title,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                        Text(
+                                            entry.url,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 11.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                                TextButton(
+                                    onClick = {
+                                        editingEntry = entry
+                                        editedTitle = entry.title
+                                        editError = false
+                                    },
+                                ) {
+                                    Text("Sửa", fontSize = 11.sp)
+                                }
+                                TextButton(onClick = { deletingEntry = entry }) {
+                                    Text(
+                                        "Xóa",
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Xong") }
+        },
+    )
+
+    editingEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = {
+                editingEntry = null
+                editError = false
+            },
+            title = { Text("Sửa tên dấu trang") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = editedTitle,
+                        onValueChange = {
+                            editedTitle = it.take(BrowserBookmarkPolicy.MAX_TITLE_LENGTH)
+                            editError = false
+                        },
+                        singleLine = true,
+                        label = { Text("Tên dấu trang") },
+                        isError = editError,
+                    )
+                    if (editError) {
+                        Text(
+                            "Tên không được để trống.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (onRename(entry.url, editedTitle)) {
+                            editingEntry = null
+                            editError = false
+                        } else {
+                            editError = true
+                        }
+                    },
+                ) {
+                    Text("Lưu")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        editingEntry = null
+                        editError = false
+                    },
+                ) {
+                    Text("Hủy")
+                }
+            },
+        )
+    }
+
+    deletingEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { deletingEntry = null },
+            title = { Text("Xóa dấu trang?") },
+            text = {
+                Text(
+                    "Xóa “${entry.title}” khỏi danh sách dấu trang trên thiết bị này?",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(entry.url)
+                        deletingEntry = null
+                    },
+                ) {
+                    Text("Xóa", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingEntry = null }) { Text("Hủy") }
+            },
+        )
     }
 }
 
