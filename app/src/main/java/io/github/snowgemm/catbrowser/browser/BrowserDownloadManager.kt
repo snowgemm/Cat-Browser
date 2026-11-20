@@ -120,8 +120,11 @@ class BrowserDownloadManager(context: Context) {
             ?.takeIf(String::isNotBlank)
             ?.let(::sanitizeDownloadFileName)
             ?: resolveFileName(response)
-        val fileName = if (destinationUri == null && conflictActionFlag != null) {
-            applyConflictAction(requestedName, conflictActionFlag)
+        val fileName = if (destinationUri == null) {
+            applyConflictAction(
+                requestedName,
+                conflictActionFlag ?: WebExtension.DownloadRequest.CONFLICT_ACTION_UNIQUIFY
+            )
         } else {
             requestedName
         }
@@ -479,15 +482,12 @@ class BrowserDownloadManager(context: Context) {
     }
 
     private fun applyConflictAction(fileName: String, action: Int): String {
-        val activeCollision = downloads.any {
-            it.fileName.equals(fileName, ignoreCase = true) &&
-                (it.status == BrowserDownloadStatus.QUEUED ||
-                    it.status == BrowserDownloadStatus.DOWNLOADING)
-        }
+        // Cat Browser currently avoids destructive overwrites. Until true
+        // overwrite semantics are implemented, every mode receives a safe
+        // available name; the manager handles PROMPT with the Save As picker.
         return when (action) {
-            WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE ->
-                uniqueAvailableFileName(fileName)
-            WebExtension.DownloadRequest.CONFLICT_ACTION_UNIQUIFY -> uniqueAvailableFileName(fileName)
+            WebExtension.DownloadRequest.CONFLICT_ACTION_OVERWRITE,
+            WebExtension.DownloadRequest.CONFLICT_ACTION_UNIQUIFY,
             WebExtension.DownloadRequest.CONFLICT_ACTION_PROMPT -> uniqueAvailableFileName(fileName)
             else -> uniqueAvailableFileName(fileName)
         }
@@ -500,7 +500,12 @@ class BrowserDownloadManager(context: Context) {
         while (true) {
             val candidate = if (index == 0) fileName else
                 base + " (" + index + ")" + (extension?.let { ".$it" } ?: "")
-            val exists = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val activeCollision = downloads.any {
+                it.fileName.equals(candidate, ignoreCase = true) &&
+                    (it.status == BrowserDownloadStatus.QUEUED ||
+                        it.status == BrowserDownloadStatus.DOWNLOADING)
+            }
+            val exists = activeCollision || if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 mediaStoreDestinationExists(candidate)
             } else {
                 val directory = legacyDownloadDirectory()
