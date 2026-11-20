@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 private typealias PreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener
@@ -15,6 +16,11 @@ class BrowserTabGroupPolicyTest {
             "Research notes",
             BrowserTabGroupPolicy.normalizeName("  Research   notes  "),
         )
+    }
+
+    @Test
+    fun normalizeNameRejectsWhitespaceOnlyInput() {
+        assertTrue(BrowserTabGroupPolicy.normalizeName(" \n\t ").isBlank())
     }
 
     @Test
