@@ -109,7 +109,7 @@ class BrowserController(
         private set
     var mediaPermissionPrompt by mutableStateOf<MediaPermissionPrompt?>(null)
         private set
-    var contextMenuRequest by mutableStateOf<BrowserContextMenuRequest?>(null)
+    internal var contextMenuRequest by mutableStateOf<BrowserContextMenuRequest?>(null)
         private set
     private var contextMenuSourceSession: GeckoSession? = null
     var pendingAndroidPermissionRequest by mutableStateOf<AndroidPermissionRequest?>(null)
