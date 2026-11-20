@@ -18,7 +18,10 @@ internal object BrowserMemoryTrimPolicy {
     private const val LEGACY_RUNNING_LOW = 10
     private const val LEGACY_RUNNING_CRITICAL = 15
 
-    fun actionFor(level: Int, sdkInt: Int): BrowserMemoryTrimAction {
+    fun actionFor(
+        level: Int,
+        sdkInt: Int,
+    ): BrowserMemoryTrimAction {
         if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
             return BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS
         }
