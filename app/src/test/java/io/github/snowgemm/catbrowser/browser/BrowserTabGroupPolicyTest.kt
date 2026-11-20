@@ -39,7 +39,8 @@ class BrowserTabGroupPolicyTest {
 
     @Test
     fun privateTabsNeverRetainGroupMembership() {
-        val tab = BrowserTab(
+        val tab =
+            BrowserTab(
             isPrivate = true,
             initialGroupId = "group-private",
         )
@@ -61,18 +62,21 @@ class BrowserTabGroupPolicyTest {
     fun localStoreRestoresRegularGroupsWithoutPersistingPrivateTabs() {
         val preferences = InMemorySharedPreferences()
         val store = BrowserLocalStore(preferences)
-        val group = BrowserTabGroup(
+        val group =
+            BrowserTabGroup(
             id = "group-regular",
             name = "Research",
             colorIndex = 2,
         )
-        val regularTab = BrowserTab(
+        val regularTab =
+            BrowserTab(
             id = "regular-tab",
             initialUrl = "https://example.com/",
             initialTitle = "Example",
             initialGroupId = group.id,
         )
-        val privateTab = BrowserTab(
+        val privateTab =
+            BrowserTab(
             id = "private-tab",
             initialUrl = "https://private.example/",
             initialTitle = "Private page",
@@ -119,8 +123,8 @@ private class InMemorySharedPreferences : SharedPreferences {
     override fun getStringSet(
         key: String,
         defValues: MutableSet<String>?,
-    ): MutableSet<String>? {
-        return (values[key] as? Set<*>)
+    ): MutableSet<String>? =
+        (values[key] as? Set<*>)
             ?.filterIsInstance<String>()
             ?.toMutableSet()
             ?: defValues?.toMutableSet()
@@ -150,13 +154,9 @@ private class InMemorySharedPreferences : SharedPreferences {
 
     override fun edit(): SharedPreferences.Editor = MemoryEditor()
 
-    override fun registerOnSharedPreferenceChangeListener(
-        listener: SharedPreferences.OnSharedPreferenceChangeListener?,
-    ) = Unit
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
 
-    override fun unregisterOnSharedPreferenceChangeListener(
-        listener: SharedPreferences.OnSharedPreferenceChangeListener?,
-    ) = Unit
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
 
     private inner class MemoryEditor : SharedPreferences.Editor {
         private val updates = mutableMapOf<String, Any?>()
