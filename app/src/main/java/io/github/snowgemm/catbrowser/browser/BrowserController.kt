@@ -16,6 +16,7 @@ import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.MediaSession
+import org.mozilla.geckoview.PictureInPictureController
 import org.mozilla.geckoview.StorageController
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.WebResponse
@@ -145,6 +146,12 @@ class BrowserController(
     var isAppForegrounded by mutableStateOf(true)
         private set
 
+    var pictureInPictureSession by mutableStateOf<GeckoSession?>(null)
+        private set
+    private var pictureInPictureSourceSession: GeckoSession? = null
+    private var enterPictureInPictureWindow: (() -> Boolean)? = null
+    private var exitPictureInPictureWindow: (() -> Unit)? = null
+
     var selectedTabId by mutableStateOf("")
         private set
 
@@ -235,10 +242,22 @@ class BrowserController(
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
+            val isPictureInPictureSource = session === pictureInPictureSourceSession
             session.setFocused(false)
-            session.setActive(false)
-            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+            session.setActive(isPictureInPictureSource)
+            session.setPriorityHint(
+                if (isPictureInPictureSource) {
+                    GeckoSession.PRIORITY_HIGH
+                } else {
+                    GeckoSession.PRIORITY_DEFAULT
+                },
+            )
             runtime.webExtensionController.setTabActive(session, false)
+        }
+        pictureInPictureSession?.takeIf { it.isOpen }?.apply {
+            setFocused(false)
+            setActive(true)
+            setPriorityHint(GeckoSession.PRIORITY_HIGH)
         }
         extensionsManager.onAppBackgrounded()
     }
@@ -248,19 +267,149 @@ class BrowserController(
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
-            val visible = GeckoSessionVisibilityPolicy.isVisible(
+            val isPictureInPictureSource = session === pictureInPictureSourceSession
+            val visible = isPictureInPictureSource || GeckoSessionVisibilityPolicy.isVisible(
                 isAppForegrounded,
                 tab.id == selectedTabId,
-                tab.isViewAttached
+                tab.isViewAttached,
             )
             session.setActive(visible)
-            session.setFocused(visible)
+            session.setFocused(visible && !isPictureInPictureSource)
             session.setPriorityHint(
-                if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+                if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
             )
-            runtime.webExtensionController.setTabActive(session, visible)
+            runtime.webExtensionController.setTabActive(session, visible && !isPictureInPictureSource)
+        }
+        pictureInPictureSession?.takeIf { it.isOpen }?.apply {
+            setFocused(false)
+            setActive(true)
+            setPriorityHint(GeckoSession.PRIORITY_HIGH)
         }
         extensionsManager.onAppForegrounded()
+    }
+
+    fun setPictureInPictureHost(
+        onEnter: () -> Boolean,
+        onExit: () -> Unit,
+    ) {
+        enterPictureInPictureWindow = onEnter
+        exitPictureInPictureWindow = onExit
+    }
+
+    fun clearPictureInPictureHost() {
+        enterPictureInPictureWindow = null
+        exitPictureInPictureWindow = null
+    }
+
+    fun onPictureInPictureModeChanged(inPictureInPictureMode: Boolean) {
+        pictureInPictureSourceSession?.let { source ->
+            if (source.isOpen) {
+                source.compositorController.onPipModeChanged(inPictureInPictureMode)
+            }
+        }
+        pictureInPictureSession?.let { pip ->
+            if (pip.isOpen) {
+                pip.compositorController.onPipModeChanged(inPictureInPictureMode)
+                pip.setActive(true)
+                pip.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+            }
+        }
+        if (!inPictureInPictureMode && pictureInPictureSession != null) {
+            finishPictureInPicture()
+        }
+    }
+
+    fun onPictureInPictureViewAttached(session: GeckoSession) {
+        if (pictureInPictureSession !== session || !session.isOpen) return
+        session.setActive(true)
+        session.setFocused(false)
+        session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+    }
+
+    fun onPictureInPictureViewDetached(session: GeckoSession) {
+        if (pictureInPictureSession !== session || !session.isOpen) return
+        session.setFocused(false)
+        session.setActive(false)
+        session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+    }
+
+    private fun startPictureInPicture(sourceSession: GeckoSession, placementToken: String) {
+        val sourceTab = activeTab
+        if (
+            !BrowserPictureInPicturePolicy.canOpen(
+                placementToken = placementToken,
+                sourceSessionIsOpen = sourceSession.isOpen,
+                sourceTabIsSelected = sourceTab?.session === sourceSession,
+                pictureInPictureAlreadyOpen = pictureInPictureSession != null,
+            )
+        ) {
+            return
+        }
+
+        val pipSession = runCatching {
+            GeckoSession(
+                GeckoSessionSettings.Builder()
+                    .pictureInPictureToken(placementToken)
+                    .build(),
+            ).also { it.open(runtime) }
+        }.getOrElse {
+            sourceSession.sessionPictureInPicture.exit()
+            return
+        }
+
+        pictureInPictureSourceSession = sourceSession
+        pictureInPictureSession = pipSession
+        sourceSession.sessionPictureInPicture.setKeepActive(true)
+        sourceSession.setActive(true)
+        sourceSession.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+
+        val entered = runCatching {
+            enterPictureInPictureWindow?.invoke() == true
+        }.getOrDefault(false)
+        if (!entered) finishPictureInPicture()
+    }
+
+    private fun finishPictureInPicture(
+        sourceSession: GeckoSession? = pictureInPictureSourceSession,
+        moveActivityToBackground: Boolean = false,
+    ) {
+        val source = pictureInPictureSourceSession ?: return
+        if (sourceSession != null && sourceSession !== source) return
+
+        val pipSession = pictureInPictureSession
+        pictureInPictureSession = null
+        pictureInPictureSourceSession = null
+
+        pipSession?.let { pip ->
+            if (pip.isOpen) {
+                pip.setFocused(false)
+                pip.setActive(false)
+                pip.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+                pip.compositorController.onPipModeChanged(false)
+                pip.close()
+            }
+        }
+
+        if (source.isOpen) {
+            source.compositorController.onPipModeChanged(false)
+            source.sessionPictureInPicture.setKeepActive(false)
+            source.sessionPictureInPicture.exit()
+            val sourceTab = tabs.firstOrNull { it.session === source }
+            val visible = sourceTab?.let { tab ->
+                GeckoSessionVisibilityPolicy.isVisible(
+                    isAppForegrounded,
+                    tab.id == selectedTabId,
+                    tab.isViewAttached,
+                )
+            } == true
+            source.setFocused(visible)
+            source.setActive(visible)
+            source.setPriorityHint(
+                if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
+            )
+        }
+
+        if (moveActivityToBackground) exitPictureInPictureWindow?.invoke()
     }
 
     fun trimMemory(level: Int) {
@@ -1282,9 +1431,16 @@ class BrowserController(
 
         tab.isViewAttached = false
         if (session.isOpen) {
+            val isPictureInPictureSource = session === pictureInPictureSourceSession
             session.setFocused(false)
-            session.setActive(false)
-            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+            session.setActive(isPictureInPictureSource)
+            session.setPriorityHint(
+                if (isPictureInPictureSource) {
+                    GeckoSession.PRIORITY_HIGH
+                } else {
+                    GeckoSession.PRIORITY_DEFAULT
+                },
+            )
             runtime.webExtensionController.setTabActive(session, false)
         }
     }
@@ -1480,6 +1636,28 @@ class BrowserController(
             }
         }
 
+        session.setPictureInPictureDelegate(
+            object : PictureInPictureController.SessionPictureInPicture.Delegate {
+                override fun onEnterPictureInPicture(
+                    session: GeckoSession,
+                    placementToken: String,
+                ) {
+                    if (tab.session === session) {
+                        startPictureInPicture(session, placementToken)
+                    }
+                }
+
+                override fun onExitPictureInPicture(session: GeckoSession) {
+                    if (pictureInPictureSourceSession === session) {
+                        finishPictureInPicture(
+                            sourceSession = session,
+                            moveActivityToBackground = true,
+                        )
+                    }
+                }
+            },
+        )
+
         session.setMediaSessionDelegate(object : MediaSession.Delegate {
             override fun onFullscreen(
                 session: GeckoSession,
@@ -1559,6 +1737,9 @@ class BrowserController(
 
         // GeckoView closes a session before delivering onCrash/onKill. It must not
         // remain attached to Compose's AndroidView or be reused for the retry.
+        if (pictureInPictureSourceSession === failedSession) {
+            finishPictureInPicture(sourceSession = failedSession)
+        }
         extensionsManager.detachSession(failedSession)
         tab.session = null
         tab.isViewAttached = false
@@ -1575,6 +1756,9 @@ class BrowserController(
         val session = tab.session ?: run {
             tab.isFullScreen = false
             return
+        }
+        if (pictureInPictureSourceSession === session) {
+            finishPictureInPicture(sourceSession = session)
         }
         tab.isFullScreen = false
         tab.pageSecurity = null
@@ -1608,6 +1792,7 @@ class BrowserController(
         session.contentDelegate = null
         session.permissionDelegate = null
         session.progressDelegate = null
+        session.pictureInPictureDelegate = null
         if (session.isOpen) session.close()
         tab.session = null
         tab.isViewAttached = false

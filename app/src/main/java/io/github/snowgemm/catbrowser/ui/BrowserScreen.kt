@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.ui
 
 import android.app.Activity
+import android.app.PictureInPictureParams
+import android.util.Rational
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
@@ -25,103 +27,76 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.R
-
-
-private val CatDarkColorScheme = darkColorScheme(
-    primary = Color(0xFFA9C9F7), onPrimary = Color(0xFF10243C),
-    secondary = Color(0xFFE6C47D), onSecondary = Color(0xFF2A210F),
-    background = Color(0xFF10161E), onBackground = Color(0xFFF1F4F8),
-    surface = Color(0xFF1B2633), onSurface = Color(0xFFF1F4F8),
-    surfaceVariant = Color(0xFF293747), onSurfaceVariant = Color(0xFFBAC7D5),
-    outline = Color(0xFF405164), secondaryContainer = Color(0xFF34465C),
-    onSecondaryContainer = Color(0xFFEAF1FB)
-)
-
-private val CatLightColorScheme = lightColorScheme(
-    primary = Color(0xFF416B9B), onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE9F8), onPrimaryContainer = Color(0xFF173451),
-    secondary = Color(0xFF8F713B), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF1E7D4), onSecondaryContainer = Color(0xFF392B13),
-    background = Color(0xFFF3F6FA), onBackground = Color(0xFF1B2530),
-    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF1B2530),
-    surfaceVariant = Color(0xFFE8EEF5), onSurfaceVariant = Color(0xFF526171),
-    outline = Color(0xFFD2DCE8)
-)
-
+import org.mozilla.geckoview.GeckoView
 
 @Composable
-fun CatBrowserTheme(themeMode: String = "system", content: @Composable () -> Unit) {
-    val systemDark = isSystemInDarkTheme()
-    val useDark = when (themeMode) {
-        "light" -> false
-        "dark" -> true
-        else -> systemDark
-    }
-    MaterialTheme(colorScheme = if (useDark) CatDarkColorScheme else CatLightColorScheme, content = content)
-}
-
-@Composable
-fun BrowserStartupScreen(errorMessage: String?, onRetry: () -> Unit) {
-    val infiniteTransition = rememberInfiniteTransition(label = "startup-logo")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "startup-logo-rotation"
-    )
-
-    Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(13.dp)
-        ) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = "Cat Browser",
-                modifier = Modifier.size(76.dp).graphicsLayer { rotationZ = rotation }
-            )
-            Text(
-                "Cat Browser",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            if (errorMessage == null) {
-                Text(
-                    "Đang khởi tạo trình duyệt…",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                LinearProgressIndicator(
-                    Modifier.width(116.dp).padding(top = 4.dp),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Text(
-                    errorMessage,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Button(onClick = onRetry, shape = RoundedCornerShape(14.dp)) {
-                    Text("Thử lại")
+fun BrowserScreen(
+    controller: BrowserController,
+    activity: Activity,
+    isPictureInPictureMode: Boolean,
+) {
+    DisposableEffect(controller, activity) {
+        controller.setPictureInPictureHost(
+            onEnter = {
+                if (
+                    !activity.packageManager.hasSystemFeature(
+                        android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE,
+                    )
+                ) {
+                    false
+                } else {
+                    runCatching {
+                        activity.enterPictureInPictureMode(
+                            PictureInPictureParams.Builder()
+                                .setAspectRatio(Rational(16, 9))
+                                .build(),
+                        )
+                    }.getOrDefault(false)
                 }
+            },
+            onExit = { activity.moveTaskToBack(true) },
+        )
+        onDispose { controller.clearPictureInPictureHost() }
+    }
+
+    if (isPictureInPictureMode) {
+        val session = controller.pictureInPictureSession
+        if (session == null) {
+            Box(Modifier.fillMaxSize())
+        } else {
+            key(session) {
+                AndroidView(
+                    factory = { context ->
+                        GeckoView(context).apply {
+                            setActivityContextDelegate { activity }
+                            setSession(session)
+                            controller.onPictureInPictureViewAttached(session)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                    update = { view ->
+                        view.setActivityContextDelegate { activity }
+                        if (view.getSession() !== session) {
+                            view.releaseSession()
+                            view.setSession(session)
+                            controller.onPictureInPictureViewAttached(session)
+                        }
+                    },
+                    onRelease = { view ->
+                        controller.onPictureInPictureViewDetached(session)
+                        view.releaseSession()
+                    },
+                )
             }
         }
+        return
     }
-}
 
-@Composable
-fun BrowserScreen(controller: BrowserController, activity: Activity) {
     val isFullScreen = controller.activeTab?.isFullScreen == true
 
     SideEffect {
@@ -161,18 +136,18 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                 initialOffsetX = { width -> if (movingForward) width / 5 else -width / 5 },
                 animationSpec = spring<IntOffset>(
                     dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow
-                )
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
             )) togetherWith
                 (fadeOut(tween(130)) + slideOutHorizontally(
                     targetOffsetX = { width -> if (movingForward) -width / 7 else width / 7 },
                     animationSpec = spring<IntOffset>(
                         dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    )
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
                 ))
         },
-        label = "browser-navigation"
+        label = "browser-navigation",
     ) { target ->
         when (target) {
             BrowserDestination.BROWSER -> BrowserMainScreen(
@@ -189,7 +164,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
             )
             BrowserDestination.ASSISTANT -> AssistantScreen(
                 controller = controller,
-                onBack = { destination = BrowserDestination.BROWSER }
+                onBack = { destination = BrowserDestination.BROWSER },
             )
             BrowserDestination.TABS -> TabsOverview(
                 controller = controller,
@@ -201,7 +176,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                 onNewPrivateTab = {
                     controller.newPrivateTab()
                     destination = BrowserDestination.BROWSER
-                }
+                },
             )
             BrowserDestination.EXTENSIONS -> ExtensionsScreen(
                 manager = controller.extensionsManager,
@@ -209,7 +184,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                 onOpenListing = { url ->
                     controller.openExternalUrl(url)
                     destination = BrowserDestination.BROWSER
-                }
+                },
             )
             BrowserDestination.SETTINGS -> SettingsScreen(controller) {
                 destination = settingsReturnDestination

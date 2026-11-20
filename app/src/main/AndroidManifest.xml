@@ -42,6 +42,8 @@
             android:theme="@style/Theme.CatBrowser.Starting"
             android:exported="true"
             android:launchMode="singleTop"
+            android:supportsPictureInPicture="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
