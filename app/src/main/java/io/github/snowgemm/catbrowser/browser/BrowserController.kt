@@ -151,6 +151,8 @@ class BrowserController(
     var pictureInPictureSession by mutableStateOf<GeckoSession?>(null)
         private set
     private var pictureInPictureSourceSession: GeckoSession? = null
+    private var pictureInPictureViewAttached = false
+    private var pictureInPictureExitHandledByGecko = false
     private var enterPictureInPictureWindow: (() -> Boolean)? = null
     private var exitPictureInPictureWindow: (() -> Unit)? = null
 
@@ -307,8 +309,7 @@ class BrowserController(
     }
 
     fun onPictureInPictureWindowDestroyed(session: GeckoSession) {
-        if (pictureInPictureSession !== session) return
-        finishPictureInPicture()
+        completePictureInPictureSession(session)
     }
 
     fun onPictureInPictureModeChanged(inPictureInPictureMode: Boolean) {
@@ -320,17 +321,22 @@ class BrowserController(
         pictureInPictureSession?.let { pip ->
             if (pip.isOpen) {
                 pip.compositorController.onPipModeChanged(inPictureInPictureMode)
-                pip.setActive(true)
-                pip.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+                pip.setFocused(false)
+                pip.setActive(inPictureInPictureMode)
+                pip.setPriorityHint(
+                    if (inPictureInPictureMode) {
+                        GeckoSession.PRIORITY_HIGH
+                    } else {
+                        GeckoSession.PRIORITY_DEFAULT
+                    },
+                )
             }
-        }
-        if (!inPictureInPictureMode && pictureInPictureSession != null) {
-            finishPictureInPicture()
         }
     }
 
     fun onPictureInPictureViewAttached(session: GeckoSession) {
         if (pictureInPictureSession !== session || !session.isOpen) return
+        pictureInPictureViewAttached = true
         session.setActive(true)
         session.setFocused(false)
         session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
@@ -338,6 +344,7 @@ class BrowserController(
 
     fun onPictureInPictureViewDetached(session: GeckoSession) {
         if (pictureInPictureSession !== session || !session.isOpen) return
+        pictureInPictureViewAttached = false
         session.setFocused(false)
         session.setActive(false)
         session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
@@ -376,39 +383,65 @@ class BrowserController(
 
         pictureInPictureSourceSession = sourceSession
         pictureInPictureSession = pipSession
+        pictureInPictureViewAttached = false
+        pictureInPictureExitHandledByGecko = false
         sourceSession.sessionPictureInPicture.setKeepActive(true)
         sourceSession.setActive(true)
         sourceSession.setPriorityHint(GeckoSession.PRIORITY_HIGH)
 
         val launched = runCatching { launchHost() }.getOrDefault(false)
-        if (!launched) finishPictureInPicture()
+        if (!launched) completePictureInPictureSession(pipSession)
     }
 
-    private fun finishPictureInPicture(
-        sourceSession: GeckoSession? = pictureInPictureSourceSession,
-        closePictureInPictureWindow: Boolean = false,
+    private fun requestPictureInPictureWindowClose(
+        sourceSession: GeckoSession,
+        geckoAlreadyHandledExit: Boolean,
     ) {
-        val source = pictureInPictureSourceSession ?: return
-        if (sourceSession != null && sourceSession !== source) return
+        if (pictureInPictureSourceSession !== sourceSession) return
+        if (geckoAlreadyHandledExit) pictureInPictureExitHandledByGecko = true
 
-        val pipSession = pictureInPictureSession
-        pictureInPictureSession = null
-        pictureInPictureSourceSession = null
-
-        pipSession?.let { pip ->
-            if (pip.isOpen) {
-                pip.setFocused(false)
-                pip.setActive(false)
-                pip.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
-                pip.compositorController.onPipModeChanged(false)
-                pip.close()
+        val closeHost = exitPictureInPictureWindow
+        if (closeHost != null) {
+            closeHost()
+        } else {
+            pictureInPictureSession?.let { pip ->
+                if (!pictureInPictureViewAttached) {
+                    completePictureInPictureSession(pip)
+                }
             }
         }
+    }
 
-        if (source.isOpen) {
-            source.compositorController.onPipModeChanged(false)
+    private fun closePictureInPictureForSourceSession(
+        sourceSession: GeckoSession,
+        notifyGecko: Boolean,
+    ) {
+        if (pictureInPictureSourceSession !== sourceSession) return
+        if (notifyGecko && !pictureInPictureExitHandledByGecko && sourceSession.isOpen) {
+            sourceSession.sessionPictureInPicture.exit()
+        }
+        requestPictureInPictureWindowClose(
+            sourceSession = sourceSession,
+            geckoAlreadyHandledExit = true,
+        )
+    }
+
+    private fun completePictureInPictureSession(pipSession: GeckoSession) {
+        if (pictureInPictureSession !== pipSession) return
+
+        val source = pictureInPictureSourceSession
+        val geckoAlreadyHandledExit = pictureInPictureExitHandledByGecko
+        pictureInPictureSession = null
+        pictureInPictureSourceSession = null
+        pictureInPictureViewAttached = false
+        pictureInPictureExitHandledByGecko = false
+
+        if (source?.isOpen == true) {
+            if (!geckoAlreadyHandledExit) {
+                source.sessionPictureInPicture.exit()
+            }
             source.sessionPictureInPicture.setKeepActive(false)
-            source.sessionPictureInPicture.exit()
+
             val sourceTab = tabs.firstOrNull { it.session === source }
             val visible = sourceTab?.let { tab ->
                 GeckoSessionVisibilityPolicy.isVisible(
@@ -422,9 +455,15 @@ class BrowserController(
             source.setPriorityHint(
                 if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
             )
+            runtime.webExtensionController.setTabActive(source, visible)
         }
 
-        if (closePictureInPictureWindow) exitPictureInPictureWindow?.invoke()
+        if (pipSession.isOpen) {
+            pipSession.setFocused(false)
+            pipSession.setActive(false)
+            pipSession.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+            pipSession.close()
+        }
     }
 
     fun trimMemory(level: Int) {
@@ -1663,12 +1702,10 @@ class BrowserController(
                 }
 
                 override fun onExitPictureInPicture(session: GeckoSession) {
-                    if (pictureInPictureSourceSession === session) {
-                        finishPictureInPicture(
-                            sourceSession = session,
-                            closePictureInPictureWindow = true,
-                        )
-                    }
+                    requestPictureInPictureWindowClose(
+                        sourceSession = session,
+                        geckoAlreadyHandledExit = true,
+                    )
                 }
             },
         )
@@ -1753,9 +1790,9 @@ class BrowserController(
         // GeckoView closes a session before delivering onCrash/onKill. It must not
         // remain attached to Compose's AndroidView or be reused for the retry.
         if (pictureInPictureSourceSession === failedSession) {
-            finishPictureInPicture(
+            closePictureInPictureForSourceSession(
                 sourceSession = failedSession,
-                closePictureInPictureWindow = true,
+                notifyGecko = false,
             )
         }
         extensionsManager.detachSession(failedSession)
@@ -1776,9 +1813,9 @@ class BrowserController(
             return
         }
         if (pictureInPictureSourceSession === session) {
-            finishPictureInPicture(
+            closePictureInPictureForSourceSession(
                 sourceSession = session,
-                closePictureInPictureWindow = true,
+                notifyGecko = true,
             )
         }
         tab.isFullScreen = false

@@ -4,6 +4,7 @@ import android.app.PictureInPictureParams
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Rational
+import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
@@ -11,13 +12,19 @@ import org.mozilla.geckoview.GeckoView
 class BrowserPictureInPictureActivity : ComponentActivity() {
     private var pictureInPictureSession: GeckoSession? = null
     private var pictureInPictureView: GeckoView? = null
+    private var hasEnteredPictureInPicture = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val controller = (application as CatBrowserApplication).existingBrowserController()
         val session = controller?.pictureInPictureSession
-        if (controller == null || session == null || !session.isOpen) {
+        if (controller == null || session == null) {
+            finish()
+            return
+        }
+        if (!session.isOpen) {
+            controller.onPictureInPictureWindowDestroyed(session)
             finish()
             return
         }
@@ -26,29 +33,32 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
         controller.setPictureInPictureCloseHost { finish() }
 
         val view = GeckoView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
             setActivityContextDelegate { this@BrowserPictureInPictureActivity }
             setSession(session)
         }
         pictureInPictureView = view
         controller.onPictureInPictureViewAttached(session)
+        session.loadUri("about:blank")
         setContentView(view)
+    }
 
-        view.post {
-            if (isFinishing || isDestroyed || pictureInPictureSession !== session) {
-                return@post
-            }
-            val entered = runCatching {
-                enterPictureInPictureMode(
-                    PictureInPictureParams.Builder()
-                        .setAspectRatio(Rational(16, 9))
-                        .build(),
-                )
-            }.getOrDefault(false)
-            if (!entered) {
-                controller.onPictureInPictureWindowDestroyed(session)
-                finish()
-            }
-        }
+    override fun onResume() {
+        super.onResume()
+        if (hasEnteredPictureInPicture) return
+        hasEnteredPictureInPicture = true
+
+        val entered = runCatching {
+            enterPictureInPictureMode(
+                PictureInPictureParams.Builder()
+                    .setAspectRatio(Rational(16, 9))
+                    .build(),
+            )
+        }.getOrDefault(false)
+        if (!entered) finish()
     }
 
     override fun onPictureInPictureModeChanged(
