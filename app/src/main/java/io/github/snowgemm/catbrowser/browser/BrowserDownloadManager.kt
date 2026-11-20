@@ -150,10 +150,7 @@ class BrowserDownloadManager(context: Context) {
     }
 
     fun cancel(item: BrowserDownloadItem) {
-        if (item.status == BrowserDownloadStatus.COMPLETE ||
-            item.status == BrowserDownloadStatus.FAILED ||
-            item.status == BrowserDownloadStatus.CANCELLED
-        ) return
+        if (!DownloadQueuePolicy.canCancel(item.status)) return
 
         item.isCancelled = true
         runCatching { item.inputStream?.close() }
@@ -309,8 +306,8 @@ class BrowserDownloadManager(context: Context) {
 
             updateOnMain(item, onChanged) {
                 it.receivedBytes = received
-                it.status = BrowserDownloadStatus.COMPLETE
-                it.errorMessage = null
+                it.status = DownloadQueuePolicy.completionStatus(item.isCancelled)
+                it.errorMessage = if (item.isCancelled) "Đã hủy tải xuống." else null
             }
         } catch (error: InterruptedException) {
             pendingMediaStoreUri?.let { runCatching { resolver.delete(it, null, null) } }
@@ -399,7 +396,8 @@ class BrowserDownloadManager(context: Context) {
             item.outputFile = outputPath
             item.receivedBytes = record.optLong("receivedBytes", 0L).coerceAtLeast(0L)
             item.status = when {
-                interrupted -> BrowserDownloadStatus.FAILED
+                DownloadQueuePolicy.restoredStatus(savedStatus) == BrowserDownloadStatus.FAILED ->
+                    BrowserDownloadStatus.FAILED
                 savedStatus == BrowserDownloadStatus.COMPLETE &&
                     outputUri == null && outputPath?.isFile != true -> BrowserDownloadStatus.FAILED
                 else -> savedStatus
@@ -493,28 +491,19 @@ class BrowserDownloadManager(context: Context) {
         }
     }
 
-    private fun uniqueAvailableFileName(fileName: String): String {
-        val base = fileName.substringBeforeLast('.', fileName)
-        val extension = fileName.substringAfterLast('.', "").takeIf { it.isNotBlank() }
-        var index = 0
-        while (true) {
-            val candidate = if (index == 0) fileName else
-                base + " (" + index + ")" + (extension?.let { ".$it" } ?: "")
+    private fun uniqueAvailableFileName(fileName: String): String =
+        DownloadQueuePolicy.uniqueFileName(fileName) { candidate ->
             val activeCollision = downloads.any {
                 it.fileName.equals(candidate, ignoreCase = true) &&
-                    (it.status == BrowserDownloadStatus.QUEUED ||
-                        it.status == BrowserDownloadStatus.DOWNLOADING)
+                    DownloadQueuePolicy.canCancel(it.status)
             }
-            val exists = activeCollision || if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            activeCollision || if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 mediaStoreDestinationExists(candidate)
             } else {
                 val directory = legacyDownloadDirectory()
                 File(directory, candidate).exists() || File(directory, candidate + ".part").exists()
             }
-            if (!exists) return candidate
-            index++
         }
-    }
 
     private fun mediaStoreDestinationExists(fileName: String): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false

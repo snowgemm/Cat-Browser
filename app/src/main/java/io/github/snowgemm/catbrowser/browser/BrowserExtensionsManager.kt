@@ -21,6 +21,7 @@ import org.mozilla.geckoview.WebExtensionController
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -123,8 +124,9 @@ class BrowserExtensionsManager(
     var saveAsRequest by mutableStateOf<ExtensionSaveAsRequest?>(null)
         private set
 
-    private var pendingPermissionDecision: ((Boolean, Boolean) -> Unit)? = null
+    private val pendingPermissionDecision = ReplaceableDecision<Pair<Boolean, Boolean>>()
     private var pendingExtensionDownload: PendingExtensionDownload? = null
+    private var isAppForegrounded = true
 
     init {
         controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
@@ -215,8 +217,7 @@ class BrowserExtensionsManager(
         decision: (Boolean, Boolean) -> Unit
     ) {
         // Resolve any older GeckoView prompt instead of leaving its result pending.
-        runCatching { pendingPermissionDecision?.invoke(false, false) }
-        pendingPermissionDecision = decision
+        pendingPermissionDecision.replace(decision, false to false)
         permissionPrompt = ExtensionPermissionPrompt(
             extensionName = extension.metaData.name?.takeIf(String::isNotBlank) ?: extension.id,
             description = extension.metaData.description.orEmpty(),
@@ -228,10 +229,8 @@ class BrowserExtensionsManager(
     }
 
     fun resolvePermissionPrompt(approved: Boolean, allowDataCollection: Boolean = false) {
-        val decision = pendingPermissionDecision
-        pendingPermissionDecision = null
+        pendingPermissionDecision.resolve(approved to allowDataCollection)
         permissionPrompt = null
-        decision?.invoke(approved, allowDataCollection)
     }
 
     private fun attachExtension(extension: WebExtension) {
@@ -449,8 +448,11 @@ class BrowserExtensionsManager(
             }
         }
         session.open(runtime)
-        session.setActive(true)
-        session.setFocused(true)
+        session.setActive(isAppForegrounded)
+        session.setFocused(isAppForegrounded)
+        session.setPriorityHint(
+            if (isAppForegrounded) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT
+        )
         popup = ExtensionPopupState(
             extensionId = extension.id,
             extensionName = extension.metaData.name ?: extension.id,
@@ -466,7 +468,26 @@ class BrowserExtensionsManager(
         current.session.contentDelegate = null
         current.session.setFocused(false)
         current.session.setActive(false)
+        current.session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
         if (current.session.isOpen) current.session.close()
+    }
+
+    fun onAppBackgrounded() {
+        isAppForegrounded = false
+        popup?.session?.takeIf { it.isOpen }?.let { session ->
+            session.setFocused(false)
+            session.setActive(false)
+            session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
+        }
+    }
+
+    fun onAppForegrounded() {
+        isAppForegrounded = true
+        popup?.session?.takeIf { it.isOpen }?.let { session ->
+            session.setActive(true)
+            session.setFocused(true)
+            session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+        }
     }
 
     fun setAllowedInPrivateBrowsing(extension: WebExtension, allowed: Boolean) {
@@ -578,13 +599,7 @@ class BrowserExtensionsManager(
                             ?: continue
 
                         val downloadUrl = file.optString("url")
-                        val downloadUri = Uri.parse(downloadUrl)
-                        if (downloadUri.scheme != "https" ||
-                            downloadUri.host != "addons.mozilla.org" ||
-                            downloadUrl.isBlank()
-                        ) {
-                            continue
-                        }
+                        if (!ExtensionSourcePolicy.isTrustedAmoDownloadUrl(downloadUrl)) continue
 
                         // GeckoView only installs Mozilla-signed WebExtensions.
                         // If AMO explicitly says a file is unsigned, don't offer it.
@@ -846,8 +861,7 @@ class BrowserExtensionsManager(
         }
 
     fun install(entry: ExtensionCatalogEntry) {
-        val uri = Uri.parse(entry.downloadUrl)
-        if (uri.scheme != "https" || uri.host != "addons.mozilla.org") {
+        if (!ExtensionSourcePolicy.isTrustedAmoDownloadUrl(entry.downloadUrl)) {
             statusMessage = "Đã chặn nguồn cài đặt không hợp lệ."
             return
         }

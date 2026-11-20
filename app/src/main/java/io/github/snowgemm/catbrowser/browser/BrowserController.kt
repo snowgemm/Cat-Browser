@@ -218,6 +218,7 @@ class BrowserController(
      */
     fun onAppBackgrounded() {
         isAppForegrounded = false
+        extensionsManager.onAppBackgrounded()
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
@@ -230,6 +231,7 @@ class BrowserController(
 
     fun onAppForegrounded() {
         isAppForegrounded = true
+        extensionsManager.onAppForegrounded()
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
@@ -282,7 +284,7 @@ class BrowserController(
         if (selectedTabId == tabId) {
             if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
             target.session?.let { session ->
-                val visible = isAppForegrounded && target.isViewAttached
+                val visible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, target.id == selectedTabId, target.isViewAttached)
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
@@ -310,7 +312,7 @@ class BrowserController(
         if (target.url != START_PAGE_URL || target.session != null) {
             ensureSession(target)
             target.session?.let { session ->
-                val visible = isAppForegrounded && target.isViewAttached
+                val visible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, target.id == selectedTabId, target.isViewAttached)
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
@@ -1125,7 +1127,7 @@ class BrowserController(
         if (selected.url != START_PAGE_URL || selected.session != null) {
             ensureSession(selected)
             selected.session?.let { session ->
-                val visible = isAppForegrounded && selected.isViewAttached
+                val visible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, selected.id == selectedTabId, selected.isViewAttached)
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
@@ -1399,7 +1401,7 @@ class BrowserController(
 
         session.open(runtime)
         extensionsManager.attachSession(session)
-        val isVisible = isAppForegrounded && tab.id == selectedTabId && tab.isViewAttached
+        val isVisible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, tab.id == selectedTabId, tab.isViewAttached)
         session.setActive(isVisible)
         session.setFocused(isVisible)
         session.setPriorityHint(
@@ -1458,6 +1460,7 @@ class BrowserController(
 
         session.setFocused(false)
         session.setActive(false)
+        session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
         extensionsManager.detachSession(session)
         session.navigationDelegate = null
         session.contentDelegate = null

@@ -48,7 +48,7 @@ class BrowserUpdateManager(context: Context) {
         Thread(task, "CatBrowserUpdater").apply { isDaemon = true }
     }
     private val pendingUpdates = mutableMapOf<UpdateChannel, PendingUpdate>()
-    private val checkGenerations = mutableMapOf<UpdateChannel, Long>()
+    private val checkGenerations = UpdateGenerationTracker()
     private val preferences = appContext.getSharedPreferences("cat_update_preferences", Context.MODE_PRIVATE)
 
     init {
@@ -90,8 +90,7 @@ class BrowserUpdateManager(context: Context) {
         if (enabled) {
             checkForUpdates(UpdateChannel.BETA)
         } else {
-            checkGenerations[UpdateChannel.BETA] =
-                (checkGenerations[UpdateChannel.BETA] ?: 0L) + 1L
+            checkGenerations.invalidate(UpdateChannel.BETA)
             pendingUpdates.remove(UpdateChannel.BETA)
             File(appContext.cacheDir, fileName(UpdateChannel.BETA)).delete()
             File(appContext.cacheDir, fileName(UpdateChannel.BETA) + ".part").delete()
@@ -118,8 +117,7 @@ class BrowserUpdateManager(context: Context) {
     fun checkForUpdates(channel: UpdateChannel) {
         val currentState = state(channel)
         if (currentState.isChecking || currentState.isDownloading) return
-        val generation = (checkGenerations[channel] ?: 0L) + 1L
-        checkGenerations[channel] = generation
+        val generation = checkGenerations.next(channel)
 
         updateState(channel) {
             it.copy(isChecking = true, error = false, message = "Đang kiểm tra " + channel.label + "…")
@@ -410,7 +408,7 @@ class BrowserUpdateManager(context: Context) {
         action: () -> Unit
     ) {
         post {
-            if (checkGenerations[channel] == generation) action()
+            if (checkGenerations.isCurrent(channel, generation)) action()
         }
     }
 
