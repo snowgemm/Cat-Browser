@@ -105,7 +105,7 @@ app/
   src/main/
     java/io/github/snowgemm/catbrowser/
       ai/          Cat AI client and Supabase session handling
-      browser/     GeckoView controller, sessions, downloads, extensions and URL rules
+      browser/     GeckoView controller, local store, sessions, downloads, extensions and URL rules
       ui/          Compose screens, browser shell, tab overview and shared browser chrome
       update/      Stable/Beta release updater and APK cleanup
     res/           Android resources and manifest
@@ -122,7 +122,8 @@ ai-gateway/        Deprecated legacy gateway retained temporarily for rollback t
 Key ownership boundaries:
 
 - `CatBrowserApplication` owns the process-wide `GeckoRuntime`.
-- `BrowserController` coordinates tabs, `GeckoSession` lifecycle, local browser state, permissions and privacy controls.
+- `BrowserController` coordinates in-memory tab state, navigation, `GeckoSession` lifecycle, permissions and privacy controls.
+- `BrowserLocalStore` persists regular-tab metadata, bookmarks and normal-mode history in app-private SharedPreferences; private tabs are excluded.
 - `BrowserDownloadManager` and `BrowserExtensionsManager` isolate download and WebExtension integration.
 - `BrowserScreen`, `BrowserMainScreen`, `BrowserChrome` and `TabsOverview` keep the Compose shell, main browser UI, reusable controls and tab overview separate.
 - `macrobenchmark` measures application journeys; it does not change the production browser code.
