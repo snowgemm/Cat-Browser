@@ -1982,6 +1982,7 @@ class BrowserController(
                 notifyGecko = false,
             )
         }
+        if (contextMenuSourceSession === failedSession) dismissContextMenu()
         extensionsManager.detachSession(failedSession)
         tab.session = null
         tab.isViewAttached = false
