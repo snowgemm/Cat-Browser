@@ -11,11 +11,16 @@ class BrowserTab internal constructor(
     val id: String = UUID.randomUUID().toString(),
     initialUrl: String = START_PAGE_URL,
     initialTitle: String = "New tab",
-    val isPrivate: Boolean = false
+    val isPrivate: Boolean = false,
+    initialDesktopMode: Boolean = false
 ) {
     var url by mutableStateOf(initialUrl)
         internal set
     var title by mutableStateOf(initialTitle)
+        internal set
+    var isDesktopMode by mutableStateOf(initialDesktopMode)
+        internal set
+    var pageSecurity by mutableStateOf<BrowserPageSecurity?>(null)
         internal set
     var isLoading by mutableStateOf(false)
         internal set
