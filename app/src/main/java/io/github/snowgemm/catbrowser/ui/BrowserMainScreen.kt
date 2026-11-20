@@ -473,6 +473,7 @@ internal fun BrowserMainScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 update = { view ->
                                     attachedGeckoView = view
+                                    view.setActivityContextDelegate { activity }
                                     if (view.getSession() !== session) {
                                         view.releaseSession()
                                         view.setSession(session)
