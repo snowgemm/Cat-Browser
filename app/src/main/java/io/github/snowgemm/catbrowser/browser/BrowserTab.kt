@@ -12,13 +12,16 @@ class BrowserTab internal constructor(
     initialUrl: String = START_PAGE_URL,
     initialTitle: String = "New tab",
     val isPrivate: Boolean = false,
-    initialDesktopMode: Boolean = false
+    initialDesktopMode: Boolean = false,
+    initialGroupId: String? = null
 ) {
     var url by mutableStateOf(initialUrl)
         internal set
     var title by mutableStateOf(initialTitle)
         internal set
     var isDesktopMode by mutableStateOf(initialDesktopMode)
+        internal set
+    var groupId by mutableStateOf(initialGroupId.takeUnless { isPrivate })
         internal set
     internal var pageSecurity by mutableStateOf<BrowserPageSecurity?>(null)
         internal set
