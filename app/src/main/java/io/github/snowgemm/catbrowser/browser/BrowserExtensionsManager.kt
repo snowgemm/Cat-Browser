@@ -21,7 +21,6 @@ import org.mozilla.geckoview.WebExtensionController
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
-import java.net.URI
 import java.net.URL
 import java.util.UUID
 import java.util.concurrent.Executors
@@ -489,12 +488,11 @@ class BrowserExtensionsManager(
 
     fun onAppForegrounded() {
         isAppForegrounded = true
+        val popupSession = popup?.session?.takeIf { it.isOpen } ?: return
         sessionProvider().filter { it.isOpen }.forEach { it.setFocused(false) }
-        popup?.session?.takeIf { it.isOpen }?.let { session ->
-            session.setActive(true)
-            session.setFocused(true)
-            session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
-        }
+        popupSession.setActive(true)
+        popupSession.setFocused(true)
+        popupSession.setPriorityHint(GeckoSession.PRIORITY_HIGH)
     }
 
     fun setAllowedInPrivateBrowsing(extension: WebExtension, allowed: Boolean) {

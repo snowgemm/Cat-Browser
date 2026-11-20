@@ -237,7 +237,11 @@ class BrowserController(
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
-            val visible = tab.id == selectedTabId && tab.isViewAttached
+            val visible = GeckoSessionVisibilityPolicy.isVisible(
+                isAppForegrounded,
+                tab.id == selectedTabId,
+                tab.isViewAttached
+            )
             session.setActive(visible)
             session.setFocused(visible)
             session.setPriorityHint(
@@ -1118,7 +1122,11 @@ class BrowserController(
         val selected = activeTab ?: return
         tabs.forEach { tab ->
             tab.session?.let { session ->
-                val visible = isAppForegrounded && tab.id == selected.id && tab.isViewAttached
+                val visible = GeckoSessionVisibilityPolicy.isVisible(
+                    isAppForegrounded,
+                    tab.id == selected.id,
+                    tab.isViewAttached
+                )
                 session.setActive(visible)
                 session.setFocused(visible)
                 session.setPriorityHint(
@@ -1145,7 +1153,11 @@ class BrowserController(
         if (tab.session !== session || !session.isOpen) return
 
         tab.isViewAttached = true
-        val visible = isAppForegrounded && tab.id == selectedTabId
+        val visible = GeckoSessionVisibilityPolicy.isVisible(
+            isAppForegrounded,
+            tab.id == selectedTabId,
+            tab.isViewAttached
+        )
         session.setActive(visible)
         session.setFocused(visible)
         session.setPriorityHint(
