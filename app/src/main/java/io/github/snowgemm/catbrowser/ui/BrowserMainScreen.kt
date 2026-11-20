@@ -1,8 +1,10 @@
 package io.github.snowgemm.catbrowser.ui
 
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -84,10 +86,20 @@ private val CatLightColorScheme = lightColorScheme(
 )
 
 
+private fun suggestedPdfFileName(title: String): String {
+    val safeTitle = title
+        .replace(Regex("""[\\/:*?"<>|]"""), "_")
+        .trim()
+        .take(80)
+        .ifBlank { "Cat Browser page" }
+    return "$safeTitle.pdf"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BrowserMainScreen(
     controller: BrowserController,
+    activity: Activity,
     onOpenTabs: () -> Unit,
     onOpenExtensions: () -> Unit,
     onOpenAssistant: () -> Unit,
@@ -126,6 +138,8 @@ internal fun BrowserMainScreen(
 
     val tab = controller.activeTab ?: return
     val context = LocalContext.current
+    var pendingPdfTabId by remember { mutableStateOf<String?>(null) }
+    val isVerifiedSecure = tab.pageSecurity?.isVerifiedSecure == true
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
     val extensionActions = controller.extensionsManager.actionsFor(tab.session)
     var address by remember(tab.id) {
@@ -236,6 +250,21 @@ internal fun BrowserMainScreen(
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         controller.extensionsManager.resolveSaveAsRequest(uri)
+    }
+    val pdfSaveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        val targetTabId = pendingPdfTabId
+        pendingPdfTabId = null
+        if (uri != null && targetTabId != null) {
+            controller.saveTabAsPdf(targetTabId, uri)
+        }
+    }
+
+    LaunchedEffect(controller.pdfExportMessage) {
+        val message = controller.pdfExportMessage ?: return@LaunchedEffect
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        controller.consumePdfExportMessage()
     }
 
     LaunchedEffect(controller.extensionsManager.saveAsRequest?.id) {
@@ -435,6 +464,7 @@ internal fun BrowserMainScreen(
                                 factory = { context ->
                                     GeckoView(context).apply {
                                         attachedGeckoView = this
+                                        setActivityContextDelegate { activity }
                                         setSession(session)
                                         controller.onSessionViewAttached(tab.id, session)
                                     }
@@ -513,11 +543,18 @@ internal fun BrowserMainScreen(
                             BrowserGlyph(
                                 when {
                                     addressFocused -> BrowserGlyphType.SEARCH
-                                    tab.url.startsWith("https://", ignoreCase = true) -> BrowserGlyphType.LOCK
+                                    isVerifiedSecure -> BrowserGlyphType.LOCK
                                     else -> BrowserGlyphType.GLOBE
                                 },
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary
+                                modifier = Modifier.size(18.dp).semantics {
+                                    contentDescription = when {
+                                        addressFocused -> "Tìm kiếm"
+                                        isVerifiedSecure -> "Kết nối HTTPS an toàn"
+                                        else -> "Kết nối chưa được xác minh"
+                                    }
+                                },
+                                tint = if (isVerifiedSecure) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.width(9.dp))
                             BasicTextField(
@@ -757,6 +794,35 @@ internal fun BrowserMainScreen(
                 Text("CÔNG CỤ", modifier = Modifier.padding(start = 8.dp, bottom = 4.dp),
                     color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                BrowserMenuListAction(
+                    BrowserGlyphType.GLOBE,
+                    if (tab.isDesktopMode) "Dùng giao diện di động" else "Yêu cầu trang máy tính",
+                    subtitle = if (tab.isDesktopMode) "Đang bật chế độ máy tính" else "Đang dùng chế độ di động"
+                ) {
+                    showMenu = false
+                    controller.setDesktopMode(tab.id, !tab.isDesktopMode)
+                }
+                BrowserMenuListAction(
+                    BrowserGlyphType.DOWNLOAD,
+                    "Lưu trang thành PDF",
+                    subtitle = "Lưu bản sao PDF vào vị trí bạn chọn",
+                    enabled = tab.session?.isOpen == true && !controller.isPdfExporting
+                ) {
+                    showMenu = false
+                    pendingPdfTabId = tab.id
+                    pdfSaveLauncher.launch(suggestedPdfFileName(tab.title))
+                }
+                BrowserMenuListAction(
+                    BrowserGlyphType.PRINT,
+                    "In trang",
+                    subtitle = "Mở hộp thoại in của Android",
+                    enabled = tab.session?.isOpen == true
+                ) {
+                    showMenu = false
+                    if (!controller.printTab(tab.id)) {
+                        Toast.makeText(context, "Trang chưa sẵn sàng để in.", Toast.LENGTH_SHORT).show()
+                    }
+                }
                 BrowserMenuListAction(BrowserGlyphType.SEARCH, "Tìm trong trang") {
                     showMenu = false; showFind = true
                 }
