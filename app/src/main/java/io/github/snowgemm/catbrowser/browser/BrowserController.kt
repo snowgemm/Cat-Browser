@@ -788,7 +788,10 @@ class BrowserController(
         if (granted) callback?.grant() else callback?.reject()
     }
 
-    fun setDesktopMode(tabId: String, enabled: Boolean) {
+    fun setDesktopMode(
+        tabId: String,
+        enabled: Boolean,
+    ) {
         val tab = tabs.firstOrNull { it.id == tabId } ?: return
         if (tab.isDesktopMode == enabled) return
 
@@ -1092,23 +1095,30 @@ class BrowserController(
     }
 
     fun printTab(tabId: String): Boolean {
-        val session = tabs.firstOrNull { it.id == tabId }?.session
-            ?.takeIf { it.isOpen && it.printDelegate != null } ?: return false
+        val session =
+            tabs.firstOrNull { it.id == tabId }
+                ?.session
+                ?.takeIf { it.isOpen && it.printDelegate != null } ?: return false
         session.printPageContent()
         return true
     }
 
-    fun saveTabAsPdf(tabId: String, destinationUri: Uri): Boolean {
+    fun saveTabAsPdf(
+        tabId: String,
+        destinationUri: Uri,
+    ): Boolean {
         if (isPdfExporting) {
             pdfExportMessage = "Đang có một yêu cầu xuất PDF."
             return false
         }
 
-        val session = tabs.firstOrNull { it.id == tabId }?.session
-            ?.takeIf { it.isOpen } ?: run {
-                pdfExportMessage = "Trang chưa sẵn sàng để xuất PDF."
-                return false
-            }
+        val session =
+            tabs.firstOrNull { it.id == tabId }
+                ?.session
+                ?.takeIf { it.isOpen } ?: run {
+                    pdfExportMessage = "Trang chưa sẵn sàng để xuất PDF."
+                    return false
+                }
 
         isPdfExporting = true
         pdfExportMessage = "Đang tạo PDF…"
@@ -1280,14 +1290,18 @@ class BrowserController(
         val existing = tab.session
         if (existing != null && existing.isOpen) return
 
-        val session = GeckoSession(
+        val sessionSettings =
             GeckoSessionSettings.Builder()
                 .usePrivateMode(tab.isPrivate)
                 .useTrackingProtection(trackingProtectionEnabled)
-                .userAgentMode(BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).userAgentMode)
-                .viewportMode(BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).viewportMode)
+                .userAgentMode(
+                    BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).userAgentMode,
+                )
+                .viewportMode(
+                    BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).viewportMode,
+                )
                 .build()
-        )
+        val session = GeckoSession(sessionSettings)
         tab.session = session
         tab.isViewAttached = false
         tab.loadPendingUntilAttached = loadCurrentUrl
@@ -1492,17 +1506,20 @@ class BrowserController(
 
             override fun onSecurityChange(
                 session: GeckoSession,
-                securityInfo: GeckoSession.ProgressDelegate.SecurityInformation
+                securityInfo: GeckoSession.ProgressDelegate.SecurityInformation,
             ) {
                 if (tab.session !== session) return
-                tab.pageSecurity = BrowserPageSecurity(
-                    isSecure = securityInfo.isSecure,
-                    isException = securityInfo.isException,
-                    activeMixedContentLoaded = securityInfo.mixedModeActive ==
-                        GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
-                    passiveMixedContentLoaded = securityInfo.mixedModePassive ==
-                        GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED
-                )
+                tab.pageSecurity =
+                    BrowserPageSecurity(
+                        isSecure = securityInfo.isSecure,
+                        isException = securityInfo.isException,
+                        activeMixedContentLoaded =
+                            securityInfo.mixedModeActive ==
+                                GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
+                        passiveMixedContentLoaded =
+                            securityInfo.mixedModePassive ==
+                                GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
+                    )
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
