@@ -957,7 +957,7 @@ class BrowserController(
             history.clear()
             isHistoryLoaded = true
             isHistoryLoading = false
-            localStore.removeHistory()
+            dataExecutor.execute { localStore.removeHistory() }
         }
 
         if (flags == 0L) {
@@ -1413,6 +1413,7 @@ class BrowserController(
 
         // GeckoView closes a session before delivering onCrash/onKill. It must not
         // remain attached to Compose's AndroidView or be reused for the retry.
+        extensionsManager.detachSession(failedSession)
         tab.session = null
         tab.isViewAttached = false
         tab.loadPendingUntilAttached = false
@@ -1453,6 +1454,7 @@ class BrowserController(
 
         session.setFocused(false)
         session.setActive(false)
+        extensionsManager.detachSession(session)
         session.navigationDelegate = null
         session.contentDelegate = null
         session.permissionDelegate = null
@@ -1496,7 +1498,10 @@ class BrowserController(
     }
 
     private fun persistHistory() {
-        localStore.saveHistory(history.toList())
+        val snapshot = history.toList()
+        dataExecutor.execute {
+            localStore.saveHistory(snapshot)
+        }
     }
 
     private fun persistBookmarks() {
