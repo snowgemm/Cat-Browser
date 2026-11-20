@@ -7,7 +7,7 @@ import org.junit.Test
 
 class BrowserDownloadRegressionTest {
     @Test
-    fun simultaneousSameNameRequestsReceiveDistinctStableNames() {
+    fun repeatedSameNameRequestsReceiveDistinctStableNames() {
         val occupied = mutableSetOf<String>()
         val first = DownloadQueuePolicy.uniqueFileName("report.pdf") { it in occupied }
         occupied += first
