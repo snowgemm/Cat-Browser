@@ -25,8 +25,8 @@ internal object ExtensionCatalogParser {
 
                 val slug =
                     item.optString("slug")
-                        .takeIf(String::isNotBlank)
-                        ?: continue
+                    .takeIf(String::isNotBlank)
+                    ?: continue
 
                 val version = item.optJSONObject("current_version")
                 val file =
@@ -87,7 +87,7 @@ internal object ExtensionCatalogParser {
         if (value !is JSONObject) return ""
 
         return value.optString("vi")
-            .ifBlank { value.optString("en-US") }
+        .ifBlank { value.optString("en-US") }
             .ifBlank { value.optString(fallbackLocale) }
             .ifBlank {
                 val keys = value.keys()
