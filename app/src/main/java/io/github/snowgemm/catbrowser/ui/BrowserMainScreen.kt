@@ -255,12 +255,12 @@ internal fun BrowserMainScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("application/pdf"),
         ) { uri ->
-        val targetTabId = pendingPdfTabId
-        pendingPdfTabId = null
-        if (uri != null && targetTabId != null) {
-            controller.saveTabAsPdf(targetTabId, uri)
+            val targetTabId = pendingPdfTabId
+            pendingPdfTabId = null
+            if (uri != null && targetTabId != null) {
+                controller.saveTabAsPdf(targetTabId, uri)
+            }
         }
-    }
 
     LaunchedEffect(controller.pdfExportMessage) {
         val message = controller.pdfExportMessage ?: return@LaunchedEffect
