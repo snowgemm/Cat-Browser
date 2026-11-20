@@ -133,6 +133,85 @@ class BrowserExtensionRegressionTest {
     }
 
     @Test
+    fun selectsApprovedSignedFileInsteadOfEarlierUnreviewedFile() {
+        val payload =
+            """
+            {
+              "results": [
+                {
+                  "id": 8,
+                  "slug": "multi-file-addon",
+                  "status": "public",
+                  "type": "extension",
+                  "current_version": {
+                    "version": "3.0",
+                    "file": {
+                      "url": "https://addons.mozilla.org/firefox/downloads/file/80/unreviewed.xpi",
+                      "status": "unreviewed",
+                      "is_mozilla_signed_extension": true
+                    },
+                    "files": [
+                      {
+                        "url": "https://addons.mozilla.org/firefox/downloads/file/81/pending.xpi",
+                        "status": "unreviewed",
+                        "is_mozilla_signed_extension": true
+                      },
+                      {
+                        "url": "https://addons.mozilla.org/firefox/downloads/file/82/unsigned-public.xpi",
+                        "status": "public",
+                        "is_mozilla_signed_extension": false
+                      },
+                      {
+                        "url": "https://addons.mozilla.org/firefox/downloads/file/83/signed-public.xpi",
+                        "status": "public",
+                        "is_mozilla_signed_extension": true
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val entry = ExtensionCatalogParser.parse(payload).single()
+
+        assertEquals(
+            "https://addons.mozilla.org/firefox/downloads/file/83/signed-public.xpi",
+            entry.downloadUrl,
+        )
+        assertTrue(entry.canInstall)
+    }
+
+    @Test
+    fun doesNotOfferFilesWithoutExplicitPublicApproval() {
+        val payload =
+            """
+            {
+              "results": [
+                {
+                  "id": 9,
+                  "slug": "unknown-status-addon",
+                  "status": "public",
+                  "type": "extension",
+                  "current_version": {
+                    "version": "1.0",
+                    "file": {
+                      "url": "https://addons.mozilla.org/firefox/downloads/file/90/unknown-status.xpi",
+                      "is_mozilla_signed_extension": true
+                    }
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val entry = ExtensionCatalogParser.parse(payload).single()
+
+        assertNull(entry.downloadUrl)
+        assertFalse(entry.canInstall)
+    }
+
+    @Test
     fun neverOffersExplicitlyUnsignedOrUntrustedCatalogFiles() {
         val payload =
             """
@@ -147,6 +226,7 @@ class BrowserExtensionRegressionTest {
                     "version": "1.0",
                     "file": {
                       "url": "https://addons.mozilla.org/firefox/downloads/file/1/unsigned.xpi",
+                      "status": "public",
                       "is_mozilla_signed_extension": false
                     }
                   }
@@ -160,6 +240,7 @@ class BrowserExtensionRegressionTest {
                     "version": "1.0",
                     "file": {
                       "url": "https://evil.example/extension.xpi",
+                      "status": "public",
                       "is_mozilla_signed_extension": true
                     }
                   }
