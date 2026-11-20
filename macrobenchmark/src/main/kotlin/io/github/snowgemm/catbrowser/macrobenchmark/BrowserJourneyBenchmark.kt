@@ -56,18 +56,25 @@ class BrowserJourneyBenchmark {
                 repeat(7) {
                     val openTabsButton =
                         device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
-                    checkNotNull(openTabsButton) { "Không tìm thấy nút mở Tab Switcher." }.click()
+                    val openTabsView = checkNotNull(openTabsButton) {
+                        "Không tìm thấy nút mở Tab Switcher."
+                    }
+                    openTabsView.click()
 
                     val newTabButton =
                         device.wait(Until.findObject(By.text("Tab thường")), UI_TIMEOUT_MS)
-                    checkNotNull(newTabButton) { "Không tìm thấy nút tạo tab thường." }.click()
+                    val newTabView = checkNotNull(newTabButton) {
+                        "Không tìm thấy nút tạo tab thường."
+                    }
+                    newTabView.click()
                 }
 
                 val openTabsButton =
                     device.wait(Until.findObject(By.descContains("Các tab")), UI_TIMEOUT_MS)
-                checkNotNull(openTabsButton) {
+                val openTabsView = checkNotNull(openTabsButton) {
                     "Không thể mở Tab Switcher sau khi tạo tab."
-                }.click()
+                }
+                openTabsView.click()
                 check(device.wait(Until.findObject(By.textContains("8/20")), UI_TIMEOUT_MS) != null) {
                     "Tab Switcher chưa hiển thị đủ 8 tab để benchmark cuộn."
                 }
