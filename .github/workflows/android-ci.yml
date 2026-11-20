@@ -58,17 +58,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
-      - name: Generate temporary KtLint baseline
-        run: ./gradlew --no-daemon :app:ktlintGenerateBaseline
-
-      - name: Upload KtLint baseline for repository bootstrap
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ktlint-baseline-bootstrap
-          path: app/config/ktlint/baseline.xml
-          retention-days: 1
-          if-no-files-found: error
-
       - name: Run Android Lint and Kotlin lint
         run: ./gradlew --no-daemon --stacktrace :app:lintDebug :app:ktlintCheck :macrobenchmark:ktlintCheck
 

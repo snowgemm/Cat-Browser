@@ -1,11 +1,37 @@
+import java.util.zip.ZipInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jlleitschuh.gradle.ktlint")
 }
 
+val ktlintBaselineArchive = layout.projectDirectory.file("config/ktlint/baseline.xml.zip")
+val ktlintBaselineFile = layout.buildDirectory.file("ktlint/baseline.xml")
+
+val extractKtlintBaseline by tasks.registering {
+    inputs.file(ktlintBaselineArchive)
+    outputs.file(ktlintBaselineFile)
+
+    doLast {
+        val output = ktlintBaselineFile.get().asFile
+        output.parentFile.mkdirs()
+        ZipInputStream(ktlintBaselineArchive.asFile.inputStream()).use { zip ->
+            val entry = zip.nextEntry ?: error("KtLint baseline archive is empty.")
+            require(entry.name == "baseline.xml") { "Unexpected KtLint baseline archive entry." }
+            output.outputStream().use { zip.copyTo(it) }
+        }
+    }
+}
+
 ktlint {
-    baseline.set(file("config/ktlint/baseline.xml"))
+    baseline.set(ktlintBaselineFile)
+}
+
+tasks.configureEach {
+    if (name.startsWith("runKtlintCheckOver")) {
+        dependsOn(extractKtlintBaseline)
+    }
 }
 
 val releaseKeystorePath = providers.environmentVariable("CAT_RELEASE_KEYSTORE_PATH").orNull

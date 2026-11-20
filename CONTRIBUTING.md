@@ -58,3 +58,8 @@ Do not attach APK signing material, API keys, access tokens, cookies, private UR
 ## Scope and licensing
 
 The repository currently does not declare a license for Cat Browser's own source code. Do not assume that the license of GeckoView or another dependency grants permission to reuse Cat Browser code. See [Third-party notices](THIRD_PARTY_NOTICES.md).
+
+
+## Kotlin lint baseline
+
+The app module uses a committed KtLint baseline to record style violations that predate lint adoption. New violations fail CI; the baseline is technical debt, not a permanent exemption. When cleaning a legacy file, regenerate the baseline with `./gradlew :app:ktlintGenerateBaseline`, then replace the compressed archive at `app/config/ktlint/baseline.xml.zip` with the generated `app/build/ktlint/baseline.xml` and commit the smaller baseline.
