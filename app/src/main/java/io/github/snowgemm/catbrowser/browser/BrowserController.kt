@@ -31,12 +31,13 @@ class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
 ) {
-    private val preferences = context.applicationContext.getSharedPreferences(
+    private val appContext = context.applicationContext
+    private val preferences = appContext.getSharedPreferences(
         PREFERENCES_NAME,
         Context.MODE_PRIVATE
     )
     private val localStore = BrowserLocalStore(preferences)
-    val updateManager = BrowserUpdateManager(context.applicationContext)
+    val updateManager = BrowserUpdateManager(appContext)
 
     var developerMode by mutableStateOf(preferences.getBoolean(KEY_DEVELOPER_MODE, false))
         private set
@@ -58,7 +59,7 @@ class BrowserController(
     )
         private set
 
-    val downloadManager = BrowserDownloadManager(context.applicationContext)
+    val downloadManager = BrowserDownloadManager(appContext)
     private val storageController = runtime.getStorageController()
     private val contentBlockingController = runtime.getContentBlockingController()
 
@@ -67,7 +68,7 @@ class BrowserController(
     val bookmarks = mutableStateListOf<BrowserEntry>()
     val extensionsManager = BrowserExtensionsManager(
         runtime = runtime,
-        context = context.applicationContext,
+        context = appContext,
         downloadManager = downloadManager,
         sessionProvider = { tabs.mapNotNull { it.session } },
         onCreateTabFromExtension = ::createExtensionTab,
@@ -107,6 +108,10 @@ class BrowserController(
         private set
     var findInPageResult by mutableStateOf<FindInPageState?>(null)
         private set
+    var isPdfExporting by mutableStateOf(false)
+        private set
+    var pdfExportMessage by mutableStateOf<String?>(null)
+        private set
     var isClearingData by mutableStateOf(false)
         private set
     var clearDataMessage by mutableStateOf<String?>(null)
@@ -127,6 +132,9 @@ class BrowserController(
     private val privacyStatsHandler = Handler(privacyStatsHandlerThread.looper)
     private val dataExecutor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "CatBrowserData").apply { isDaemon = true }
+    }
+    private val pdfWriterExecutor = Executors.newSingleThreadExecutor { task ->
+        Thread(task, "CatBrowserPdfWriter").apply { isDaemon = true }
     }
     private var privacyStatsRequestVersion = 0
     private var privacyStatsRequestInFlight = false
@@ -780,6 +788,20 @@ class BrowserController(
         if (granted) callback?.grant() else callback?.reject()
     }
 
+    fun setDesktopMode(tabId: String, enabled: Boolean) {
+        val tab = tabs.firstOrNull { it.id == tabId } ?: return
+        if (tab.isDesktopMode == enabled) return
+
+        tab.isDesktopMode = enabled
+        tab.session?.takeIf { it.isOpen }?.let { session ->
+            val displaySettings = BrowserDesktopModePolicy.settingsFor(enabled)
+            session.settings.setUserAgentMode(displaySettings.userAgentMode)
+            session.settings.setViewportMode(displaySettings.viewportMode)
+            session.reload()
+        }
+        persistTabs()
+    }
+
     fun updateTrackingProtection(enabled: Boolean) {
         if (trackingProtectionEnabled == enabled) return
         trackingProtectionEnabled = enabled
@@ -1069,6 +1091,70 @@ class BrowserController(
         findInPageResult = null
     }
 
+    fun printTab(tabId: String): Boolean {
+        val session = tabs.firstOrNull { it.id == tabId }?.session
+            ?.takeIf { it.isOpen } ?: return false
+        session.printPageContent()
+        return true
+    }
+
+    fun saveTabAsPdf(tabId: String, destinationUri: Uri): Boolean {
+        if (isPdfExporting) {
+            pdfExportMessage = "Đang có một yêu cầu xuất PDF."
+            return false
+        }
+
+        val session = tabs.firstOrNull { it.id == tabId }?.session
+            ?.takeIf { it.isOpen } ?: run {
+                pdfExportMessage = "Trang chưa sẵn sàng để xuất PDF."
+                return false
+            }
+
+        isPdfExporting = true
+        pdfExportMessage = "Đang tạo PDF…"
+        storageHandler.post {
+            runCatching { session.saveAsPdf() }
+                .onSuccess { result ->
+                    result.accept(
+                        { input ->
+                            pdfWriterExecutor.execute {
+                                val saveResult = runCatching {
+                                    input.use { source ->
+                                        val output = appContext.contentResolver
+                                            .openOutputStream(destinationUri, "w")
+                                            ?: error("Unable to open the selected document.")
+                                        output.use { target -> source.copyTo(target) }
+                                    }
+                                }
+                                dataHandler.post {
+                                    isPdfExporting = false
+                                    pdfExportMessage = if (saveResult.isSuccess) {
+                                        "Đã lưu tệp PDF vào vị trí đã chọn."
+                                    } else {
+                                        "Không thể lưu tệp PDF. Hãy thử lại."
+                                    }
+                                }
+                            }
+                        },
+                        { publishPdfExportFailure() }
+                    )
+                }
+                .onFailure { publishPdfExportFailure() }
+        }
+        return true
+    }
+
+    fun consumePdfExportMessage() {
+        pdfExportMessage = null
+    }
+
+    private fun publishPdfExportFailure() {
+        dataHandler.post {
+            isPdfExporting = false
+            pdfExportMessage = "GeckoView không thể tạo hoặc lưu PDF cho trang này."
+        }
+    }
+
     private fun createExtensionTab(active: Boolean): GeckoSession? {
         if (tabs.size >= MAX_TABS) return null
         val tab = BrowserTab(initialUrl = START_PAGE_URL, initialTitle = "Tab tiện ích")
@@ -1198,6 +1284,8 @@ class BrowserController(
             GeckoSessionSettings.Builder()
                 .usePrivateMode(tab.isPrivate)
                 .useTrackingProtection(trackingProtectionEnabled)
+                .userAgentMode(BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).userAgentMode)
+                .viewportMode(BrowserDesktopModePolicy.settingsFor(tab.isDesktopMode).viewportMode)
                 .build()
         )
         tab.session = session
@@ -1389,6 +1477,7 @@ class BrowserController(
             override fun onPageStart(session: GeckoSession, url: String) {
                 if (tab.session !== session) return
                 tab.previewBitmap = null
+                tab.pageSecurity = null
                 tab.isLoading = true
                 tab.progress = 0
                 tab.error = null
@@ -1398,6 +1487,21 @@ class BrowserController(
                 if (tab.session === session) {
                     tab.progress = progress.coerceIn(0, 100)
                 }
+            }
+
+            override fun onSecurityChange(
+                session: GeckoSession,
+                securityInfo: GeckoSession.ProgressDelegate.SecurityInformation
+            ) {
+                if (tab.session !== session) return
+                tab.pageSecurity = BrowserPageSecurity(
+                    isSecure = securityInfo.isSecure,
+                    isException = securityInfo.isException,
+                    activeMixedContentLoaded = securityInfo.mixedModeActive ==
+                        GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED,
+                    passiveMixedContentLoaded = securityInfo.mixedModePassive ==
+                        GeckoSession.ProgressDelegate.SecurityInformation.CONTENT_LOADED
+                )
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
@@ -1440,6 +1544,7 @@ class BrowserController(
         tab.loadPendingUntilAttached = false
         tab.pendingOriginalInput = tab.url
         tab.isFullScreen = false
+        tab.pageSecurity = null
         tab.isLoading = false
         tab.progress = 0
         tab.error = message
@@ -1451,6 +1556,7 @@ class BrowserController(
             return
         }
         tab.isFullScreen = false
+        tab.pageSecurity = null
 
         if (pendingContentPermissionSession === session) {
             pendingContentPermissionResult?.complete(
