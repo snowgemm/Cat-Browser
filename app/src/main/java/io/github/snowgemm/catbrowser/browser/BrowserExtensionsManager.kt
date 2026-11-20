@@ -276,6 +276,21 @@ class BrowserExtensionsManager(
         }
     }
 
+    fun detachSession(session: GeckoSession) {
+        if (session.isOpen) {
+            installed.forEach { extension ->
+                val extensionController = session.getWebExtensionController()
+                extensionController.setActionDelegate(extension, null)
+                extensionController.setTabDelegate(extension, null)
+            }
+        }
+
+        // Session-specific actions can contain decoded icon bitmaps. Release them
+        // as soon as the corresponding GeckoSession is no longer usable.
+        val sessionIdentity = System.identityHashCode(session)
+        toolbarActions.removeAll { it.sessionIdentity == sessionIdentity }
+    }
+
     fun attachSession(session: GeckoSession) {
         installed.filter { it.metaData.enabled }.forEach { extension ->
             session.getWebExtensionController().setActionDelegate(
