@@ -24,8 +24,7 @@ internal object ExtensionSourcePolicy {
         return uri.rawQuery == null && uri.rawFragment == null
     }
 
-    fun isTrustedAmoListingUrl(value: String): Boolean =
-        trustedAmoUri(value) != null
+    fun isTrustedAmoListingUrl(value: String): Boolean = trustedAmoUri(value) != null
 
     private fun trustedAmoUri(value: String): URI? {
         val uri = runCatching { URI(value) }.getOrNull() ?: return null
