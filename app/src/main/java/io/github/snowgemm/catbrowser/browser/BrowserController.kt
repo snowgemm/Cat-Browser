@@ -398,7 +398,12 @@ class BrowserController(
         geckoAlreadyHandledExit: Boolean,
     ) {
         if (pictureInPictureSourceSession !== sourceSession) return
-        if (geckoAlreadyHandledExit) pictureInPictureExitHandledByGecko = true
+        if (geckoAlreadyHandledExit) {
+            pictureInPictureExitHandledByGecko = true
+            if (sourceSession.isOpen) {
+                sourceSession.sessionPictureInPicture.setKeepActive(false)
+            }
+        }
 
         val closeHost = exitPictureInPictureWindow
         if (closeHost != null) {
