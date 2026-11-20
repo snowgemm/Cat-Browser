@@ -5,7 +5,10 @@ import java.net.URI
 internal class ReplaceableDecision<T> {
     private var pending: ((T) -> Unit)? = null
 
-    fun replace(next: (T) -> Unit, rejectedValue: T) {
+    fun replace(
+        next: (T) -> Unit,
+        rejectedValue: T,
+    ) {
         val previous = pending
         pending = next
         previous?.let { callback -> runCatching { callback(rejectedValue) } }
