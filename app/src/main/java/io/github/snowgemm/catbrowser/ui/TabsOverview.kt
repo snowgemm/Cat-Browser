@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
+import io.github.snowgemm.catbrowser.browser.BrowserTabGroup
+import io.github.snowgemm.catbrowser.browser.BrowserTabGroupPolicy
 
 
 private val CatDarkColorScheme = darkColorScheme(
@@ -54,6 +57,18 @@ private val CatLightColorScheme = lightColorScheme(
     outline = Color(0xFFD2DCE8)
 )
 
+private val tabGroupColorPalette = listOf(
+    Color(0xFF5795E8),
+    Color(0xFFB17AE8),
+    Color(0xFF4FAE87),
+    Color(0xFFE1A34B),
+    Color(0xFFE17C92),
+    Color(0xFF6F87C5),
+)
+
+private fun tabGroupColor(colorIndex: Int): Color =
+    tabGroupColorPalette[BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)]
+
 
 @Composable
 internal fun TabsOverview(
@@ -63,26 +78,57 @@ internal fun TabsOverview(
     onNewPrivateTab: () -> Unit
 ) {
     var tabSearch by remember { mutableStateOf("") }
-    var tabFilter by remember { mutableStateOf("all") }
+    var tabFilter by remember { mutableStateOf("regular") }
+    var selectedGroupId by remember { mutableStateOf<String?>(null) }
+    var isSelectingTabs by remember { mutableStateOf(false) }
+    var selectedTabIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showAddMenu by remember { mutableStateOf(false) }
     var showMoreMenu by remember { mutableStateOf(false) }
+    var showGroupMenu by remember { mutableStateOf(false) }
+    var showGroupDialog by remember { mutableStateOf(false) }
+    var showAddToGroupDialog by remember { mutableStateOf(false) }
+    var editingGroupId by remember { mutableStateOf<String?>(null) }
+    var groupName by remember { mutableStateOf("") }
+    var groupColorIndex by remember { mutableIntStateOf(0) }
     val cardCoordinates = remember { mutableMapOf<String, LayoutCoordinates>() }
     var draggingTabId by remember { mutableStateOf<String?>(null) }
     var lastReorderTargetId by remember { mutableStateOf<String?>(null) }
-    val canReorderTabs = tabSearch.isBlank() && tabFilter == "all"
-    val visibleTabs by remember(controller) {
+    val selectedGroup = controller.tabGroups.firstOrNull { it.id == selectedGroupId }
+    val isGroupDetail = tabFilter == "groups" && selectedGroupId != null
+    val canReorderTabs = tabSearch.isBlank() && tabFilter == "regular" && !isSelectingTabs
+    val visibleTabs by remember(controller, tabFilter, selectedGroupId, tabSearch) {
         derivedStateOf {
             controller.tabs.filter { tab ->
-                val matchesFilter = when (tabFilter) {
-                    "regular" -> !tab.isPrivate
+                val matchesMode = when (tabFilter) {
+                    "regular" -> !tab.isPrivate && tab.groupId == null
                     "private" -> tab.isPrivate
-                    else -> true
+                    "groups" -> selectedGroupId != null && tab.groupId == selectedGroupId
+                    else -> false
                 }
-                matchesFilter && (
+                matchesMode && (
                     tabSearch.isBlank() || tab.title.contains(tabSearch, ignoreCase = true) ||
                         tab.url.contains(tabSearch, ignoreCase = true)
                 )
             }
+        }
+    }
+    val visibleGroups by remember(controller, tabSearch) {
+        derivedStateOf {
+            controller.tabGroups.filter { group ->
+                tabSearch.isBlank() ||
+                    group.name.contains(tabSearch, ignoreCase = true) ||
+                    controller.tabs.any { tab ->
+                        tab.groupId == group.id &&
+                            (tab.title.contains(tabSearch, ignoreCase = true) ||
+                                tab.url.contains(tabSearch, ignoreCase = true))
+                    }
+            }
+        }
+    }
+
+    LaunchedEffect(selectedGroupId, controller.tabGroups.toList()) {
+        if (selectedGroupId != null && selectedGroup == null) {
+            selectedGroupId = null
         }
     }
     Column(
@@ -91,62 +137,199 @@ internal fun TabsOverview(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            tabModeAction(
-                icon = BrowserGlyphType.TABS,
-                label = "Tất cả",
-                count = controller.tabs.size,
-                selected = tabFilter == "all",
-                modifier = Modifier.weight(1f)
-            ) { tabFilter = "all" }
-            tabModeAction(
-                icon = BrowserGlyphType.INCOGNITO,
-                label = "Riêng tư",
-                count = controller.privateTabCount,
-                selected = tabFilter == "private",
-                modifier = Modifier.weight(1f)
-            ) { tabFilter = "private" }
-            tabModeAction(
-                icon = BrowserGlyphType.TABS,
-                label = "Thường",
-                count = controller.regularTabCount,
-                selected = tabFilter == "regular",
-                modifier = Modifier.weight(1f)
-            ) { tabFilter = "regular" }
+        if (isGroupDetail && selectedGroup != null) {
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { selectedGroupId = null }) {
+                    BrowserGlyph(BrowserGlyphType.BACK, iconSize = 21.dp)
+                }
+                Box(
+                    Modifier
+                        .size(11.dp)
+                        .background(tabGroupColor(selectedGroup.colorIndex), CircleShape)
+                )
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    selectedGroup.name,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Box {
+                    IconButton(onClick = { showGroupMenu = true }) {
+                        BrowserGlyph(BrowserGlyphType.MORE, iconSize = 21.dp)
+                    }
+                    DropdownMenu(
+                        expanded = showGroupMenu,
+                        onDismissRequest = { showGroupMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Chỉnh sửa nhóm") },
+                            onClick = {
+                                showGroupMenu = false
+                                editingGroupId = selectedGroup.id
+                                groupName = selectedGroup.name
+                                groupColorIndex = selectedGroup.colorIndex
+                                showGroupDialog = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Bỏ nhóm") },
+                            onClick = {
+                                showGroupMenu = false
+                                controller.deleteTabGroup(selectedGroup.id)
+                                selectedGroupId = null
+                                tabFilter = "regular"
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Đóng các tab trong nhóm") },
+                            onClick = {
+                                showGroupMenu = false
+                                controller.closeTabGroup(selectedGroup.id)
+                                selectedGroupId = null
+                                tabFilter = "regular"
+                                onBackIfNoTabs(controller, onBack)
+                            }
+                        )
+                    }
+                }
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                tabModeAction(
+                    icon = BrowserGlyphType.TABS,
+                    label = "Thường",
+                    count = controller.ungroupedTabCount,
+                    selected = tabFilter == "regular",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    tabFilter = "regular"
+                    selectedGroupId = null
+                    isSelectingTabs = false
+                    selectedTabIds = emptySet()
+                }
+                tabModeAction(
+                    icon = BrowserGlyphType.INCOGNITO,
+                    label = "Riêng tư",
+                    count = controller.privateTabCount,
+                    selected = tabFilter == "private",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    tabFilter = "private"
+                    selectedGroupId = null
+                    isSelectingTabs = false
+                    selectedTabIds = emptySet()
+                }
+                tabModeAction(
+                    icon = BrowserGlyphType.TABS,
+                    label = "Nhóm",
+                    count = controller.groupedTabCount,
+                    selected = tabFilter == "groups",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    tabFilter = "groups"
+                    selectedGroupId = null
+                    isSelectingTabs = false
+                    selectedTabIds = emptySet()
+                }
+            }
         }
 
-        if (visibleTabs.isEmpty()) {
-            Column(
-                Modifier.fillMaxWidth().weight(1f).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                BrowserGlyph(
-                    if (tabFilter == "private") BrowserGlyphType.INCOGNITO else BrowserGlyphType.TABS,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                    iconSize = 42.dp
-                )
-                Text(
-                    if (tabSearch.isBlank()) when (tabFilter) {
-                        "private" -> "Chưa có tab riêng tư nào"
-                        "regular" -> "Chưa có tab thường nào"
-                        else -> "Chưa có tab nào"
-                    } else "Không tìm thấy tab phù hợp",
-                    modifier = Modifier.padding(top = 14.dp),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                if (tabSearch.isBlank() && tabFilter != "all") {
-                    Text(
-                        if (tabFilter == "private") "Tab riêng tư sẽ xuất hiện ở đây."
-                        else "Mở trang mới để bắt đầu duyệt web.",
-                        modifier = Modifier.padding(top = 5.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
+        if (tabFilter == "groups" && selectedGroupId == null) {
+            if (visibleGroups.isEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().weight(1f).padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    BrowserGlyph(
+                        BrowserGlyphType.TABS,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        iconSize = 42.dp
                     )
+                    Text(
+                        if (tabSearch.isBlank()) "Chưa có nhóm tab"
+                        else "Không tìm thấy nhóm phù hợp",
+                        modifier = Modifier.padding(top = 14.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    if (tabSearch.isBlank()) {
+                        Text(
+                            "Chọn ít nhất hai tab thường rồi tạo nhóm từ menu.",
+                            modifier = Modifier.padding(top = 5.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(visibleGroups, key = { it.id }) { group ->
+                        tabGroupCard(
+                            group = group,
+                            tabs = controller.tabs.filter { it.groupId == group.id },
+                            onOpen = { selectedGroupId = group.id },
+                            onEdit = {
+                                editingGroupId = group.id
+                                groupName = group.name
+                                groupColorIndex = group.colorIndex
+                                showGroupDialog = true
+                            },
+                            onDelete = { controller.deleteTabGroup(group.id) },
+                            onClose = { controller.closeTabGroup(group.id) }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (tabFilter != "groups" || selectedGroupId != null) {
+            if (visibleTabs.isEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().weight(1f).padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    BrowserGlyph(
+                        if (tabFilter == "private") BrowserGlyphType.INCOGNITO else BrowserGlyphType.TABS,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        iconSize = 42.dp
+                    )
+                    Text(
+                        if (tabSearch.isBlank()) {
+                            when (tabFilter) {
+                                "private" -> "Chưa có tab riêng tư nào"
+                                "groups" -> "Nhóm này chưa có tab"
+                                else -> "Chưa có tab thường chưa nhóm"
+                            }
+                        } else {
+                            "Không tìm thấy tab phù hợp"
+                        },
+                        modifier = Modifier.padding(top = 14.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    if (tabSearch.isBlank() && tabFilter == "private") {
+                        Text(
+                            "Tab riêng tư sẽ xuất hiện ở đây.",
+                            modifier = Modifier.padding(top = 5.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
         }
@@ -177,7 +360,12 @@ internal fun TabsOverview(
                             .substringBefore('/')
                             .ifBlank { "Trang mới" }
                     val mark = domain.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
-                    val selected = tab.id == controller.selectedTabId
+                    val active = tab.id == controller.selectedTabId
+                    val selected = if (isSelectingTabs) {
+                        tab.id in selectedTabIds
+                    } else {
+                        active
+                    }
                     val cardBackground =
                         if (tab.isPrivate) {
                             Color(0xFF292431)
@@ -225,8 +413,16 @@ internal fun TabsOverview(
 
                     Surface(
                         onClick = {
-                            controller.selectTab(tab.id)
-                            onBack()
+                            if (isSelectingTabs) {
+                                selectedTabIds = if (tab.id in selectedTabIds) {
+                                    selectedTabIds - tab.id
+                                } else {
+                                    selectedTabIds + tab.id
+                                }
+                            } else {
+                                controller.selectTab(tab.id)
+                                onBack()
+                            }
                         },
                         shape = RoundedCornerShape(17.dp),
                         color = cardBackground,
@@ -393,8 +589,19 @@ internal fun TabsOverview(
                                     )
                                 }
                                 Spacer(Modifier.weight(1f))
-                                if (selected) {
-                                    Text(
+                                when {
+                                    isSelectingTabs && selected -> Text(
+                                        text = "Đã chọn",
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    isSelectingTabs -> Text(
+                                        text = "Chạm để chọn",
+                                        color = cardMuted,
+                                        fontSize = 10.sp,
+                                    )
+                                    active -> Text(
                                         text = "Đang mở",
                                         color = MaterialTheme.colorScheme.primary,
                                         fontSize = 10.sp,
@@ -408,110 +615,447 @@ internal fun TabsOverview(
             }
         }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-        ) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+
+        if (isSelectingTabs) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
             ) {
-                OutlinedTextField(
-                    value = tabSearch,
-                    onValueChange = { tabSearch = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("Tìm thẻ của bạn", maxLines = 1) },
-                    leadingIcon = {
-                        BrowserGlyph(BrowserGlyphType.SEARCH, iconSize = 18.dp)
-                    },
-                    trailingIcon = {
-                        if (tabSearch.isNotEmpty()) {
-                            IconButton(onClick = { tabSearch = "" }) {
-                                BrowserGlyph(BrowserGlyphType.CLEAR, iconSize = 16.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${selectedTabIds.size} tab đã chọn",
+                            modifier = Modifier.weight(1f),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        TextButton(
+                            onClick = {
+                                isSelectingTabs = false
+                                selectedTabIds = emptySet()
                             }
+                        ) {
+                            Text("Hủy")
                         }
-                    },
-                )
-                Box {
-                    IconButton(onClick = { showMoreMenu = true }) {
-                        BrowserGlyph(BrowserGlyphType.MORE, iconSize = 21.dp)
                     }
-                    DropdownMenu(
-                        expanded = showMoreMenu,
-                        onDismissRequest = { showMoreMenu = false },
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Đóng tab đang mở") },
-                            leadingIcon = {
-                                BrowserGlyph(BrowserGlyphType.CLOSE, iconSize = 18.dp)
-                            },
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
                             onClick = {
-                                showMoreMenu = false
-                                controller.closeTab(controller.selectedTabId)
+                                editingGroupId = null
+                                groupName = ""
+                                groupColorIndex = 0
+                                showGroupDialog = true
                             },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Đóng tất cả tab riêng tư") },
-                            leadingIcon = {
-                                BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
-                            },
-                            enabled = controller.privateTabCount > 0,
-                            onClick = {
-                                showMoreMenu = false
-                                controller.closeAllPrivateTabs()
-                            },
-                        )
+                            enabled = selectedTabIds.size >= 2 &&
+                                controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Tạo nhóm")
+                        }
+                        OutlinedButton(
+                            onClick = { showAddToGroupDialog = true },
+                            enabled = selectedTabIds.isNotEmpty() && controller.tabGroups.isNotEmpty(),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Thêm vào nhóm")
+                        }
                     }
                 }
-                Box {
-                    FloatingActionButton(
-                        onClick = { showAddMenu = true },
-                        modifier = Modifier.size(52.dp),
-                        shape = RoundedCornerShape(17.dp),
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ) {
-                        BrowserGlyph(
-                            BrowserGlyphType.NEW_TAB,
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            iconSize = 23.dp,
+            }
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+            ) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = tabSearch,
+                        onValueChange = { tabSearch = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("Tìm thẻ hoặc nhóm", maxLines = 1) },
+                        leadingIcon = {
+                            BrowserGlyph(BrowserGlyphType.SEARCH, iconSize = 18.dp)
+                        },
+                        trailingIcon = {
+                            if (tabSearch.isNotEmpty()) {
+                                IconButton(onClick = { tabSearch = "" }) {
+                                    BrowserGlyph(BrowserGlyphType.CLEAR, iconSize = 16.dp)
+                                }
+                            }
+                        },
+                    )
+                    Box {
+                        IconButton(onClick = { showMoreMenu = true }) {
+                            BrowserGlyph(BrowserGlyphType.MORE, iconSize = 21.dp)
+                        }
+                        DropdownMenu(
+                            expanded = showMoreMenu,
+                            onDismissRequest = { showMoreMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Chọn tab") },
+                                leadingIcon = {
+                                    BrowserGlyph(BrowserGlyphType.TABS, iconSize = 18.dp)
+                                },
+                                enabled = visibleTabs.isNotEmpty() &&
+                                    tabFilter != "private",
+                                onClick = {
+                                    showMoreMenu = false
+                                    selectedTabIds = emptySet()
+                                    isSelectingTabs = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Khôi phục tab đã đóng") },
+                                enabled = controller.recentlyClosedTabs.isNotEmpty() &&
+                                    controller.canCreateTab,
+                                onClick = {
+                                    showMoreMenu = false
+                                    if (controller.restoreRecentlyClosedTab()) onBack()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Đóng tab đang mở") },
+                                leadingIcon = {
+                                    BrowserGlyph(BrowserGlyphType.CLOSE, iconSize = 18.dp)
+                                },
+                                enabled = controller.tabs.size > 1,
+                                onClick = {
+                                    showMoreMenu = false
+                                    controller.closeTab(controller.selectedTabId)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Đóng tất cả tab riêng tư") },
+                                leadingIcon = {
+                                    BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
+                                },
+                                enabled = controller.privateTabCount > 0,
+                                onClick = {
+                                    showMoreMenu = false
+                                    controller.closeAllPrivateTabs()
+                                },
+                            )
+                        }
+                    }
+                    Box {
+                        FloatingActionButton(
+                            onClick = { showAddMenu = true },
+                            modifier = Modifier.size(52.dp),
+                            shape = RoundedCornerShape(17.dp),
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) {
+                            BrowserGlyph(
+                                BrowserGlyphType.NEW_TAB,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                iconSize = 23.dp,
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showAddMenu,
+                            onDismissRequest = { showAddMenu = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (isGroupDetail) "Tab mới trong nhóm" else "Tab thường"
+                                    )
+                                },
+                                leadingIcon = {
+                                    BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp)
+                                },
+                                enabled = controller.canCreateTab,
+                                onClick = {
+                                    showAddMenu = false
+                                    if (isGroupDetail && selectedGroupId != null) {
+                                        controller.newTab(selectedGroupId)
+                                        onBack()
+                                    } else {
+                                        onNewTab()
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Tab riêng tư") },
+                                leadingIcon = {
+                                    BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
+                                },
+                                enabled = controller.canCreateTab,
+                                onClick = {
+                                    showAddMenu = false
+                                    onNewPrivateTab()
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showGroupDialog) {
+            val editingGroup = controller.tabGroups.firstOrNull { it.id == editingGroupId }
+            AlertDialog(
+                onDismissRequest = { showGroupDialog = false },
+                title = { Text(if (editingGroupId == null) "Tạo nhóm tab" else "Chỉnh sửa nhóm") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = groupName,
+                            onValueChange = {
+                                groupName = it.take(BrowserTabGroupPolicy.MAX_NAME_LENGTH)
+                            },
+                            singleLine = true,
+                            label = { Text("Tên nhóm") },
+                            placeholder = { Text("Ví dụ: Học tập") },
                         )
+                        Text(
+                            "Màu nhóm",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            tabGroupColorPalette.forEachIndexed { index, color ->
+                                Surface(
+                                    onClick = { groupColorIndex = index },
+                                    shape = CircleShape,
+                                    color = color,
+                                    border = if (groupColorIndex == index) {
+                                        androidx.compose.foundation.BorderStroke(
+                                            3.dp,
+                                            MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    } else {
+                                        null
+                                    },
+                                    modifier = Modifier.size(30.dp),
+                                ) {}
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = groupName.isNotBlank() &&
+                            (editingGroupId != null ||
+                                (selectedTabIds.size >= 2 &&
+                                    controller.groupedTabCount < BrowserTabGroupPolicy.MAX_GROUPS)),
+                        onClick = {
+                            val saved = if (editingGroupId == null) {
+                                controller.createTabGroup(
+                                    tabIds = selectedTabIds,
+                                    name = groupName,
+                                    colorIndex = groupColorIndex,
+                                )
+                            } else {
+                                val updated = controller.updateTabGroup(
+                                    groupId = editingGroupId.orEmpty(),
+                                    name = groupName,
+                                    colorIndex = groupColorIndex,
+                                )
+                                if (updated) editingGroup else null
+                            }
+                            if (saved != null) {
+                                tabFilter = "groups"
+                                selectedGroupId = saved.id
+                                isSelectingTabs = false
+                                selectedTabIds = emptySet()
+                                showGroupDialog = false
+                            }
+                        },
+                    ) {
+                        Text(if (editingGroupId == null) "Tạo" else "Lưu")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showGroupDialog = false }) {
+                        Text("Hủy")
+                    }
+                },
+            )
+        }
+
+        if (showAddToGroupDialog) {
+            AlertDialog(
+                onDismissRequest = { showAddToGroupDialog = false },
+                title = { Text("Thêm tab vào nhóm") },
+                text = {
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(controller.tabGroups, key = { it.id }) { group ->
+                            TextButton(
+                                onClick = {
+                                    selectedTabIds.forEach { tabId ->
+                                        controller.assignTabToGroup(tabId, group.id)
+                                    }
+                                    selectedTabIds = emptySet()
+                                    isSelectingTabs = false
+                                    showAddToGroupDialog = false
+                                    tabFilter = "groups"
+                                    selectedGroupId = group.id
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(10.dp)
+                                            .background(tabGroupColor(group.colorIndex), CircleShape)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(group.name, maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showAddToGroupDialog = false }) {
+                        Text("Đóng")
+                    }
+                },
+            )
+        }
+
+        }
+    }
+}
+
+@Composable
+private fun tabGroupCard(
+    group: BrowserTabGroup,
+    tabs: List<BrowserTab>,
+    onOpen: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onClose: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val groupColor = tabGroupColor(group.colorIndex)
+    Surface(
+        onClick = onOpen,
+        shape = RoundedCornerShape(17.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            groupColor.copy(alpha = 0.85f),
+        ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(10.dp)
+                        .background(groupColor, CircleShape)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    group.name,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(34.dp),
+                    ) {
+                        BrowserGlyph(BrowserGlyphType.MORE, iconSize = 18.dp)
                     }
                     DropdownMenu(
-                        expanded = showAddMenu,
-                        onDismissRequest = { showAddMenu = false },
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Tab thường") },
-                            leadingIcon = {
-                                BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp)
-                            },
-                            enabled = controller.canCreateTab,
+                            text = { Text("Chỉnh sửa nhóm") },
                             onClick = {
-                                showAddMenu = false
-                                onNewTab()
+                                showMenu = false
+                                onEdit()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Tab riêng tư") },
-                            leadingIcon = {
-                                BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
-                            },
-                            enabled = controller.canCreateTab,
+                            text = { Text("Bỏ nhóm") },
                             onClick = {
-                                showAddMenu = false
-                                onNewPrivateTab()
+                                showMenu = false
+                                onDelete()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Đóng các tab trong nhóm") },
+                            onClick = {
+                                showMenu = false
+                                onClose()
                             },
                         )
                     }
                 }
             }
+            val previews = tabs.mapNotNull { it.previewBitmap }.take(3)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(74.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (previews.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        BrowserGlyph(
+                            BrowserGlyphType.TABS,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            iconSize = 24.dp,
+                        )
+                    }
+                } else {
+                    previews.forEach { preview ->
+                        Image(
+                            bitmap = preview.asImageBitmap(),
+                            contentDescription = "Xem trước nhóm ${group.name}",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(9.dp)),
+                        )
+                    }
+                }
+            }
+            Text(
+                "${tabs.size} tab",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
     }
 }
