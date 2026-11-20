@@ -177,6 +177,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
         when (target) {
             BrowserDestination.BROWSER -> BrowserMainScreen(
                 controller = controller,
+                activity = activity,
                 onOpenTabs = { destination = BrowserDestination.TABS },
                 onOpenExtensions = { destination = BrowserDestination.EXTENSIONS },
                 onOpenAssistant = { destination = BrowserDestination.ASSISTANT },
