@@ -72,6 +72,7 @@ private fun tabGroupColor(colorIndex: Int): Color =
 
 
 @Composable
+@Suppress("ktlint:standard:function-naming")
 internal fun TabsOverview(
     controller: BrowserController,
     onBack: () -> Unit,
