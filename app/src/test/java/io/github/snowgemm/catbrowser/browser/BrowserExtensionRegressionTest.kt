@@ -10,8 +10,8 @@ class BrowserExtensionRegressionTest {
     fun onlyHttpsMozillaAddonsDownloadUrlsAreTrusted() {
         assertTrue(
             ExtensionSourcePolicy.isTrustedAmoDownloadUrl(
-                "https://addons.mozilla.org/firefox/downloads/file/123/addon.xpi"
-            )
+                "https://addons.mozilla.org/firefox/downloads/file/123/addon.xpi",
+            ),
         )
         assertFalse(ExtensionSourcePolicy.isTrustedAmoDownloadUrl("http://addons.mozilla.org/addon.xpi"))
         assertFalse(ExtensionSourcePolicy.isTrustedAmoDownloadUrl("https://evil.example/addon.xpi"))
@@ -42,14 +42,14 @@ class BrowserExtensionRegressionTest {
                 decisions += "first:$it"
                 queue.replace({ decisions += "nested:$it" }, false)
             },
-            false
+            false,
         )
         queue.replace({ decisions += "second:$it" }, false)
         queue.resolve(true)
 
         assertEquals(
             listOf("first:false", "second:false", "nested:true"),
-            decisions
+            decisions,
         )
     }
 

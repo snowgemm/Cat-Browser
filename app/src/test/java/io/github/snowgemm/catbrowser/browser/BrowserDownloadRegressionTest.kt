@@ -24,11 +24,11 @@ class BrowserDownloadRegressionTest {
     fun filenamePolicyHandlesExtensionlessAndDotfileNames() {
         assertEquals(
             "README (1)",
-            DownloadQueuePolicy.uniqueFileName("README") { it == "README" }
+            DownloadQueuePolicy.uniqueFileName("README") { it == "README" },
         )
         assertEquals(
             ".env (1)",
-            DownloadQueuePolicy.uniqueFileName(".env") { it == ".env" }
+            DownloadQueuePolicy.uniqueFileName(".env") { it == ".env" },
         )
     }
 
@@ -45,15 +45,15 @@ class BrowserDownloadRegressionTest {
     fun interruptedDownloadsRestoreAsFailedMetadata() {
         assertEquals(
             BrowserDownloadStatus.FAILED,
-            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.QUEUED)
+            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.QUEUED),
         )
         assertEquals(
             BrowserDownloadStatus.FAILED,
-            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.DOWNLOADING)
+            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.DOWNLOADING),
         )
         assertEquals(
             BrowserDownloadStatus.COMPLETE,
-            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.COMPLETE)
+            DownloadQueuePolicy.restoredStatus(BrowserDownloadStatus.COMPLETE),
         )
     }
 
@@ -61,11 +61,11 @@ class BrowserDownloadRegressionTest {
     fun cancellationWinsAgainstLateWorkerCompletion() {
         assertEquals(
             BrowserDownloadStatus.CANCELLED,
-            DownloadQueuePolicy.completionStatus(cancelled = true)
+            DownloadQueuePolicy.completionStatus(cancelled = true),
         )
         assertEquals(
             BrowserDownloadStatus.COMPLETE,
-            DownloadQueuePolicy.completionStatus(cancelled = false)
+            DownloadQueuePolicy.completionStatus(cancelled = false),
         )
     }
 }
