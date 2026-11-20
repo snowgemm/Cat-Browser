@@ -1,5 +1,7 @@
 package io.github.snowgemm.catbrowser.browser
 
+import java.net.URI
+
 internal class ReplaceableDecision<T> {
     private var pending: ((T) -> Unit)? = null
 
