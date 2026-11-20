@@ -114,6 +114,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.annotation:annotation-experimental:1.6.0")
     implementation("org.mozilla.geckoview:geckoview:160.0.20261104181552")
 
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))

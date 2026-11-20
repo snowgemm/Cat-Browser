@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -29,7 +30,7 @@ const val DEFAULT_HOME_PAGE_URL = "about:blank"
 const val SEARCH_HOME_PAGE_URL = "cat-internal://search-home"
 private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
-@ExperimentalGeckoViewApi
+@OptIn(ExperimentalGeckoViewApi::class)
 class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
