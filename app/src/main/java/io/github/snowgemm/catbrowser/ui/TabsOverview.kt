@@ -1121,6 +1121,7 @@ private fun tabModeAction(
 }
 
 @Composable
+@Suppress("ktlint:standard:function-naming")
 internal fun EntryDialog(
     title: String,
     entries: List<BrowserEntry>,

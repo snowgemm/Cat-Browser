@@ -59,6 +59,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
+      # Explicit one-shot formatter path for generated Kotlin changes.
+      - name: Format Kotlin sources on request
+        if: contains(github.event.head_commit.message, '[format-kotlin]')
+        run: ./gradlew --no-daemon --stacktrace :app:ktlintFormat
+
       - name: Generate refreshed KtLint baseline snapshot
         if: contains(github.event.head_commit.message, '[refresh-ktlint-baseline]')
         run: ./gradlew --no-daemon --stacktrace :app:ktlintGenerateBaseline
@@ -142,6 +147,18 @@ jobs:
           archive: false
           retention-days: 14
           if-no-files-found: error
+
+      - name: Commit requested Kotlin formatting
+        if: contains(github.event.head_commit.message, '[format-kotlin]')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/io/github/snowgemm/catbrowser/ui/TabsOverview.kt
+          git add app/src/test/java/io/github/snowgemm/catbrowser/browser/BrowserTabGroupPolicyTest.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "style: apply KtLint formatting to tab group sources"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
 
       - name: Apply refreshed KtLint baseline to main
         if: contains(github.event.head_commit.message, '[refresh-ktlint-baseline]')
