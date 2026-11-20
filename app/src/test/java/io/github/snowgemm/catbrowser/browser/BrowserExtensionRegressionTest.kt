@@ -33,6 +33,27 @@ class BrowserExtensionRegressionTest {
     }
 
     @Test
+    fun reentrantPromptReplacementKeepsTheNewestDecisionPending() {
+        val decisions = mutableListOf<String>()
+        val queue = ReplaceableDecision<Boolean>()
+
+        queue.replace(
+            {
+                decisions += "first:$it"
+                queue.replace({ decisions += "nested:$it" }, false)
+            },
+            false
+        )
+        queue.replace({ decisions += "second:$it" }, false)
+        queue.resolve(true)
+
+        assertEquals(
+            listOf("first:false", "second:false", "nested:true"),
+            decisions
+        )
+    }
+
+    @Test
     fun resolvingPromptIsOneShot() {
         val decisions = mutableListOf<Boolean>()
         val queue = ReplaceableDecision<Boolean>()
