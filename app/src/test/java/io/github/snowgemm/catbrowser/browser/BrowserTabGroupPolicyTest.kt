@@ -129,8 +129,7 @@ private class InMemorySharedPreferences : SharedPreferences {
     override fun getString(
         key: String,
         defValue: String?,
-    ): String? =
-        values[key] as? String ?: defValue
+    ): String? = values[key] as? String ?: defValue
 
     override fun getStringSet(
         key: String,
