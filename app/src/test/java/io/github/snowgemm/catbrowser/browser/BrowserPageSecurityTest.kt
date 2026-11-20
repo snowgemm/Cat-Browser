@@ -7,11 +7,12 @@ import org.junit.Test
 class BrowserPageSecurityTest {
     @Test
     fun verifiedSecureConnectionShowsSecureIndicator() {
-        val security = BrowserPageSecurity(
+        val security =
+        BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = false
+            passiveMixedContentLoaded = false,
         )
 
         assertTrue(security.isVerifiedSecure)
@@ -19,11 +20,12 @@ class BrowserPageSecurityTest {
 
     @Test
     fun securityExceptionDoesNotShowSecureIndicator() {
-        val security = BrowserPageSecurity(
+        val security =
+        BrowserPageSecurity(
             isSecure = true,
             isException = true,
             activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = false
+            passiveMixedContentLoaded = false,
         )
 
         assertFalse(security.isVerifiedSecure)
@@ -31,11 +33,12 @@ class BrowserPageSecurityTest {
 
     @Test
     fun loadedActiveMixedContentDoesNotShowSecureIndicator() {
-        val security = BrowserPageSecurity(
+        val security =
+        BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = true,
-            passiveMixedContentLoaded = false
+            passiveMixedContentLoaded = false,
         )
 
         assertFalse(security.isVerifiedSecure)
@@ -43,7 +46,8 @@ class BrowserPageSecurityTest {
 
     @Test
     fun loadedPassiveMixedContentDoesNotShowSecureIndicator() {
-        val security = BrowserPageSecurity(
+        val security =
+        BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = false,
