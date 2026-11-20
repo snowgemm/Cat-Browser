@@ -22,6 +22,7 @@ This document separates APIs provided by GeckoView from complete browser feature
 | Save as PDF | `GeckoSession.saveAsPdf()` | The user chooses a destination through Android Storage Access Framework; PDF bytes are streamed to that URI on a worker executor. |
 | Print | `GeckoSession.printPageContent()`, `GeckoView.ActivityContextDelegate` | GeckoView's print delegate uses Android PrintManager with the current Activity context. |
 | Picture-in-picture | `PictureInPictureController.SessionPictureInPicture.Delegate`, `GeckoSessionSettings.Builder.pictureInPictureToken`, `CompositorController.onPipModeChanged` | Experimental GeckoView 160 placement-token flow; a dedicated, non-exported Activity hosts the cloned session while the original tab remains intact. Physical-device/vendor validation is still required. |
+| Context menus | `ContentDelegate.onContextMenu`, `ContentDelegate.ContextElement`, `GeckoSession.Loader.referrer` | Long-press menu for HTTP(S) links, images and media; opens in a new tab with source privacy mode and referrer session preserved, or copies the validated URL. Unsupported schemes are omitted. |
 
 ## Available, not yet integrated
 
@@ -33,7 +34,7 @@ This document separates APIs provided by GeckoView from complete browser feature
 | Complete media controls | `MediaSession.Delegate`, `MediaDelegate` | `MediaSession.Delegate` is currently used only to synchronize fullscreen state. Metadata, playback state/actions, Android notification and lock-screen controls, headset events and audio focus are not yet integrated. |
 | WebExtension native messaging | WebExtension native-messaging delegates and extension messaging APIs | A host bridge must be allowlisted, capability-scoped and permission-gated. Arbitrary native commands must not be exposed to content scripts. |
 | Accessibility/page extraction | Accessibility-tree and page-extraction APIs | Needs a concrete user-facing feature, bounded data flow and a privacy review before page content is exposed to other app components. |
-| Context menus and selection actions | `ContentDelegate.onContextMenu`, `SelectionActionDelegate` | Requires a browser-owned action sheet with correct link/image/text handling, clipboard permissions and safe external-intent routing. |
+| Text selection customization | `SelectionActionDelegate` | GeckoView's native text-selection behavior is left unchanged; a custom action toolbar needs separate UX and clipboard-permission design. |
 | Scroll/zoom controls | `PanZoomController`, `ScrollDelegate` and session settings | Could support per-site zoom and browser toolbar controls, but needs UX decisions and device testing before adding controls. |
 
 ## Integration constraints

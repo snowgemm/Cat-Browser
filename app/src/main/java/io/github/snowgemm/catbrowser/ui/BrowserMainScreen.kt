@@ -1,6 +1,8 @@
 package io.github.snowgemm.catbrowser.ui
 
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
@@ -129,6 +131,10 @@ internal fun BrowserMainScreen(
         null -> null
     }
 
+    LaunchedEffect(tab.id) {
+        controller.dismissContextMenu()
+    }
+
     LaunchedEffect(showHistory) {
         if (showHistory) controller.loadHistory()
     }
@@ -138,6 +144,7 @@ internal fun BrowserMainScreen(
 
     val tab = controller.activeTab ?: return
     val context = LocalContext.current
+    val contextMenuRequest = controller.contextMenuRequest?.takeIf { it.tabId == tab.id }
     var pendingPdfTabId by remember { mutableStateOf<String?>(null) }
     val isVerifiedSecure = tab.pageSecurity?.isVerifiedSecure == true
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
@@ -691,6 +698,83 @@ internal fun BrowserMainScreen(
                 }
             }
         }
+        }
+    }
+
+    contextMenuRequest?.let { request ->
+        val copyContextUrl: (String) -> Unit = { url ->
+            context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
+                ClipData.newPlainText("URL", url)
+            )
+            Toast.makeText(context, "Đã sao chép địa chỉ.", Toast.LENGTH_SHORT).show()
+            controller.dismissContextMenu()
+        }
+        val resourceLabel = when (request.resourceType) {
+            BrowserContextResourceType.IMAGE -> "ảnh"
+            BrowserContextResourceType.VIDEO -> "video"
+            BrowserContextResourceType.AUDIO -> "âm thanh"
+            BrowserContextResourceType.NONE -> "nội dung"
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = controller::dismissContextMenu,
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 3.dp
+        ) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 20.dp)
+            ) {
+                Text(
+                    request.title ?: if (request.linkUrl != null) "Liên kết" else "Tùy chọn $resourceLabel",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                request.linkUrl?.let { url ->
+                    BrowserMenuListAction(
+                        BrowserGlyphType.GLOBE,
+                        "Mở liên kết trong tab mới",
+                        subtitle = url,
+                        enabled = controller.canCreateTab
+                    ) {
+                        controller.openContextMenuTargetInNewTab(url)
+                    }
+                    BrowserMenuListAction(
+                        BrowserGlyphType.BOOKMARK,
+                        "Sao chép địa chỉ liên kết",
+                        subtitle = url
+                    ) {
+                        copyContextUrl(url)
+                    }
+                }
+                request.resourceUrl?.let { url ->
+                    BrowserMenuListAction(
+                        if (request.resourceType == BrowserContextResourceType.IMAGE) {
+                            BrowserGlyphType.BOOKMARK
+                        } else {
+                            BrowserGlyphType.DOWNLOAD
+                        },
+                        "Mở $resourceLabel trong tab mới",
+                        subtitle = url,
+                        enabled = controller.canCreateTab
+                    ) {
+                        controller.openContextMenuTargetInNewTab(url)
+                    }
+                    BrowserMenuListAction(
+                        BrowserGlyphType.GLOBE,
+                        "Sao chép địa chỉ $resourceLabel",
+                        subtitle = url
+                    ) {
+                        copyContextUrl(url)
+                    }
+                }
+            }
         }
     }
 

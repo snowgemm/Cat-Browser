@@ -109,6 +109,9 @@ class BrowserController(
         private set
     var mediaPermissionPrompt by mutableStateOf<MediaPermissionPrompt?>(null)
         private set
+    var contextMenuRequest by mutableStateOf<BrowserContextMenuRequest?>(null)
+        private set
+    private var contextMenuSourceSession: GeckoSession? = null
     var pendingAndroidPermissionRequest by mutableStateOf<AndroidPermissionRequest?>(null)
         private set
     var findInPageResult by mutableStateOf<FindInPageState?>(null)
@@ -220,6 +223,40 @@ class BrowserController(
         )
         tabs.add(tab)
         selectTab(tab.id)
+    }
+
+    fun dismissContextMenu() {
+        contextMenuRequest = null
+        contextMenuSourceSession = null
+    }
+
+    fun openContextMenuTargetInNewTab(url: String): Boolean {
+        val request = contextMenuRequest ?: return false
+        val safeUrl = BrowserContextMenuPolicy.safeWebUrl(url) ?: return false
+        val sourceTab = tabs.firstOrNull { it.id == request.tabId } ?: return false
+        val sourceSession = contextMenuSourceSession
+        if (
+            selectedTabId != sourceTab.id ||
+            sourceTab.session !== sourceSession ||
+            sourceSession?.isOpen != true ||
+            tabs.size >= MAX_TABS
+        ) {
+            return false
+        }
+
+        dismissContextMenu()
+        val newTab = BrowserTab(
+            initialUrl = safeUrl,
+            initialTitle = safeUrl,
+            isPrivate = sourceTab.isPrivate,
+            initialDesktopMode = sourceTab.isDesktopMode
+        ).apply {
+            pendingReferrerSession = sourceSession
+        }
+        tabs.add(newTab)
+        selectTab(newTab.id)
+        persistTabs()
+        return true
     }
 
     fun createTabGroup(
@@ -610,6 +647,7 @@ class BrowserController(
 
     fun selectTab(tabId: String) {
         val target = tabs.firstOrNull { it.id == tabId } ?: return
+        if (selectedTabId != tabId) dismissContextMenu()
         if (selectedTabId == tabId) {
             if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
             target.session?.let { session ->
@@ -1584,11 +1622,13 @@ class BrowserController(
             val originalInput = tab.pendingOriginalInput ?: tab.url
             tab.loadPendingUntilAttached = false
             tab.pendingOriginalInput = null
-            session.load(
-                GeckoSession.Loader()
-                    .uri(tab.url)
-                    .originalInput(originalInput)
-            )
+            val loader = GeckoSession.Loader()
+                .uri(tab.url)
+                .originalInput(originalInput)
+            val referrerSession = tab.pendingReferrerSession
+            tab.pendingReferrerSession = null
+            if (referrerSession?.isOpen == true) loader.referrer(referrerSession)
+            session.load(loader)
         }
     }
 
@@ -1764,6 +1804,38 @@ class BrowserController(
         }
 
         session.contentDelegate = object : GeckoSession.ContentDelegate {
+            override fun onContextMenu(
+                session: GeckoSession,
+                screenX: Int,
+                screenY: Int,
+                element: GeckoSession.ContentDelegate.ContextElement
+            ) {
+                if (tab.session !== session || selectedTabId != tab.id) return
+                val linkUrl = BrowserContextMenuPolicy.safeWebUrl(element.linkUri)
+                val resourceUrl = BrowserContextMenuPolicy.safeWebUrl(element.srcUri)
+                if (linkUrl == null && resourceUrl == null) {
+                    dismissContextMenu()
+                    return
+                }
+
+                val resourceType = when (element.type) {
+                    GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE -> BrowserContextResourceType.IMAGE
+                    GeckoSession.ContentDelegate.ContextElement.TYPE_VIDEO -> BrowserContextResourceType.VIDEO
+                    GeckoSession.ContentDelegate.ContextElement.TYPE_AUDIO -> BrowserContextResourceType.AUDIO
+                    else -> BrowserContextResourceType.NONE
+                }
+                contextMenuSourceSession = session
+                contextMenuRequest = BrowserContextMenuRequest(
+                    tabId = tab.id,
+                    linkUrl = linkUrl,
+                    resourceUrl = resourceUrl,
+                    resourceType = resourceType,
+                    title = (element.title ?: element.altText ?: element.linkText)
+                        ?.takeIf(String::isNotBlank)
+                        ?.take(160)
+                )
+            }
+
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 if (tab.session !== session || title.isNullOrBlank()) return
                 tab.title = title
@@ -1933,6 +2005,8 @@ class BrowserController(
         }
         tab.isFullScreen = false
         tab.pageSecurity = null
+        tab.pendingReferrerSession = null
+        if (contextMenuSourceSession === session) dismissContextMenu()
 
         if (pendingContentPermissionSession === session) {
             pendingContentPermissionResult?.complete(

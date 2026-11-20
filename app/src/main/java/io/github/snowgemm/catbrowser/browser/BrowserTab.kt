@@ -47,6 +47,8 @@ class BrowserTab internal constructor(
         internal set
     var pendingOriginalInput: String? = null
         internal set
+    var pendingReferrerSession: GeckoSession? = null
+        internal set
 }
 
 internal fun shouldPersistBrowserTab(tab: BrowserTab): Boolean = !tab.isPrivate
