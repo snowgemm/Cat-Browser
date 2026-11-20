@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
+import io.github.snowgemm.catbrowser.browser.BrowserTab
 import io.github.snowgemm.catbrowser.browser.BrowserTabGroup
 import io.github.snowgemm.catbrowser.browser.BrowserTabGroupPolicy
 
@@ -934,8 +935,6 @@ internal fun TabsOverview(
                     }
                 },
             )
-        }
-
         }
     }
 }
