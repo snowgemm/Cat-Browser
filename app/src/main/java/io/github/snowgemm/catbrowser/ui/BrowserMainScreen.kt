@@ -704,10 +704,11 @@ internal fun BrowserMainScreen(
 
     contextMenuRequest?.let { request ->
         val copyContextUrl: (String) -> Unit = { url ->
-            context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(
-                ClipData.newPlainText("URL", url)
-            )
-            Toast.makeText(context, "Đã sao chép địa chỉ.", Toast.LENGTH_SHORT).show()
+            val clipboard = context.getSystemService(ClipboardManager::class.java)
+            if (clipboard != null) {
+                clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+                Toast.makeText(context, "Đã sao chép địa chỉ.", Toast.LENGTH_SHORT).show()
+            }
             controller.dismissContextMenu()
         }
         val resourceLabel = when (request.resourceType) {

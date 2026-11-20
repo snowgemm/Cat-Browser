@@ -250,7 +250,8 @@ class BrowserController(
             initialUrl = safeUrl,
             initialTitle = safeUrl,
             isPrivate = sourceTab.isPrivate,
-            initialDesktopMode = sourceTab.isDesktopMode
+            initialDesktopMode = sourceTab.isDesktopMode,
+            initialGroupId = sourceTab.groupId
         ).apply {
             pendingReferrerSession = sourceSession
         }
