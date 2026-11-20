@@ -40,8 +40,7 @@ private data class AssistantMessage(
 @Composable
 internal fun AssistantScreen(
     controller: BrowserController,
-    onBack: () -> Unit,
-    onOpenSettings: () -> Unit
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val client = remember { AiGatewayClient(context) }
