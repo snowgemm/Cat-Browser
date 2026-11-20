@@ -130,6 +130,7 @@ class BrowserController(
     private var privacyStatsRefreshQueued = false
     private var lastPrivacyStatsRefreshMs = 0L
     private var pendingBookmarkToggle = false
+    private var historyClearGeneration = 0L
     var isAppForegrounded by mutableStateOf(true)
         private set
 
@@ -670,6 +671,7 @@ class BrowserController(
     fun isBookmarked(url: String): Boolean = bookmarks.any { it.url == url }
 
     fun clearHistory() {
+        historyClearGeneration++
         history.clear()
         recentlyClosedTabs.clear()
         isHistoryLoaded = true
@@ -953,6 +955,7 @@ class BrowserController(
         clearDataMessage = "Đang xóa dữ liệu duyệt web…"
 
         if (clearHistory) {
+            historyClearGeneration++
             tabs.forEach { it.session?.purgeHistory() }
             history.clear()
             isHistoryLoaded = true
@@ -1480,9 +1483,20 @@ class BrowserController(
             while (history.size > MAX_HISTORY) history.removeAt(history.lastIndex)
             persistHistory()
         } else {
-            // Preserve the existing history without loading it into the startup UI.
+            // Preserve stored history without loading it into the startup UI. If a
+            // history screen finishes loading before this write, merge the visit into
+            // memory too; a clear operation invalidates this deferred UI update.
+            val clearGeneration = historyClearGeneration
             dataExecutor.execute {
                 localStore.recordHistoryVisit(visit, MAX_HISTORY)
+                dataHandler.post {
+                    if (historyClearGeneration != clearGeneration || !isHistoryLoaded) {
+                        return@post
+                    }
+                    history.removeAll { it.url == visit.url }
+                    history.add(0, visit)
+                    while (history.size > MAX_HISTORY) history.removeAt(history.lastIndex)
+                }
             }
         }
     }
