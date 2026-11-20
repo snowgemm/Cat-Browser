@@ -488,7 +488,11 @@ class BrowserExtensionsManager(
 
     fun onAppForegrounded() {
         isAppForegrounded = true
-        val popupSession = popup?.session?.takeIf { it.isOpen } ?: return
+        val popupSession = popup?.session ?: return
+        if (!popupSession.isOpen) {
+            closePopup(popupSession)
+            return
+        }
         sessionProvider().filter { it.isOpen }.forEach { it.setFocused(false) }
         popupSession.setActive(true)
         popupSession.setFocused(true)
