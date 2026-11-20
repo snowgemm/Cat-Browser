@@ -305,17 +305,16 @@ class BrowserDownloadManager(context: Context) {
             }
 
             updateOnMain(item, onChanged) {
+                it.receivedBytes = received
+                it.status = DownloadQueuePolicy.completionStatus(item.isCancelled)
                 if (item.isCancelled) {
                     // Cancellation can race with the final MediaStore/SAF commit.
                     // Remove the completed output rather than expose a cancelled file.
                     deleteOutput(it)
                     it.outputUri = null
                     it.outputFile = null
-                    it.status = BrowserDownloadStatus.CANCELLED
                     it.errorMessage = "Đã hủy tải xuống."
                 } else {
-                    it.receivedBytes = received
-                    it.status = BrowserDownloadStatus.COMPLETE
                     it.errorMessage = null
                 }
             }
