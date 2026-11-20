@@ -20,7 +20,7 @@ class BrowserTab internal constructor(
         internal set
     var isDesktopMode by mutableStateOf(initialDesktopMode)
         internal set
-    var pageSecurity by mutableStateOf<BrowserPageSecurity?>(null)
+    internal var pageSecurity by mutableStateOf<BrowserPageSecurity?>(null)
         internal set
     var isLoading by mutableStateOf(false)
         internal set
