@@ -10,11 +10,12 @@ val releaseKeyAlias = providers.environmentVariable("CAT_RELEASE_KEY_ALIAS").orN
 val releaseKeyPassword = providers.environmentVariable("CAT_RELEASE_KEY_PASSWORD").orNull
 val releaseVersionCode = providers.environmentVariable("CAT_VERSION_CODE").orNull?.toIntOrNull()
 val releaseVersionName = providers.environmentVariable("CAT_VERSION_NAME").orNull
-val hasReleaseSigning = listOf(
+val hasReleaseSigning =
+    listOf(
     releaseKeystorePath,
     releaseStorePassword,
     releaseKeyAlias,
-    releaseKeyPassword
+    releaseKeyPassword,
 ).all { !it.isNullOrBlank() }
 
 android {
@@ -66,7 +67,7 @@ android {
             include(
                 "arm64-v8a",
                 "armeabi-v7a",
-                "x86_64"
+                "x86_64",
             )
             isUniversalApk = false
         }

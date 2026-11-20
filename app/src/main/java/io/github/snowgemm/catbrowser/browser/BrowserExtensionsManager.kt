@@ -216,11 +216,6 @@ class BrowserExtensionsManager(
         kind: ExtensionPermissionPrompt.Kind,
         decision: (Boolean, Boolean) -> Unit
     ) {
-        // Resolve any older GeckoView prompt instead of leaving its result pending.
-        pendingPermissionDecision.replace(
-            { value -> decision(value.first, value.second) },
-            false to false
-        )
         permissionPrompt = ExtensionPermissionPrompt(
             extensionName = extension.metaData.name?.takeIf(String::isNotBlank) ?: extension.id,
             description = extension.metaData.description.orEmpty(),
@@ -229,11 +224,16 @@ class BrowserExtensionsManager(
             dataCollectionPermissions = dataCollectionPermissions.toList(),
             kind = kind
         )
+        // Resolve any older GeckoView prompt instead of leaving its result pending.
+        pendingPermissionDecision.replace(
+            { value -> decision(value.first, value.second) },
+            false to false
+        )
     }
 
     fun resolvePermissionPrompt(approved: Boolean, allowDataCollection: Boolean = false) {
-        pendingPermissionDecision.resolve(approved to allowDataCollection)
         permissionPrompt = null
+        pendingPermissionDecision.resolve(approved to allowDataCollection)
     }
 
     private fun attachExtension(extension: WebExtension) {

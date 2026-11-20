@@ -31,6 +31,15 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 8. Clear delegates and close a session when its tab is permanently removed; close extension popup sessions when dismissed or when their extension is disabled/uninstalled.
 9. Never advertise full session restoration unless GeckoSession state is serialized and restored successfully.
 
+## Background work and process lifetime
+
+- BrowserController, BrowserDownloadManager, BrowserExtensionsManager and BrowserUpdateManager are owned by the application-scoped controller/runtime, not by an Activity instance. Activity recreation detaches and reattaches the view; it must not recreate the process-wide GeckoRuntime or close retained tab sessions.
+- Browser metadata/history work uses a single-thread executor; storage and privacy-stat refreshes use dedicated HandlerThreads. These are process-scoped workers and are not independently restarted after process death.
+- Browser downloads use two concurrent worker threads and persist non-private task metadata. They are not a foreground service or resumable WorkManager job; Android may terminate the process while the app is backgrounded. On the next launch, queued/downloading records are marked interrupted and partial output is cleaned up.
+- Stable/Beta update checks and APK downloads use a single-thread process executor. Per-channel generation tokens prevent stale check responses from publishing after a newer check or Beta disablement. Partial updater APKs are removed on startup.
+- Extension catalog lookup and XPI import use a single-thread process executor; extension download requests use GeckoWebExecutor. These operations can finish while the UI is not visible, but their UI state is delivered on the main thread.
+- A GeckoSession becoming inactive is intentional: GeckoView flushes session state and reduces memory use. It is not equivalent to closing the session or serializing its full navigation state.
+
 ## Local persistence
 
 `BrowserLocalStore` stores regular-tab IDs, titles and last HTTP(S) URLs, plus bookmarks and recent history, in the existing app-private SharedPreferences file. Regular tabs are reopened at their last URL when the application process starts again. The established preference keys and JSON shape are retained across upgrades.

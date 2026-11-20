@@ -25,6 +25,9 @@ Cat Browser is an Android application built with Kotlin, Jetpack Compose, Materi
 Run the relevant checks from the repository root:
 
 ```bash
+# Android and Kotlin lint
+./gradlew :app:lintDebug :app:ktlintCheck
+
 # Android JVM tests and debug APK build
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 

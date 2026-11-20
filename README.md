@@ -148,6 +148,7 @@ Open the project in Android Studio or build from a terminal.
 git clone https://github.com/snowgemm/Cat-Browser.git
 cd Cat-Browser
 
+./gradlew :app:lintDebug :app:ktlintCheck
 ./gradlew :app:testDebugUnitTest :app:assembleDebug
 python3 -m unittest discover -s scripts -p 'test_*.py'
 
@@ -176,7 +177,8 @@ The workflow requires the release keystore and passwords to be configured as Git
 
 - Legacy AI gateway JavaScript syntax and mocked request tests.
 - Python unit tests for APK archive validation and output normalization.
-- Android JVM unit tests.
+- Android Lint (`:app:lintDebug`) and Kotlin formatting/style checks (`:app:ktlintCheck`).
+- Android JVM unit tests, including download, extension-prompt, lifecycle-policy and updater regression coverage.
 - ABI-specific debug APK builds.
 - Benchmark APK compilation.
 - Native ABI and GeckoView library validation.
