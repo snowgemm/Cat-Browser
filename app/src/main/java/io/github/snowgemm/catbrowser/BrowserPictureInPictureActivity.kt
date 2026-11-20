@@ -69,8 +69,10 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
         if (session != null) {
             controller?.onPictureInPictureViewDetached(session)
             pictureInPictureView?.releaseSession()
-            if (controller?.pictureInPictureSession === session) {
-                controller.onPictureInPictureWindowDestroyed(session)
+            controller?.let { browserController ->
+                if (browserController.pictureInPictureSession === session) {
+                    browserController.onPictureInPictureWindowDestroyed(session)
+                }
             }
         }
         controller?.clearPictureInPictureCloseHost()
