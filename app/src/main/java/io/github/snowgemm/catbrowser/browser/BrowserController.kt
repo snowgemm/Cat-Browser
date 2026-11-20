@@ -11,8 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.json.JSONArray
-import org.json.JSONObject
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -145,6 +143,7 @@ class BrowserController(
         PREFERENCES_NAME,
         Context.MODE_PRIVATE
     )
+    private val localStore = BrowserLocalStore(preferences)
     val updateManager = BrowserUpdateManager(context.applicationContext)
 
     var developerMode by mutableStateOf(preferences.getBoolean(KEY_DEVELOPER_MODE, false))
@@ -700,9 +699,7 @@ class BrowserController(
         isHistoryLoading = true
         dataExecutor.execute {
             val entries = runCatching {
-                readEntries(KEY_HISTORY)
-                    .sortedByDescending { it.timestamp }
-                    .take(MAX_HISTORY)
+                localStore.readHistory(MAX_HISTORY)
             }.getOrDefault(emptyList())
 
             dataHandler.post {
@@ -718,7 +715,7 @@ class BrowserController(
         isBookmarksLoading = true
         dataExecutor.execute {
             val entries = runCatching {
-                readEntries(KEY_BOOKMARKS).sortedByDescending { it.timestamp }
+                localStore.readBookmarks()
             }.getOrDefault(emptyList())
 
             dataHandler.post {
@@ -1068,7 +1065,7 @@ class BrowserController(
             history.clear()
             isHistoryLoaded = true
             isHistoryLoading = false
-            preferences.edit().remove(KEY_HISTORY).apply()
+            localStore.removeHistory()
         }
 
         if (flags == 0L) {
@@ -1591,110 +1588,30 @@ class BrowserController(
         } else {
             // Preserve the existing history without loading it into the startup UI.
             dataExecutor.execute {
-                val saved = runCatching { readEntries(KEY_HISTORY).toMutableList() }
-                    .getOrDefault(mutableListOf())
-                saved.removeAll { it.url == visit.url }
-                saved.add(0, visit)
-                writeEntries(KEY_HISTORY, saved.sortedByDescending { it.timestamp }.take(MAX_HISTORY))
+                localStore.recordHistoryVisit(visit, MAX_HISTORY)
             }
         }
     }
 
     private fun restoreTabs() {
-        val saved = try {
-            JSONArray(preferences.getString(KEY_TABS, "[]"))
-        } catch (_: Exception) {
-            JSONArray()
-        }
-
-        for (index in 0 until minOf(saved.length(), MAX_TABS)) {
-            val item = saved.optJSONObject(index) ?: continue
-            val url = item.optString("url", resolvedHomePageUrl())
-            if (!isWebUrl(url)) continue
-
-            tabs.add(
-                BrowserTab(
-                    id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
-                    initialUrl = url,
-                    initialTitle = item.optString("title").ifBlank { "Restored tab" }
-                )
-            )
-        }
-        selectedTabId = preferences.getString(KEY_ACTIVE_TAB, "").orEmpty()
-    }
-
-    private fun readEntries(key: String): List<BrowserEntry> {
-        val array = try {
-            JSONArray(preferences.getString(key, "[]"))
-        } catch (_: Exception) {
-            JSONArray()
-        }
-
-        return buildList {
-            for (index in 0 until array.length()) {
-                val item = array.optJSONObject(index) ?: continue
-                val url = item.optString("url")
-                if (!isWebUrl(url)) continue
-                add(
-                    BrowserEntry(
-                        title = item.optString("title").ifBlank { url },
-                        url = url,
-                        timestamp = item.optLong("timestamp")
-                    )
-                )
-            }
-        }
+        val restored = localStore.restoreTabs(resolvedHomePageUrl(), MAX_TABS)
+        tabs.addAll(restored.tabs)
+        selectedTabId = restored.selectedTabId
     }
 
     private fun persistTabs() {
-        // Private-tab URLs and titles must never enter app-owned persistent storage.
-        val persistentTabs = tabs.filter(::shouldPersistBrowserTab)
-        val persistentSelectedTabId = selectedTabId
-            .takeIf { id -> persistentTabs.any { it.id == id } }
-            ?: persistentTabs.firstOrNull()?.id.orEmpty()
-
-        val array = JSONArray()
-        persistentTabs.forEach { tab ->
-            array.put(
-                JSONObject()
-                    .put("id", tab.id)
-                    .put("url", if (isWebUrl(tab.url)) tab.url else resolvedHomePageUrl())
-                    .put("title", tab.title.take(200))
-            )
-        }
-
-        preferences.edit()
-            .putString(KEY_TABS, array.toString())
-            .putString(KEY_ACTIVE_TAB, persistentSelectedTabId)
-            .apply()
+        localStore.saveTabs(tabs.toList(), selectedTabId, resolvedHomePageUrl())
     }
 
     private fun persistHistory() {
-        preferences.edit().putString(KEY_HISTORY, entriesToJson(history).toString()).apply()
+        localStore.saveHistory(history.toList())
     }
 
     private fun persistBookmarks() {
         val snapshot = bookmarks.toList()
         dataExecutor.execute {
-            writeEntries(KEY_BOOKMARKS, snapshot)
+            localStore.saveBookmarks(snapshot)
         }
-    }
-
-    private fun writeEntries(key: String, entries: List<BrowserEntry>) {
-        preferences.edit().putString(key, entriesToJson(entries).toString()).apply()
-    }
-
-    private fun entriesToJson(entries: List<BrowserEntry>): JSONArray {
-        val array = JSONArray()
-        entries.forEach { entry ->
-            array.put(
-                JSONObject()
-                    .put("title", entry.title.take(200))
-                    .put("url", entry.url)
-                    .put("timestamp", entry.timestamp)
-            )
-        }
-        return array
     }
 
     private fun isWebUrl(url: String): Boolean =
@@ -1703,11 +1620,7 @@ class BrowserController(
 
     private companion object {
         const val PREFERENCES_NAME = "cat_browser_local_state"
-        const val KEY_TABS = "tabs"
-        const val KEY_ACTIVE_TAB = "active_tab"
-        const val KEY_HISTORY = "history"
-        const val KEY_BOOKMARKS = "bookmarks"
-        const val KEY_THEME_MODE = "theme_mode"
+move storage constants        const val KEY_THEME_MODE = "theme_mode"
         const val KEY_SEARCH_ENGINE = "search_engine"
         const val KEY_HOME_PAGE = "home_page"
         const val KEY_STARTUP_MODE = "startup_mode"
