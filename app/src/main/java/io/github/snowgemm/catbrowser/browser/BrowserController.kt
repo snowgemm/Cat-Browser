@@ -157,6 +157,9 @@ class BrowserController(
     val regularTabCount: Int
         get() = tabs.size - privateTabCount
 
+    val canCreateTab: Boolean
+        get() = tabs.size < MAX_TABS
+
     init {
         if (preferences.getString(KEY_HOME_PAGE, null) == LEGACY_DEFAULT_HOME_PAGE_URL) {
             preferences.edit().putString(KEY_HOME_PAGE, DEFAULT_HOME_PAGE_URL).apply()
