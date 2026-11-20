@@ -74,7 +74,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | BrowserLocalStore | Reads and writes saved regular tabs, normal-mode history and bookmarks using the existing SharedPreferences keys and JSON schema; excludes private tabs |
 | BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode and GeckoSession reference |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
-| Extension manager | GeckoView WebExtensionController, AMO Android catalog, install prompts and lifecycle actions |
+| Extension manager | GeckoView WebExtensionController, AMO v5 Android discovery, official listing links, signed-XPI installation, permission prompts and lifecycle actions |
 | Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped/SAF destination, progress, app cancellation, open/share/delete and persisted non-private task metadata. Transfers interrupted by process death are not resumed. |
 | Privacy controls | Private-mode sessions, private-data exclusion, site permissions and selective browsing-data clearing; tracking-protection UI is not fully implemented |
 

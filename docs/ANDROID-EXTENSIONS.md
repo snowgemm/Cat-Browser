@@ -6,7 +6,11 @@ Cat uses GeckoView's `WebExtensionController` and the Mozilla Add-ons (AMO) v5 s
 
 Implemented in the Android app:
 
-- Search the Mozilla Add-ons catalog and list installed extensions from GeckoView.
+- Discover public extensions through the official [Mozilla Add-ons for Android catalog](https://addons.mozilla.org/android/) using the AMO v5 search API (`/api/v5/addons/search/`).
+- Open the official AMO listing for each catalog result; entries without an approved, trusted XPI download remain discoverable but cannot be installed from the in-app button.
+- Keep the AMO Android compatibility filter distinct from GeckoView compatibility: AMO availability is not a Cat certification.
+- Parse catalog responses defensively, preserve entries when a downloadable file is unavailable, reject explicitly unsigned/non-public files, and let GeckoView validate the XPI manifest and signature at install time.
+- List installed extensions from GeckoView.
 - Install AMO packages over HTTPS.
 - Import a local `.xpi` from Android's document picker. Cat stages the selected file in its private cache, limits it to 50 MB, and passes a local `file:` URI to GeckoView.
 - Rely on GeckoView to validate the XPI manifest and Mozilla signature. Cat does not bypass signature validation or install arbitrary unsigned packages.
@@ -40,7 +44,8 @@ The AMO Android filter is only a catalog compatibility signal. It is not proof t
 - `installBuiltIn` is for extensions packaged inside Cat's APK; it is not a general-purpose installer for arbitrary XPI files.
 - Required and newly requested permissions are presented to the user. Optional permissions are not silently granted.
 - Private-browsing access is disabled by default. Enabling it requires a separate confirmation explaining that the extension may access pages inside private tabs.
-- The AMO discovery catalog accepts HTTPS download URLs hosted by `addons.mozilla.org`; local file import is a separate user-selected flow.
+- The AMO discovery catalog accepts HTTPS download URLs hosted by `addons.mozilla.org`; listing links are also restricted to the official AMO host. Local file import is a separate user-selected flow.
+- Search requests are latest-query-wins: a newer query disconnects the previous HTTP request, and stale responses cannot replace the current result list.
 
 ## Current compatibility boundary
 
@@ -77,18 +82,20 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 
 ## Acceptance tests before release
 
-1. Install a Mozilla-signed Android add-on from AMO and inspect its permission prompt.
-2. Import a signed local XPI; reject non-XPI files, empty files, files above 50 MB and packages GeckoView does not accept.
-3. Confirm installed extensions remain available after app restart.
-4. Enable, disable, update and uninstall an extension; verify action/tab delegates detach on disable and removal.
-5. Verify optional permissions require explicit approval and private access stays disabled until explicit opt-in.
-6. Verify browser/page action icons, badges, popup sessions and `runtime.openOptionsPage()`.
-7. Test supported `tabs.create`, `tabs.update`, `tabs.remove` and active-tab notifications; verify rejected options fail clearly.
-8. Test `downloads.download()` with authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
-9. Test `saveAs` and conflict flags: select a provider/location, cancel the picker, test duplicate names with `UNIQUIFY`, `PROMPT` and the safe `OVERWRITE` fallback, check filename sanitization and reopen a completed file.
-10. Kill/restart Cat during a transfer; verify the task appears as interrupted, no private metadata returns, and incomplete artifacts are cleaned.
-11. Run every candidate in the physical-device matrix and record exact Cat commit, GeckoView version, add-on version, device, Android version and result.
-12. Report unsupported Chrome and Firefox APIs accurately; do not mark an add-on compatible solely because installation succeeded.
+1. Open the in-app AMO source link, load the default Android catalog, search for a known add-on, and open its official listing.
+2. Verify that catalog results without an approved XPI remain visible but cannot be installed; verify explicitly unsigned and untrusted download URLs are never offered.
+3. Install a Mozilla-signed Android add-on from AMO and inspect its permission prompt.
+4. Import a signed local XPI; reject non-XPI files, empty files, files above 50 MB and packages GeckoView does not accept.
+5. Confirm installed extensions remain available after app restart.
+6. Enable, disable, update and uninstall an extension; verify action/tab delegates detach on disable and removal.
+7. Verify optional permissions require explicit approval and private access stays disabled until explicit opt-in.
+8. Verify browser/page action icons, badges, popup sessions and `runtime.openOptionsPage()`.
+9. Test supported `tabs.create`, `tabs.update`, `tabs.remove` and active-tab notifications; verify rejected options fail clearly.
+10. Test `downloads.download()` with authenticated, redirected, private-mode and HTTP-error responses; verify progress and terminal `downloads.onChanged` updates.
+11. Test `saveAs` and conflict flags: select a provider/location, cancel the picker, test duplicate names with `UNIQUIFY`, `PROMPT` and the safe `OVERWRITE` fallback, check filename sanitization and reopen a completed file.
+12. Kill/restart Cat during a transfer; verify the task appears as interrupted, no private metadata returns, and incomplete artifacts are cleaned.
+13. Run every candidate in the physical-device matrix and record exact Cat commit, GeckoView version, add-on version, device, Android version and result.
+14. Report unsupported Chrome and Firefox APIs accurately; do not mark an add-on compatible solely because installation succeeded.
 
 ## Official references
 

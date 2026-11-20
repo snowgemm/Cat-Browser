@@ -32,6 +32,7 @@ Run each candidate against the same Cat build and record the commit SHA and bund
 
 | ID | Test | Pass condition |
 |---|---|---|
+| EXT-00 | AMO catalog discovery, search, official listing links and unavailable-XPI state | Default catalog loads; latest search wins; listing opens only on addons.mozilla.org; entries without an approved XPI remain visible but cannot be installed |
 | EXT-01 | Install from AMO catalog and signed local XPI import | Install completes; signature/permission prompt is correct; invalid package is rejected |
 | EXT-02 | Required and optional permissions | Denial is respected; optional permission is not silently granted; permission changes are visible |
 | EXT-03 | Enable / disable / update / uninstall | Toolbar actions and delegates attach/detach correctly; no stale popup or callback remains |
