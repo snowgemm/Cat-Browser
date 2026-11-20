@@ -135,31 +135,24 @@ internal fun TabsOverview(
                     iconSize = 42.dp
                 )
                 Text(
-                    if (tabSearch.isBlank()) "Chưa có tab nào ở đây"
-                    else "Không tìm thấy tab phù hợp",
+                    if (tabSearch.isBlank()) when (tabFilter) {
+                        "private" -> "Chưa có tab riêng tư nào"
+                        "regular" -> "Chưa có tab thường nào"
+                        else -> "Chưa có tab nào"
+                    } else "Không tìm thấy tab phù hợp",
                     modifier = Modifier.padding(top = 14.dp),
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleMedium
                 )
                 if (tabSearch.isBlank() && tabFilter != "all") {
                     Text(
-                        "Mở một tab mới hoặc chuyển sang nhóm tab khác.",
+                        if (tabFilter == "private") "Tab riêng tư sẽ xuất hiện ở đây."
+                        else "Mở trang mới để bắt đầu duyệt web.",
                         modifier = Modifier.padding(top = 5.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
-            }
-        }
-
-        if (visibleTabs.isEmpty()) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text(
-                    if (tabSearch.isBlank()) "Không có tab trong nhóm này."
-                    else "Không tìm thấy tab phù hợp.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
             }
         }
 
