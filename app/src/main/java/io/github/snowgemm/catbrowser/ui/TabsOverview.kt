@@ -69,6 +69,8 @@ internal fun TabsOverview(
 ) {
     var tabSearch by remember { mutableStateOf("") }
     var tabFilter by remember { mutableStateOf("all") }
+    var showAddMenu by remember { mutableStateOf(false) }
+    var showMoreMenu by remember { mutableStateOf(false) }
     val cardCoordinates = remember { mutableMapOf<String, LayoutCoordinates>() }
     var draggingTabId by remember { mutableStateOf<String?>(null) }
     var lastReorderTargetId by remember { mutableStateOf<String?>(null) }
@@ -95,69 +97,59 @@ internal fun TabsOverview(
             .navigationBarsPadding()
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Các tab",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    controller.regularTabCount.toString() + " thường · " +
-                        controller.privateTabCount + " ẩn danh · " + controller.tabs.size + "/20",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            if (controller.privateTabCount > 0) {
-                TextButton(onClick = controller::closeAllPrivateTabs) {
-                    Text("Đóng tab ẩn danh")
-                }
-            }
-            IconButton(onClick = onBack) {
-                BrowserGlyph(BrowserGlyphType.CLOSE, tint = MaterialTheme.colorScheme.onSurface)
-            }
-        }
-
-        OutlinedTextField(
-            value = tabSearch,
-            onValueChange = { tabSearch = it },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp),
-            singleLine = true,
-            placeholder = { Text("Tìm trong các tab") },
-            leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH) }
-        )
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            FilterChip(
+            TabModeAction(
+                icon = BrowserGlyphType.TABS,
+                label = "Tất cả",
+                count = controller.tabs.size,
                 selected = tabFilter == "all",
-                onClick = { tabFilter = "all" },
-                label = { Text("Tất cả " + controller.tabs.size) }
-            )
-            FilterChip(
-                selected = tabFilter == "regular",
-                onClick = { tabFilter = "regular" },
-                label = { Text("Thường " + controller.regularTabCount) }
-            )
-            FilterChip(
+                modifier = Modifier.weight(1f)
+            ) { tabFilter = "all" }
+            TabModeAction(
+                icon = BrowserGlyphType.INCOGNITO,
+                label = "Riêng tư",
+                count = controller.privateTabCount,
                 selected = tabFilter == "private",
-                onClick = { tabFilter = "private" },
-                label = { Text("Ẩn danh " + controller.privateTabCount) }
-            )
+                modifier = Modifier.weight(1f)
+            ) { tabFilter = "private" }
+            TabModeAction(
+                icon = BrowserGlyphType.TABS,
+                label = "Thường",
+                count = controller.regularTabCount,
+                selected = tabFilter == "regular",
+                modifier = Modifier.weight(1f)
+            ) { tabFilter = "regular" }
         }
-        if (canReorderTabs && visibleTabs.isNotEmpty()) {
-            Text(
-                "Nhấn giữ thẻ để kéo sắp xếp tab.",
-                Modifier.padding(start = 18.dp, top = 2.dp, bottom = 5.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall
-            )
+
+        if (visibleTabs.isEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().weight(1f).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                BrowserGlyph(
+                    if (tabFilter == "private") BrowserGlyphType.INCOGNITO else BrowserGlyphType.TABS,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    iconSize = 42.dp
+                )
+                Text(
+                    if (tabSearch.isBlank()) "Chưa có tab nào ở đây"
+                    else "Không tìm thấy tab phù hợp",
+                    modifier = Modifier.padding(top = 14.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                if (tabSearch.isBlank() && tabFilter != "all") {
+                    Text(
+                        "Mở một tab mới hoặc chuyển sang nhóm tab khác.",
+                        modifier = Modifier.padding(top = 5.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
 
         if (visibleTabs.isEmpty()) {
@@ -227,12 +219,12 @@ internal fun TabsOverview(
                         controller.selectTab(tab.id)
                         onBack()
                     },
-                    shape = RoundedCornerShape(19.dp),
+                    shape = RoundedCornerShape(17.dp),
                     color = cardBackground,
                     tonalElevation = cardElevation,
                     border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
                     modifier = Modifier.fillMaxWidth()
-                        .height(if (tab.previewBitmap != null) 254.dp else 164.dp)
+                        .height(210.dp)
                         .animateContentSize()
                         .animateItem()
                         .graphicsLayer {
@@ -279,102 +271,100 @@ internal fun TabsOverview(
                         }
                 ) {
                     Column(
-                        Modifier.fillMaxSize().padding(11.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Modifier.fillMaxSize().padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.fillMaxWidth().height(30.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Surface(
-                                shape = CircleShape,
+                                shape = RoundedCornerShape(7.dp),
                                 color = if (tab.isPrivate) Color(0xFF443B50)
-                                else if (selected) MaterialTheme.colorScheme.secondaryContainer
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(30.dp)
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(25.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
                                         mark,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = if (tab.isPrivate) Color(0xFFE6DDF0)
+                                            else MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
                             Spacer(Modifier.width(7.dp))
                             Text(
-                                domain,
+                                tab.title.ifBlank { domain },
                                 Modifier.weight(1f),
-                                color = cardMuted,
-                                fontSize = 11.sp,
+                                color = cardText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             IconButton(
                                 onClick = { controller.closeTab(tab.id) },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(30.dp)
                             ) {
                                 BrowserGlyph(
-                                    BrowserGlyphType.CLEAR,
-                                    iconSize = 17.dp,
+                                    BrowserGlyphType.CLOSE,
+                                    iconSize = 16.dp,
                                     tint = cardMuted
                                 )
                             }
                         }
 
-                        tab.previewBitmap?.let { preview ->
-                            Image(
-                                bitmap = preview.asImageBitmap(),
-                                contentDescription = "Ảnh xem trước: " + tab.title,
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                modifier = Modifier.fillMaxWidth()
-                                    .height(96.dp)
-                                    .clip(RoundedCornerShape(11.dp))
-                            )
-                        }
-
-                        if (tab.isPrivate) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                BrowserGlyph(
-                                    BrowserGlyphType.INCOGNITO,
-                                    tint = Color(0xFFE6DDF0),
-                                    iconSize = 14.dp
+                        Box(
+                            Modifier.fillMaxWidth().weight(1f)
+                                .clip(RoundedCornerShape(11.dp))
+                        ) {
+                            tab.previewBitmap?.let { preview ->
+                                Image(
+                                    bitmap = preview.asImageBitmap(),
+                                    contentDescription = "Ảnh xem trước: " + tab.title,
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
                                 )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    "Tab ẩn danh",
-                                    color = Color(0xFFE6DDF0),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
+                            } ?: Box(
+                                Modifier.fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BrowserGlyph(
+                                    BrowserGlyphType.GLOBE,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                    iconSize = 30.dp
                                 )
                             }
                         }
 
-                        Text(
-                            tab.title.ifBlank { "Tab mới" },
-                            color = cardText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (selected) {
-                                Box(
-                                    Modifier.size(7.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                        Row(
+                            Modifier.fillMaxWidth().height(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (tab.isPrivate) {
+                                BrowserGlyph(
+                                    BrowserGlyphType.INCOGNITO,
+                                    tint = Color(0xFFE6DDF0),
+                                    iconSize = 13.dp
                                 )
-                                Spacer(Modifier.width(6.dp))
+                                Spacer(Modifier.width(5.dp))
                                 Text(
-                                    "Đang xem",
+                                    "Riêng tư",
+                                    color = Color(0xFFE6DDF0),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            if (selected) {
+                                Text(
+                                    "Đang mở",
                                     color = MaterialTheme.colorScheme.primary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.SemiBold
-                                )
-                            } else {
-                                Text(
-                                    "Chuyển đến tab",
-                                    color = cardMuted,
-                                    fontSize = 10.sp
                                 )
                             }
                         }
@@ -389,39 +379,128 @@ internal fun TabsOverview(
             tonalElevation = 2.dp
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Button(
-                    onClick = onNewTab,
-                    enabled = controller.tabs.size < 20,
+                OutlinedTextField(
+                    value = tabSearch,
+                    onValueChange = { tabSearch = it },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(15.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                ) {
-                    BrowserGlyph(
-                        BrowserGlyphType.NEW_TAB,
-                        modifier = Modifier.size(17.dp),
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text("Tab thường", maxLines = 1)
+                    singleLine = true,
+                    placeholder = { Text("Tìm thẻ của bạn", maxLines = 1) },
+                    leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH, iconSize = 18.dp) },
+                    trailingIcon = {
+                        if (tabSearch.isNotEmpty()) {
+                            IconButton(onClick = { tabSearch = "" }) {
+                                BrowserGlyph(BrowserGlyphType.CLEAR, iconSize = 16.dp)
+                            }
+                        }
+                    }
+                )
+                Box {
+                    IconButton(onClick = { showMoreMenu = true }) {
+                        BrowserGlyph(BrowserGlyphType.MORE, iconSize = 21.dp)
+                    }
+                    DropdownMenu(
+                        expanded = showMoreMenu,
+                        onDismissRequest = { showMoreMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Đóng tab đang mở") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE, iconSize = 18.dp) },
+                            onClick = {
+                                showMoreMenu = false
+                                controller.closeTab(controller.selectedTabId)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Đóng tất cả tab riêng tư") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp) },
+                            enabled = controller.privateTabCount > 0,
+                            onClick = {
+                                showMoreMenu = false
+                                controller.closeAllPrivateTabs()
+                            }
+                        )
+                    }
                 }
-                OutlinedButton(
-                    onClick = onNewPrivateTab,
-                    enabled = controller.tabs.size < 20,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(15.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                ) {
-                    BrowserGlyph(
-                        BrowserGlyphType.INCOGNITO,
-                        modifier = Modifier.size(17.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text("Ẩn danh", maxLines = 1)
+                Box {
+                    FloatingActionButton(
+                        onClick = { showAddMenu = true },
+                        modifier = Modifier.size(52.dp),
+                        shape = RoundedCornerShape(17.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        BrowserGlyph(
+                            BrowserGlyphType.NEW_TAB,
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            iconSize = 23.dp
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showAddMenu,
+                        onDismissRequest = { showAddMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Tab thường") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp) },
+                            enabled = controller.tabs.size < BrowserController.MAX_TABS,
+                            onClick = {
+                                showAddMenu = false
+                                onNewTab()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Tab riêng tư") },
+                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp) },
+                            enabled = controller.tabs.size < BrowserController.MAX_TABS,
+                            onClick = {
+                                showAddMenu = false
+                                onNewPrivateTab()
+                            }
+                        )
+                    }
                 }
+            }
+        }
+
+    }
+}
+
+@Composable
+private fun TabModeAction(
+    icon: BrowserGlyphType,
+    label: String,
+    count: Int,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(13.dp),
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            BrowserGlyph(
+                icon,
+                tint = if (selected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                iconSize = 18.dp
+            )
+            Spacer(Modifier.width(6.dp))
+            Column {
+                Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(count.toString(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
