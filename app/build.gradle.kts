@@ -37,7 +37,10 @@ ktlint {
 }
 
 tasks.configureEach {
-    if (name.startsWith("runKtlintCheckOver")) {
+    if (
+        name.startsWith("runKtlintCheckOver") ||
+        (name.startsWith("ktlint") && name.endsWith("Format"))
+    ) {
         dependsOn(extractKtlintBaseline)
     }
 }

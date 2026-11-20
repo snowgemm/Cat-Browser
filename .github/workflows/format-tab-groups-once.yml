@@ -1,5 +1,6 @@
 name: One-off tab group formatter
 
+# This workflow is intentionally re-triggered only when its own definition changes.
 on:
   push:
     branches: [main]
