@@ -26,29 +26,8 @@ internal object ExtensionCatalogParser {
                 val slug = item.optString("slug").takeIf(String::isNotBlank) ?: continue
 
                 val version = item.optJSONObject("current_version")
-                val file =
-                    version?.optJSONObject("file")
-                        ?: version?.optJSONArray("files")?.let { files ->
-                            (0 until files.length())
-                                .mapNotNull(files::optJSONObject)
-                                .firstOrNull { candidate ->
-                                    candidate.optString("status") != "disabled"
-                                }
-                        }
-
-                val rawDownloadUrl = file?.optString("url").orEmpty()
-                val explicitlyUnsigned =
-                    file != null &&
-                        file.has("is_mozilla_signed_extension") &&
-                        !file.optBoolean("is_mozilla_signed_extension")
-                val fileStatus = file?.optString("status").orEmpty()
-                val fileApproved = fileStatus.isBlank() || fileStatus == "public"
-                val downloadUrl =
-                    rawDownloadUrl.takeIf {
-                        fileApproved &&
-                            !explicitlyUnsigned &&
-                            ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it)
-                    }
+                val file = version?.let(::findInstallableFile)
+                val downloadUrl = file?.optString("url")?.takeIf(String::isNotBlank)
 
                 val rawListingUrl = item.optString("url")
                 val listingUrl =
@@ -72,6 +51,36 @@ internal object ExtensionCatalogParser {
                 )
             }
         }
+    }
+
+    /**
+     * Only explicitly approved public AMO files are eligible for installation.
+     * When multiple candidates are present, prefer a file explicitly marked as
+     * Mozilla-signed. GeckoView remains the final signature/manifest validator.
+     */
+    private fun findInstallableFile(version: JSONObject): JSONObject? {
+        val candidates =
+            buildList {
+                version.optJSONObject("file")?.let(::add)
+                version.optJSONArray("files")?.let { files ->
+                    for (index in 0 until files.length()) {
+                        files.optJSONObject(index)?.let(::add)
+                    }
+                }
+            }
+
+        return candidates
+            .asSequence()
+            .filter { candidate ->
+                candidate.optString("status") == "public" &&
+                    candidate.optString("url").isNotBlank() &&
+                    !(candidate.has("is_mozilla_signed_extension") &&
+                        !candidate.optBoolean("is_mozilla_signed_extension"))
+            }
+            .sortedByDescending { it.optBoolean("is_mozilla_signed_extension") }
+            .firstOrNull {
+                ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it.optString("url"))
+            }
     }
 
     private fun localizedField(
