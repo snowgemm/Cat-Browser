@@ -68,6 +68,7 @@ class BrowserController(
     private val contentBlockingController = runtime.getContentBlockingController()
 
     val tabs = mutableStateListOf<BrowserTab>()
+    val tabGroups = mutableStateListOf<BrowserTabGroup>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
     val extensionsManager = BrowserExtensionsManager(
@@ -169,6 +170,12 @@ class BrowserController(
     val regularTabCount: Int
         get() = tabs.size - privateTabCount
 
+    val ungroupedTabCount: Int
+        get() = tabs.count { !it.isPrivate && it.groupId == null }
+
+    val groupedTabCount: Int
+        get() = tabGroups.size
+
     val canCreateTab: Boolean
         get() = tabs.size < MAX_TABS
 
@@ -191,10 +198,14 @@ class BrowserController(
         extensionsManager.refreshInstalled()
     }
 
-    fun newTab() {
+    fun newTab(groupId: String? = null) {
         if (tabs.size >= MAX_TABS) return
 
-        val tab = BrowserTab(initialUrl = resolvedHomePageUrl())
+        val validGroupId = groupId?.takeIf { id -> tabGroups.any { it.id == id } }
+        val tab = BrowserTab(
+            initialUrl = resolvedHomePageUrl(),
+            initialGroupId = validGroupId
+        )
         tabs.add(tab)
         selectTab(tab.id)
     }
@@ -209,6 +220,84 @@ class BrowserController(
         )
         tabs.add(tab)
         selectTab(tab.id)
+    }
+
+    fun createTabGroup(
+        tabIds: Collection<String>,
+        name: String,
+        colorIndex: Int
+    ): BrowserTabGroup? {
+        val normalizedName = BrowserTabGroupPolicy.normalizeName(name)
+        val selectedIds = tabIds.toSet()
+        val selectedTabs = tabs.filter { it.id in selectedIds && !it.isPrivate }
+        if (
+            normalizedName.isBlank() ||
+            selectedTabs.size < MIN_TABS_PER_GROUP ||
+            tabGroups.size >= BrowserTabGroupPolicy.MAX_GROUPS
+        ) {
+            return null
+        }
+
+        val group = BrowserTabGroup(
+            id = UUID.randomUUID().toString(),
+            name = normalizedName,
+            colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)
+        )
+        tabGroups.add(group)
+        selectedTabs.forEach { it.groupId = group.id }
+        pruneEmptyTabGroups()
+        persistTabs()
+        return group
+    }
+
+    fun assignTabToGroup(tabId: String, groupId: String?): Boolean {
+        val tab = tabs.firstOrNull { it.id == tabId } ?: return false
+        if (tab.isPrivate) return false
+        if (groupId != null && tabGroups.none { it.id == groupId }) return false
+        if (tab.groupId == groupId) return false
+
+        tab.groupId = groupId
+        pruneEmptyTabGroups()
+        persistTabs()
+        return true
+    }
+
+    fun updateTabGroup(groupId: String, name: String, colorIndex: Int): Boolean {
+        val index = tabGroups.indexOfFirst { it.id == groupId }
+        if (index < 0) return false
+        val normalizedName = BrowserTabGroupPolicy.normalizeName(name)
+        if (normalizedName.isBlank()) return false
+
+        tabGroups[index] = tabGroups[index].copy(
+            name = normalizedName,
+            colorIndex = BrowserTabGroupPolicy.normalizeColorIndex(colorIndex)
+        )
+        persistTabs()
+        return true
+    }
+
+    fun deleteTabGroup(groupId: String): Boolean {
+        val index = tabGroups.indexOfFirst { it.id == groupId }
+        if (index < 0) return false
+
+        tabs.filter { it.groupId == groupId }.forEach { it.groupId = null }
+        tabGroups.removeAt(index)
+        persistTabs()
+        return true
+    }
+
+    fun closeTabGroup(groupId: String): Boolean {
+        if (tabGroups.none { it.id == groupId }) return false
+        val groupedTabIds = tabs.filter { it.groupId == groupId }.map { it.id }
+        groupedTabIds.forEach(::closeTab)
+        pruneEmptyTabGroups()
+        persistTabs()
+        return true
+    }
+
+    private fun pruneEmptyTabGroups() {
+        val activeGroupIds = tabs.mapNotNullTo(mutableSetOf()) { it.groupId }
+        tabGroups.removeAll { it.id !in activeGroupIds }
     }
 
     fun updateTabPreview(tabId: String, bitmap: Bitmap) {
@@ -581,6 +670,11 @@ class BrowserController(
 
         val wasSelected = selectedTabId == tabId
         val removed = tabs.removeAt(index)
+        removed.groupId?.let { groupId ->
+            if (tabs.none { it.groupId == groupId }) {
+                tabGroups.removeAll { it.id == groupId }
+            }
+        }
         if (shouldPersistBrowserTab(removed) && isWebUrl(removed.url)) {
             recentlyClosedTabs.add(
                 0,
@@ -1912,11 +2006,17 @@ class BrowserController(
     private fun restoreTabs() {
         val restored = localStore.restoreTabs(resolvedHomePageUrl(), MAX_TABS)
         tabs.addAll(restored.tabs)
+        tabGroups.addAll(restored.groups)
         selectedTabId = restored.selectedTabId
     }
 
     private fun persistTabs() {
-        localStore.saveTabs(tabs.toList(), selectedTabId, resolvedHomePageUrl())
+        localStore.saveTabs(
+            tabs = tabs.toList(),
+            selectedTabId = selectedTabId,
+            defaultUrl = resolvedHomePageUrl(),
+            groups = tabGroups.toList()
+        )
     }
 
     private fun persistHistory() {
@@ -1958,6 +2058,7 @@ class BrowserController(
         const val STARTUP_CONTINUE = "continue"
         const val STARTUP_HOME = "home"
         const val MAX_TABS = 20
+        const val MIN_TABS_PER_GROUP = 2
         const val MAX_HISTORY = 200
         const val MAX_RECENTLY_CLOSED = 10
         val SUPPORTED_ANDROID_PERMISSIONS = setOf(
