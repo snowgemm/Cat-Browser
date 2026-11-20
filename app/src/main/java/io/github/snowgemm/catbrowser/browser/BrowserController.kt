@@ -958,6 +958,7 @@ class BrowserController(
             historyClearGeneration++
             tabs.forEach { it.session?.purgeHistory() }
             history.clear()
+            recentlyClosedTabs.clear()
             isHistoryLoaded = true
             isHistoryLoading = false
             dataExecutor.execute { localStore.removeHistory() }
