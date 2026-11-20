@@ -58,7 +58,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Reader mode | Missing | Readability extraction, font/spacing controls and a clear exit action. |
 | Translation | Missing | User-triggered translation with language selection and a clear privacy/data notice. |
 | Media and picture-in-picture | Partial | Consistent media controls, fullscreen handling and Android PiP integration where supported. |
-| Page actions | Partial; print/PDF implemented | Save a page as PDF through SAF and print through Android PrintManager. Share, copy URL, open externally and QR remain future work. |
+| Page actions | Partial; print/PDF/share/copy/open externally implemented | Save a page as PDF through SAF, print through Android PrintManager, share the current HTTP(S) URL through Android Sharesheet, copy it to the clipboard, or choose another installed app to open it. QR remains future work; physical-device validation is pending. |
 | Per-site privacy controls | Missing | Tracking protection controls, site data inspection and a visible explanation of protection limits. |
 
 ## Release rule

@@ -63,6 +63,9 @@ internal enum class BrowserGlyphType {
     SEARCH,
     DOWNLOAD,
     PRINT,
+    SHARE,
+    COPY,
+    OPEN_EXTERNAL,
     HOME,
     RELOAD,
     BOOKMARK,
@@ -188,6 +191,46 @@ internal fun BrowserGlyph(
                 )
                 line(9f, 17f, 15f, 17f)
                 line(9f, 19f, 14f, 19f)
+            }
+            BrowserGlyphType.SHARE -> {
+                line(8f, 11f, 16f, 6f)
+                line(8f, 13f, 16f, 18f)
+                drawCircle(tint, 2.3f * unit, point(18f, 5f))
+                drawCircle(tint, 2.3f * unit, point(6f, 12f))
+                drawCircle(tint, 2.3f * unit, point(18f, 19f))
+            }
+            BrowserGlyphType.COPY -> {
+                drawRoundRect(
+                    tint,
+                    topLeft = point(8f, 3f),
+                    size = Size(12f * unit, 15f * unit),
+                    cornerRadius = CornerRadius(2f * unit),
+                    style = Stroke(strokeWidth),
+                )
+                drawRoundRect(
+                    tint,
+                    topLeft = point(4f, 7f),
+                    size = Size(12f * unit, 14f * unit),
+                    cornerRadius = CornerRadius(2f * unit),
+                    style = Stroke(strokeWidth),
+                )
+            }
+            BrowserGlyphType.OPEN_EXTERNAL -> {
+                drawRoundRect(
+                    tint,
+                    topLeft = point(3f, 7f),
+                    size = Size(14f * unit, 14f * unit),
+                    cornerRadius = CornerRadius(2f * unit),
+                    style = Stroke(strokeWidth),
+                )
+                val externalArrow = Path().apply {
+                    moveTo(11f * unit, 4f * unit)
+                    lineTo(20f * unit, 4f * unit)
+                    lineTo(20f * unit, 13f * unit)
+                    moveTo(20f * unit, 4f * unit)
+                    lineTo(11f * unit, 13f * unit)
+                }
+                drawPath(externalArrow, tint, style = Stroke(strokeWidth, cap = StrokeCap.Round))
             }
             BrowserGlyphType.INCOGNITO -> {
                 // Hat brim and glasses create a recognizable private-browsing mark.

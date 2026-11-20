@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ContentResolver
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -63,6 +64,7 @@ import androidx.compose.ui.window.Dialog
 import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.browser.BrowserBookmarkBackupSnapshot
 import io.github.snowgemm.catbrowser.browser.BrowserBookmarkTransferPolicy
+import io.github.snowgemm.catbrowser.browser.BrowserContextMenuPolicy
 import io.github.snowgemm.catbrowser.browser.BrowserContextResourceType
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
@@ -212,6 +214,7 @@ internal fun BrowserMainScreen(
     var isBookmarkTransferBusy by remember { mutableStateOf(false) }
     val bookmarkTransferScope = rememberCoroutineScope()
     val isVerifiedSecure = tab.pageSecurity?.isVerifiedSecure == true
+    val currentPageUrl = remember(tab.url) { BrowserContextMenuPolicy.safeWebUrl(tab.url) }
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
     val extensionActions = controller.extensionsManager.actionsFor(tab.session)
     var address by remember(tab.id) {
@@ -1093,6 +1096,59 @@ internal fun BrowserMainScreen(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
                 )
+                BrowserMenuListAction(
+                    BrowserGlyphType.SHARE,
+                    "Chia sẻ trang",
+                    subtitle = "Chia sẻ liên kết hiện tại",
+                    enabled = currentPageUrl != null,
+                ) {
+                    showMenu = false
+                    currentPageUrl?.let { url ->
+                        val shareIntent =
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, url)
+                            }
+                        runCatching {
+                            context.startActivity(Intent.createChooser(shareIntent, "Chia sẻ trang"))
+                        }.onFailure {
+                            Toast.makeText(context, "Không thể mở bảng chia sẻ.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                BrowserMenuListAction(
+                    BrowserGlyphType.COPY,
+                    "Sao chép địa chỉ",
+                    subtitle = "Sao chép URL vào bộ nhớ tạm",
+                    enabled = currentPageUrl != null,
+                ) {
+                    showMenu = false
+                    currentPageUrl?.let { url ->
+                        val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        if (clipboard != null) {
+                            clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+                            Toast.makeText(context, "Đã sao chép địa chỉ.", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Không thể truy cập bộ nhớ tạm.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                BrowserMenuListAction(
+                    BrowserGlyphType.OPEN_EXTERNAL,
+                    "Mở bằng ứng dụng khác",
+                    subtitle = "Chọn ứng dụng để mở liên kết",
+                    enabled = currentPageUrl != null,
+                ) {
+                    showMenu = false
+                    currentPageUrl?.let { url ->
+                        val viewIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        runCatching {
+                            context.startActivity(Intent.createChooser(viewIntent, "Mở bằng ứng dụng khác"))
+                        }.onFailure {
+                            Toast.makeText(context, "Không tìm thấy ứng dụng phù hợp.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
                 BrowserMenuListAction(
                     BrowserGlyphType.GLOBE,
                     if (tab.isDesktopMode) "Dùng giao diện di động" else "Yêu cầu trang máy tính",
