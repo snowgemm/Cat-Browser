@@ -233,6 +233,7 @@ class BrowserController(
     fun openContextMenuTargetInNewTab(url: String): Boolean {
         val request = contextMenuRequest ?: return false
         val safeUrl = BrowserContextMenuPolicy.safeWebUrl(url) ?: return false
+        if (safeUrl != request.linkUrl && safeUrl != request.resourceUrl) return false
         val sourceTab = tabs.firstOrNull { it.id == request.tabId } ?: return false
         val sourceSession = contextMenuSourceSession
         if (
@@ -1830,8 +1831,8 @@ class BrowserController(
                     linkUrl = linkUrl,
                     resourceUrl = resourceUrl,
                     resourceType = resourceType,
-                    title = (element.title ?: element.altText ?: element.linkText)
-                        ?.takeIf(String::isNotBlank)
+                    title = listOfNotNull(element.title, element.altText, element.linkText)
+                        .firstOrNull(String::isNotBlank)
                         ?.take(160)
                 )
             }

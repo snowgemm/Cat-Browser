@@ -36,6 +36,7 @@ class BrowserContextMenuPolicyTest {
         assertNull(BrowserContextMenuPolicy.safeWebUrl("https://user:pass@example.com/"))
         assertNull(BrowserContextMenuPolicy.safeWebUrl("https://example.com:65536/"))
         assertNull(BrowserContextMenuPolicy.safeWebUrl("https://example.com:0/"))
+        assertNull(BrowserContextMenuPolicy.safeWebUrl("https://example.com:not-a-port/"))
     }
 
     @Test
