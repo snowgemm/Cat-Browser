@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -28,6 +29,7 @@ const val DEFAULT_HOME_PAGE_URL = "about:blank"
 const val SEARCH_HOME_PAGE_URL = "cat-internal://search-home"
 private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
+@ExperimentalGeckoViewApi
 class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
