@@ -97,21 +97,21 @@ internal fun TabsOverview(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            TabModeAction(
+            tabModeAction(
                 icon = BrowserGlyphType.TABS,
                 label = "Tất cả",
                 count = controller.tabs.size,
                 selected = tabFilter == "all",
                 modifier = Modifier.weight(1f)
             ) { tabFilter = "all" }
-            TabModeAction(
+            tabModeAction(
                 icon = BrowserGlyphType.INCOGNITO,
                 label = "Riêng tư",
                 count = controller.privateTabCount,
                 selected = tabFilter == "private",
                 modifier = Modifier.weight(1f)
             ) { tabFilter = "private" }
-            TabModeAction(
+            tabModeAction(
                 icon = BrowserGlyphType.TABS,
                 label = "Thường",
                 count = controller.regularTabCount,
@@ -153,209 +153,247 @@ internal fun TabsOverview(
             }
         }
 
-        if (visibleTabs.isNotEmpty()) LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 154.dp),
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            gridItems(
-                visibleTabs,
-                key = { it.id },
-                contentType = { "tab-card" }
-            ) { tab ->
-                val domain = tab.url
-                    .removePrefix("https://")
-                    .removePrefix("http://")
-                    .substringBefore('/')
-                    .ifBlank { "Trang mới" }
-                val mark = domain.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
-                val selected = tab.id == controller.selectedTabId
-                val cardBackground = if (tab.isPrivate) Color(0xFF292431)
-                    else MaterialTheme.colorScheme.surface
-                val cardText = if (tab.isPrivate) Color(0xFFF2EDF7)
-                    else MaterialTheme.colorScheme.onSurface
-                val cardMuted = if (tab.isPrivate) Color(0xFFC9C0D2)
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                val targetBorderColor = when {
-                    selected -> MaterialTheme.colorScheme.primary
-                    tab.isPrivate -> Color(0xFF776B86)
-                    else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
-                }
-                val borderColor by animateColorAsState(
-                    targetValue = targetBorderColor,
-                    animationSpec = tween(180),
-                    label = "tab-card-border"
-                )
-                val borderWidth by animateDpAsState(
-                    targetValue = if (selected) 1.6.dp else 1.dp,
-                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
-                    label = "tab-card-border-width"
-                )
-                val cardScale by animateFloatAsState(
-                    targetValue = if (draggingTabId == tab.id) 0.96f else 1f,
-                    animationSpec = spring(dampingRatio = 0.82f, stiffness = 460f),
-                    label = "tab-card-drag-scale"
-                )
-                val cardElevation by animateDpAsState(
-                    targetValue = if (selected) 4.dp else 1.dp,
-                    animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
-                    label = "tab-card-elevation"
-                )
+        if (visibleTabs.isNotEmpty()) {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 154.dp),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(
+                    start = 14.dp,
+                    end = 14.dp,
+                    top = 4.dp,
+                    bottom = 18.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                gridItems(
+                    visibleTabs,
+                    key = { it.id },
+                    contentType = { "tab-card" },
+                ) { tab ->
+                    val domain =
+                        tab.url
+                            .removePrefix("https://")
+                            .removePrefix("http://")
+                            .substringBefore('/')
+                            .ifBlank { "Trang mới" }
+                    val mark = domain.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
+                    val selected = tab.id == controller.selectedTabId
+                    val cardBackground =
+                        if (tab.isPrivate) {
+                            Color(0xFF292431)
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        }
+                    val cardText =
+                        if (tab.isPrivate) {
+                            Color(0xFFF2EDF7)
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    val cardMuted =
+                        if (tab.isPrivate) {
+                            Color(0xFFC9C0D2)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    val targetBorderColor =
+                        when {
+                            selected -> MaterialTheme.colorScheme.primary
+                            tab.isPrivate -> Color(0xFF776B86)
+                            else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.7f)
+                        }
+                    val borderColor by animateColorAsState(
+                        targetValue = targetBorderColor,
+                        animationSpec = tween(180),
+                        label = "tab-card-border",
+                    )
+                    val borderWidth by animateDpAsState(
+                        targetValue = if (selected) 1.6.dp else 1.dp,
+                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
+                        label = "tab-card-border-width",
+                    )
+                    val cardScale by animateFloatAsState(
+                        targetValue = if (draggingTabId == tab.id) 0.96f else 1f,
+                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 460f),
+                        label = "tab-card-drag-scale",
+                    )
+                    val cardElevation by animateDpAsState(
+                        targetValue = if (selected) 4.dp else 1.dp,
+                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
+                        label = "tab-card-elevation",
+                    )
 
-                Surface(
-                    onClick = {
-                        controller.selectTab(tab.id)
-                        onBack()
-                    },
-                    shape = RoundedCornerShape(17.dp),
-                    color = cardBackground,
-                    tonalElevation = cardElevation,
-                    border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
-                    modifier = Modifier.fillMaxWidth()
-                        .height(210.dp)
-                        .animateContentSize()
-                        .animateItem()
-                        .graphicsLayer {
-                            alpha = if (draggingTabId == tab.id) 0.84f else 1f
-                            scaleX = cardScale
-                            scaleY = cardScale
-                        }
-                        .onGloballyPositioned { cardCoordinates[tab.id] = it }
-                        .pointerInput(tab.id, canReorderTabs) {
-                            if (canReorderTabs) {
-                                detectDragGesturesAfterLongPress(
-                                    onDragStart = {
-                                        draggingTabId = tab.id
-                                        lastReorderTargetId = null
-                                    },
-                                    onDragEnd = {
-                                        draggingTabId = null
-                                        lastReorderTargetId = null
-                                    },
-                                    onDragCancel = {
-                                        draggingTabId = null
-                                        lastReorderTargetId = null
-                                    },
-                                    onDrag = { change, _ ->
-                                        val position = cardCoordinates[tab.id]
-                                            ?.localToRoot(change.position)
-                                            ?: return@detectDragGesturesAfterLongPress
-                                        val targetId = visibleTabs.firstOrNull { candidate ->
-                                            cardCoordinates[candidate.id]
-                                                ?.boundsInRoot()
-                                                ?.contains(position) == true
-                                        }?.id
-                                        if (targetId == null || targetId == tab.id) {
-                                            lastReorderTargetId = null
-                                        } else if (targetId != lastReorderTargetId) {
-                                            if (controller.moveTab(tab.id, targetId)) {
-                                                lastReorderTargetId = targetId
-                                            }
-                                        }
-                                        change.consume()
-                                    }
-                                )
+                    Surface(
+                        onClick = {
+                            controller.selectTab(tab.id)
+                            onBack()
+                        },
+                        shape = RoundedCornerShape(17.dp),
+                        color = cardBackground,
+                        tonalElevation = cardElevation,
+                        border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(210.dp)
+                            .animateContentSize()
+                            .animateItem()
+                            .graphicsLayer {
+                                alpha = if (draggingTabId == tab.id) 0.84f else 1f
+                                scaleX = cardScale
+                                scaleY = cardScale
                             }
-                        }
-                ) {
-                    Column(
-                        Modifier.fillMaxSize().padding(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .onGloballyPositioned { cardCoordinates[tab.id] = it }
+                            .pointerInput(tab.id, canReorderTabs) {
+                                if (canReorderTabs) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            draggingTabId = tab.id
+                                            lastReorderTargetId = null
+                                        },
+                                        onDragEnd = {
+                                            draggingTabId = null
+                                            lastReorderTargetId = null
+                                        },
+                                        onDragCancel = {
+                                            draggingTabId = null
+                                            lastReorderTargetId = null
+                                        },
+                                        onDrag = { change, _ ->
+                                            val position =
+                                                cardCoordinates[tab.id]
+                                                    ?.localToRoot(change.position)
+                                                    ?: return@detectDragGesturesAfterLongPress
+                                            val targetId = visibleTabs.firstOrNull { candidate ->
+                                                cardCoordinates[candidate.id]
+                                                    ?.boundsInRoot()
+                                                    ?.contains(position) == true
+                                            }?.id
+                                            if (targetId == null || targetId == tab.id) {
+                                                lastReorderTargetId = null
+                                            } else if (targetId != lastReorderTargetId) {
+                                                if (controller.moveTab(tab.id, targetId)) {
+                                                    lastReorderTargetId = targetId
+                                                }
+                                            }
+                                            change.consume()
+                                        },
+                                    )
+                                }
+                            },
                     ) {
-                        Row(
-                            Modifier.fillMaxWidth().height(30.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(7.dp),
-                                color = if (tab.isPrivate) Color(0xFF443B50)
-                                    else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(25.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(30.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        mark,
-                                        color = if (tab.isPrivate) Color(0xFFE6DDF0)
-                                            else MaterialTheme.colorScheme.primary,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
+                                Surface(
+                                    shape = RoundedCornerShape(7.dp),
+                                    color = if (tab.isPrivate) {
+                                        Color(0xFF443B50)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    modifier = Modifier.size(25.dp),
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = mark,
+                                            color = if (tab.isPrivate) {
+                                                Color(0xFFE6DDF0)
+                                            } else {
+                                                MaterialTheme.colorScheme.primary
+                                            },
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(7.dp))
+                                Text(
+                                    text = tab.title.ifBlank { domain },
+                                    modifier = Modifier.weight(1f),
+                                    color = cardText,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                IconButton(
+                                    onClick = { controller.closeTab(tab.id) },
+                                    modifier = Modifier.size(30.dp),
+                                ) {
+                                    BrowserGlyph(
+                                        BrowserGlyphType.CLOSE,
+                                        iconSize = 16.dp,
+                                        tint = cardMuted,
                                     )
                                 }
                             }
-                            Spacer(Modifier.width(7.dp))
-                            Text(
-                                tab.title.ifBlank { domain },
-                                Modifier.weight(1f),
-                                color = cardText,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            IconButton(
-                                onClick = { controller.closeTab(tab.id) },
-                                modifier = Modifier.size(30.dp)
-                            ) {
-                                BrowserGlyph(
-                                    BrowserGlyphType.CLOSE,
-                                    iconSize = 16.dp,
-                                    tint = cardMuted
-                                )
-                            }
-                        }
 
-                        Box(
-                            Modifier.fillMaxWidth().weight(1f)
-                                .clip(RoundedCornerShape(11.dp))
-                        ) {
-                            tab.previewBitmap?.let { preview ->
-                                Image(
-                                    bitmap = preview.asImageBitmap(),
-                                    contentDescription = "Ảnh xem trước: " + tab.title,
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } ?: Box(
-                                Modifier.fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                                contentAlignment = Alignment.Center
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(11.dp)),
                             ) {
-                                BrowserGlyph(
-                                    BrowserGlyphType.GLOBE,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                                    iconSize = 30.dp
-                                )
+                                tab.previewBitmap?.let { preview ->
+                                    Image(
+                                        bitmap = preview.asImageBitmap(),
+                                        contentDescription = "Ảnh xem trước: ${tab.title}",
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                } ?: Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    BrowserGlyph(
+                                        BrowserGlyphType.GLOBE,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                        iconSize = 30.dp,
+                                    )
+                                }
                             }
-                        }
 
-                        Row(
-                            Modifier.fillMaxWidth().height(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (tab.isPrivate) {
-                                BrowserGlyph(
-                                    BrowserGlyphType.INCOGNITO,
-                                    tint = Color(0xFFE6DDF0),
-                                    iconSize = 13.dp
-                                )
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    "Riêng tư",
-                                    color = Color(0xFFE6DDF0),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            Spacer(Modifier.weight(1f))
-                            if (selected) {
-                                Text(
-                                    "Đang mở",
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                if (tab.isPrivate) {
+                                    BrowserGlyph(
+                                        BrowserGlyphType.INCOGNITO,
+                                        tint = Color(0xFFE6DDF0),
+                                        iconSize = 13.dp,
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        text = "Riêng tư",
+                                        color = Color(0xFFE6DDF0),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium,
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                if (selected) {
+                                    Text(
+                                        text = "Đang mở",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                }
                             }
                         }
                     }
@@ -364,14 +402,16 @@ internal fun TabsOverview(
         }
 
         Surface(
-            Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp
+            tonalElevation = 2.dp,
         ) {
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = tabSearch,
@@ -379,14 +419,16 @@ internal fun TabsOverview(
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     placeholder = { Text("Tìm thẻ của bạn", maxLines = 1) },
-                    leadingIcon = { BrowserGlyph(BrowserGlyphType.SEARCH, iconSize = 18.dp) },
+                    leadingIcon = {
+                        BrowserGlyph(BrowserGlyphType.SEARCH, iconSize = 18.dp)
+                    },
                     trailingIcon = {
                         if (tabSearch.isNotEmpty()) {
                             IconButton(onClick = { tabSearch = "" }) {
                                 BrowserGlyph(BrowserGlyphType.CLEAR, iconSize = 16.dp)
                             }
                         }
-                    }
+                    },
                 )
                 Box {
                     IconButton(onClick = { showMoreMenu = true }) {
@@ -394,24 +436,28 @@ internal fun TabsOverview(
                     }
                     DropdownMenu(
                         expanded = showMoreMenu,
-                        onDismissRequest = { showMoreMenu = false }
+                        onDismissRequest = { showMoreMenu = false },
                     ) {
                         DropdownMenuItem(
                             text = { Text("Đóng tab đang mở") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.CLOSE, iconSize = 18.dp) },
+                            leadingIcon = {
+                                BrowserGlyph(BrowserGlyphType.CLOSE, iconSize = 18.dp)
+                            },
                             onClick = {
                                 showMoreMenu = false
                                 controller.closeTab(controller.selectedTabId)
-                            }
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text("Đóng tất cả tab riêng tư") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp) },
+                            leadingIcon = {
+                                BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
+                            },
                             enabled = controller.privateTabCount > 0,
                             onClick = {
                                 showMoreMenu = false
                                 controller.closeAllPrivateTabs()
-                            }
+                            },
                         )
                     }
                 }
@@ -421,76 +467,100 @@ internal fun TabsOverview(
                         modifier = Modifier.size(52.dp),
                         shape = RoundedCornerShape(17.dp),
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     ) {
                         BrowserGlyph(
                             BrowserGlyphType.NEW_TAB,
                             tint = MaterialTheme.colorScheme.onPrimary,
-                            iconSize = 23.dp
+                            iconSize = 23.dp,
                         )
                     }
                     DropdownMenu(
                         expanded = showAddMenu,
-                        onDismissRequest = { showAddMenu = false }
+                        onDismissRequest = { showAddMenu = false },
                     ) {
                         DropdownMenuItem(
                             text = { Text("Tab thường") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp) },
+                            leadingIcon = {
+                                BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp)
+                            },
                             enabled = controller.canCreateTab,
                             onClick = {
                                 showAddMenu = false
                                 onNewTab()
-                            }
+                            },
                         )
                         DropdownMenuItem(
                             text = { Text("Tab riêng tư") },
-                            leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp) },
+                            leadingIcon = {
+                                BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp)
+                            },
                             enabled = controller.canCreateTab,
                             onClick = {
                                 showAddMenu = false
                                 onNewPrivateTab()
-                            }
+                            },
                         )
                     }
                 }
             }
         }
-
     }
 }
 
 @Composable
-private fun TabModeAction(
+private fun tabModeAction(
     icon: BrowserGlyphType,
     label: String,
     count: Int,
     selected: Boolean,
     modifier: Modifier = Modifier,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(13.dp),
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant
+        color = if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            Color.Transparent
+        },
+        contentColor = if (selected) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
     ) {
         Row(
-            Modifier.fillMaxSize().padding(horizontal = 9.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
         ) {
             BrowserGlyph(
                 icon,
-                tint = if (selected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                iconSize = 18.dp
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                iconSize = 18.dp,
             )
             Spacer(Modifier.width(6.dp))
             Column {
-                Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(count.toString(), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+                Text(
+                    text = count.toString(),
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
