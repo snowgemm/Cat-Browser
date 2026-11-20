@@ -1,0 +1,55 @@
+name: Temporary tab tray formatter
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/temp-format-tabs.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    name: Format tab tray source with repository KtLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+
+      - name: Install Android SDK components
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-37.2" \
+            "build-tools;36.0.0" \
+            "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
+
+      - name: Apply KtLint formatting
+        run: ./gradlew --no-daemon :app:ktlintFormat
+
+      - name: Commit formatted tab tray only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/io/github/snowgemm/catbrowser/ui/TabsOverview.kt
+          if git diff --cached --quiet; then
+            echo "TabsOverview.kt is already formatted."
+            exit 0
+          fi
+          git commit -m "style: format Firefox-inspired tab tray screen"
+          git push origin HEAD:main
