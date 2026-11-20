@@ -40,8 +40,8 @@ class BrowserTabGroupPolicyTest {
     @Test
     fun privateTabsNeverRetainGroupMembership() {
         val tab =
-                BrowserTab(
-                    isPrivate = true,
+            BrowserTab(
+                isPrivate = true,
                 initialGroupId = "group-private",
             )
 
@@ -51,8 +51,8 @@ class BrowserTabGroupPolicyTest {
     @Test
     fun regularTabsCanRetainGroupMembership() {
         val tab =
-                BrowserTab(
-                    isPrivate = false,
+            BrowserTab(
+                isPrivate = false,
                 initialGroupId = "group-regular",
             )
 
@@ -64,21 +64,21 @@ class BrowserTabGroupPolicyTest {
         val preferences = InMemorySharedPreferences()
         val store = BrowserLocalStore(preferences)
         val group =
-                BrowserTabGroup(
-                    id = "group-regular",
+            BrowserTabGroup(
+                id = "group-regular",
                 name = "Research",
                 colorIndex = 2,
             )
         val regularTab =
-                BrowserTab(
-                    id = "regular-tab",
+            BrowserTab(
+                id = "regular-tab",
                 initialUrl = "https://example.com/",
                 initialTitle = "Example",
                 initialGroupId = group.id,
             )
         val privateTab =
-                BrowserTab(
-                    id = "private-tab",
+            BrowserTab(
+                id = "private-tab",
                 initialUrl = "https://private.example/",
                 initialTitle = "Private page",
                 isPrivate = true,
@@ -112,6 +112,9 @@ class BrowserTabGroupPolicyTest {
     }
 }
 
+private typealias PreferenceChangeListener =
+    SharedPreferences.OnSharedPreferenceChangeListener?
+
 private class InMemorySharedPreferences : SharedPreferences {
     private val values = mutableMapOf<String, Any>()
 
@@ -122,58 +125,95 @@ private class InMemorySharedPreferences : SharedPreferences {
         defValue: String?,
     ): String? = values[key] as? String ?: defValue
 
-    override fun getStringSet(key: String, defValues: MutableSet<String>?): MutableSet<String>? =
+    override fun getStringSet(
+        key: String,
+        defValues: MutableSet<String>?,
+    ): MutableSet<String>? =
         (values[key] as? Set<*>)
             ?.filterIsInstance<String>()
             ?.toMutableSet()
             ?: defValues?.toMutableSet()
 
-    override fun getInt(key: String, defValue: Int): Int = values[key] as? Int ?: defValue
+    override fun getInt(
+        key: String,
+        defValue: Int,
+    ): Int = values[key] as? Int ?: defValue
 
-    override fun getLong(key: String, defValue: Long): Long = values[key] as? Long ?: defValue
+    override fun getLong(
+        key: String,
+        defValue: Long,
+    ): Long = values[key] as? Long ?: defValue
 
-    override fun getFloat(key: String, defValue: Float): Float = values[key] as? Float ?: defValue
+    override fun getFloat(
+        key: String,
+        defValue: Float,
+    ): Float = values[key] as? Float ?: defValue
 
-    override fun getBoolean(key: String, defValue: Boolean): Boolean = values[key] as? Boolean ?: defValue
+    override fun getBoolean(
+        key: String,
+        defValue: Boolean,
+    ): Boolean = values[key] as? Boolean ?: defValue
 
     override fun contains(key: String): Boolean = key in values
 
     override fun edit(): SharedPreferences.Editor = MemoryEditor()
 
-    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun registerOnSharedPreferenceChangeListener(
+        listener: PreferenceChangeListener,
+    ) = Unit
 
-    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun unregisterOnSharedPreferenceChangeListener(
+        listener: PreferenceChangeListener,
+    ) = Unit
 
     private inner class MemoryEditor : SharedPreferences.Editor {
         private val updates = mutableMapOf<String, Any?>()
         private var shouldClear = false
 
-        override fun putString(key: String, value: String?): SharedPreferences.Editor {
+        override fun putString(
+            key: String,
+            value: String?,
+        ): SharedPreferences.Editor {
             updates[key] = value
             return this
         }
 
-        override fun putStringSet(key: String, values: MutableSet<String>?): SharedPreferences.Editor {
+        override fun putStringSet(
+            key: String,
+            values: MutableSet<String>?,
+        ): SharedPreferences.Editor {
             updates[key] = values?.toSet()
             return this
         }
 
-        override fun putInt(key: String, value: Int): SharedPreferences.Editor {
+        override fun putInt(
+            key: String,
+            value: Int,
+        ): SharedPreferences.Editor {
             updates[key] = value
             return this
         }
 
-        override fun putLong(key: String, value: Long): SharedPreferences.Editor {
+        override fun putLong(
+            key: String,
+            value: Long,
+        ): SharedPreferences.Editor {
             updates[key] = value
             return this
         }
 
-        override fun putFloat(key: String, value: Float): SharedPreferences.Editor {
+        override fun putFloat(
+            key: String,
+            value: Float,
+        ): SharedPreferences.Editor {
             updates[key] = value
             return this
         }
 
-        override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor {
+        override fun putBoolean(
+            key: String,
+            value: Boolean,
+        ): SharedPreferences.Editor {
             updates[key] = value
             return this
         }
