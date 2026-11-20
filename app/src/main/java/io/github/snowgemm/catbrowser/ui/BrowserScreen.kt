@@ -185,7 +185,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
                     settingsReturnDestination = BrowserDestination.BROWSER
                     destination = BrowserDestination.SETTINGS
                 },
-                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS }
+                onOpenDownloads = { destination = BrowserDestination.DOWNLOADS },
             )
             BrowserDestination.ASSISTANT -> AssistantScreen(
                 controller = controller,
