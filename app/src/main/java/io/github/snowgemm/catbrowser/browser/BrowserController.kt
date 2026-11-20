@@ -11,7 +11,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -29,7 +28,6 @@ const val DEFAULT_HOME_PAGE_URL = "about:blank"
 const val SEARCH_HOME_PAGE_URL = "cat-internal://search-home"
 private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
-@OptIn(ExperimentalGeckoViewApi::class)
 class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
@@ -272,11 +270,13 @@ class BrowserController(
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
             val isPictureInPictureSource = session === pictureInPictureSourceSession
-            val visible = isPictureInPictureSource || GeckoSessionVisibilityPolicy.isVisible(
-                isAppForegrounded,
-                tab.id == selectedTabId,
-                tab.isViewAttached,
-            )
+            val visible =
+                isPictureInPictureSource ||
+                    GeckoSessionVisibilityPolicy.isVisible(
+                        isAppForegrounded,
+                        tab.id == selectedTabId,
+                        tab.isViewAttached,
+                    )
             session.setActive(visible)
             session.setFocused(visible && !isPictureInPictureSource)
             session.setPriorityHint(
@@ -357,7 +357,10 @@ class BrowserController(
         session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
     }
 
-    private fun startPictureInPicture(sourceSession: GeckoSession, placementToken: String) {
+    private fun startPictureInPicture(
+        sourceSession: GeckoSession,
+        placementToken: String,
+    ) {
         val sourceTab = activeTab
         if (
             !BrowserPictureInPicturePolicy.canOpen(
@@ -377,13 +380,13 @@ class BrowserController(
             return
         }
 
-        val pipSession = runCatching {
-            GeckoSession(
-                GeckoSessionSettings.Builder()
-                    .pictureInPictureToken(placementToken)
-                    .build(),
-            ).also { it.open(runtime) }
-        }.getOrElse {
+        val sessionSettingsBuilder = GeckoSessionSettings.Builder()
+        sessionSettingsBuilder.pictureInPictureToken(placementToken)
+        val sessionSettings = sessionSettingsBuilder.build()
+        val pipSession =
+            runCatching {
+                GeckoSession(sessionSettings).also { it.open(runtime) }
+            }.getOrElse {
             sourceSession.sessionPictureInPicture.exit()
             return
         }
@@ -455,13 +458,14 @@ class BrowserController(
             source.sessionPictureInPicture.setKeepActive(false)
 
             val sourceTab = tabs.firstOrNull { it.session === source }
-            val visible = sourceTab?.let { tab ->
-                GeckoSessionVisibilityPolicy.isVisible(
-                    isAppForegrounded,
-                    tab.id == selectedTabId,
-                    tab.isViewAttached,
-                )
-            } == true
+            val visible =
+                sourceTab?.let { tab ->
+                    GeckoSessionVisibilityPolicy.isVisible(
+                        isAppForegrounded,
+                        tab.id == selectedTabId,
+                        tab.isViewAttached,
+                    )
+                } == true
             source.setFocused(visible)
             source.setActive(visible)
             source.setPriorityHint(

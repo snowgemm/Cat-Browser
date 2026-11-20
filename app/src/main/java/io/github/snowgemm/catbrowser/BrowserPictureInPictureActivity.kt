@@ -35,14 +35,16 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
         pictureInPictureSession = session
         controller.setPictureInPictureCloseHost { finish() }
 
-        val view = GeckoView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
-            setActivityContextDelegate { this@BrowserPictureInPictureActivity }
-            setSession(session)
-        }
+        val view =
+            GeckoView(this).apply {
+                layoutParams =
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                setActivityContextDelegate { this@BrowserPictureInPictureActivity }
+                setSession(session)
+            }
         pictureInPictureView = view
         controller.onPictureInPictureViewAttached(session)
         session.loadUri("about:blank")
@@ -67,13 +69,12 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
         if (hasEnteredPictureInPicture) return
         hasEnteredPictureInPicture = true
 
-        val entered = runCatching {
-            enterPictureInPictureMode(
-                PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
-                    .build(),
-            )
-        }.getOrDefault(false)
+        val pipParams = PictureInPictureParams.Builder()
+        pipParams.setAspectRatio(Rational(16, 9))
+        val entered =
+            runCatching {
+                enterPictureInPictureMode(pipParams.build())
+            }.getOrDefault(false)
         if (!entered) finish()
     }
 
