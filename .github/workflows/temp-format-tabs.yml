@@ -39,16 +39,32 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
-      - name: Apply KtLint formatting
-        run: ./gradlew --no-daemon :app:ktlintFormat
+      - name: Configure KtLint to target the tab group sources
+        run: |
+          cat > "$RUNNER_TEMP/ktlint-format.init.gradle" <<'EOF'
+          allprojects { target ->
+              target.plugins.withId("org.jlleitschuh.gradle.ktlint") {
+                  target.extensions.configure("ktlint") {
+                      filter {
+                          include("**/TabsOverview.kt")
+                          include("**/BrowserTabGroupPolicyTest.kt")
+                      }
+                  }
+              }
+          }
+          EOF
 
-      - name: Commit formatted tab tray only
+      - name: Format only tab group sources
+        run: ./gradlew --no-daemon -I "$RUNNER_TEMP/ktlint-format.init.gradle" :app:ktlintFormat
+
+      - name: Commit formatted tab tray and regression tests
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/src/main/java/io/github/snowgemm/catbrowser/ui/TabsOverview.kt
+          git add app/src/test/java/io/github/snowgemm/catbrowser/browser/BrowserTabGroupPolicyTest.kt
           if git diff --cached --quiet; then
-            echo "TabsOverview.kt is already formatted."
+            echo "Tab group sources are already formatted."
             exit 0
           fi
           git commit -m "style: format Firefox-inspired tab tray screen"
