@@ -68,7 +68,8 @@ class BrowserExtensionRegressionTest {
 
     @Test
     fun parsesPublicAndroidAddonsEvenWhenInstallFileIsUnavailable() {
-        val payload = """
+        val payload =
+            """
             {
               "results": [
                 {
@@ -83,7 +84,7 @@ class BrowserExtensionRegressionTest {
                 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val entries = ExtensionCatalogParser.parse(payload)
 
@@ -93,13 +94,14 @@ class BrowserExtensionRegressionTest {
         assertNull(entries.single().downloadUrl)
         assertEquals(
             "https://addons.mozilla.org/android/addon/example-addon/",
-            entries.single().listingUrl
+            entries.single().listingUrl,
         )
     }
 
     @Test
     fun parsesMozillaSignedXpiFromCurrentVersionFile() {
-        val payload = """
+        val payload =
+            """
             {
               "results": [
                 {
@@ -119,20 +121,21 @@ class BrowserExtensionRegressionTest {
                 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val entry = ExtensionCatalogParser.parse(payload).single()
 
         assertEquals(
             "https://addons.mozilla.org/firefox/downloads/file/77/signed.xpi",
-            entry.downloadUrl
+            entry.downloadUrl,
         )
         assertTrue(entry.canInstall)
     }
 
     @Test
     fun neverOffersExplicitlyUnsignedOrUntrustedCatalogFiles() {
-        val payload = """
+        val payload =
+            """
             {
               "results": [
                 {
@@ -163,7 +166,7 @@ class BrowserExtensionRegressionTest {
                 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val entries = ExtensionCatalogParser.parse(payload)
 
