@@ -12,15 +12,15 @@ class BrowserMemoryTrimPolicyTest {
             BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS,
             BrowserMemoryTrimPolicy.actionFor(
                 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN,
-                Build.VERSION_CODES.TIRAMISU
-            )
+                Build.VERSION_CODES.TIRAMISU,
+            ),
         )
         assertEquals(
             BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS,
             BrowserMemoryTrimPolicy.actionFor(
                 ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN,
-                Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-            )
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            ),
         )
     }
 
@@ -28,7 +28,10 @@ class BrowserMemoryTrimPolicyTest {
     fun legacyRunningCriticalClearsAllPreviewsBeforeAndroid14() {
         assertEquals(
             BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS,
-            BrowserMemoryTrimPolicy.actionFor(15, Build.VERSION_CODES.TIRAMISU)
+            BrowserMemoryTrimPolicy.actionFor(
+                15,
+                Build.VERSION_CODES.TIRAMISU,
+            ),
         )
     }
 
@@ -36,7 +39,10 @@ class BrowserMemoryTrimPolicyTest {
     fun legacyRunningLowClearsOnlyInactivePreviewsBeforeAndroid14() {
         assertEquals(
             BrowserMemoryTrimAction.CLEAR_INACTIVE_PREVIEWS,
-            BrowserMemoryTrimPolicy.actionFor(10, Build.VERSION_CODES.TIRAMISU)
+            BrowserMemoryTrimPolicy.actionFor(
+                10,
+                Build.VERSION_CODES.TIRAMISU,
+            ),
         )
     }
 
@@ -44,11 +50,17 @@ class BrowserMemoryTrimPolicyTest {
     fun legacyRunningLevelsAreIgnoredFromAndroid14Onward() {
         assertEquals(
             BrowserMemoryTrimAction.KEEP_PREVIEWS,
-            BrowserMemoryTrimPolicy.actionFor(15, Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            BrowserMemoryTrimPolicy.actionFor(
+                15,
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            ),
         )
         assertEquals(
             BrowserMemoryTrimAction.KEEP_PREVIEWS,
-            BrowserMemoryTrimPolicy.actionFor(10, Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+            BrowserMemoryTrimPolicy.actionFor(
+                10,
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            ),
         )
     }
 
@@ -58,8 +70,8 @@ class BrowserMemoryTrimPolicyTest {
             BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS,
             BrowserMemoryTrimPolicy.actionFor(
                 ComponentCallbacks2.TRIM_MEMORY_BACKGROUND,
-                Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-            )
+                Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+            ),
         )
     }
 
@@ -67,7 +79,10 @@ class BrowserMemoryTrimPolicyTest {
     fun lowerUnknownLevelsKeepAllPreviews() {
         assertEquals(
             BrowserMemoryTrimAction.KEEP_PREVIEWS,
-            BrowserMemoryTrimPolicy.actionFor(9, Build.VERSION_CODES.TIRAMISU)
+            BrowserMemoryTrimPolicy.actionFor(
+                9,
+                Build.VERSION_CODES.TIRAMISU,
+            ),
         )
     }
 }
