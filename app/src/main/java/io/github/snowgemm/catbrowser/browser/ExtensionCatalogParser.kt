@@ -23,9 +23,10 @@ internal object ExtensionCatalogParser {
                 val type = item.optString("type")
                 if (type.isNotBlank() && type != "extension") continue
 
-                val slug = item.optString("slug")
-                    .takeIf(String::isNotBlank)
-                    ?: continue
+                val slug =
+                    item.optString("slug")
+                        .takeIf(String::isNotBlank)
+                        ?: continue
 
                 val version = item.optJSONObject("current_version")
                 val file =
@@ -45,11 +46,12 @@ internal object ExtensionCatalogParser {
                         !file.optBoolean("is_mozilla_signed_extension")
                 val fileStatus = file?.optString("status").orEmpty()
                 val fileApproved = fileStatus.isBlank() || fileStatus == "public"
-                val downloadUrl = rawDownloadUrl.takeIf {
-                    fileApproved &&
-                        !explicitlyUnsigned &&
-                        ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it)
-                }
+                val downloadUrl =
+                    rawDownloadUrl.takeIf {
+                        fileApproved &&
+                            !explicitlyUnsigned &&
+                            ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it)
+                    }
 
                 val rawListingUrl = item.optString("url")
                 val listingUrl =
@@ -75,7 +77,11 @@ internal object ExtensionCatalogParser {
         }
     }
 
-    private fun localizedField(item: JSONObject, field: String, fallbackLocale: String): String {
+    private fun localizedField(
+        item: JSONObject,
+        field: String,
+        fallbackLocale: String,
+    ): String {
         val value = item.opt(field) ?: return ""
         if (value is String) return value
         if (value !is JSONObject) return ""
