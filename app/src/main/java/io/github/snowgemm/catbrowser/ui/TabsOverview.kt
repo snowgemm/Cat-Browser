@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -26,7 +25,6 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -157,7 +155,8 @@ internal fun TabsOverview(
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 154.dp),
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(
+                contentPadding =
+                    PaddingValues(
                     start = 14.dp,
                     end = 14.dp,
                     top = 4.dp,
@@ -233,8 +232,9 @@ internal fun TabsOverview(
                         color = cardBackground,
                         tonalElevation = cardElevation,
                         border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
                             .height(210.dp)
                             .animateContentSize()
                             .animateItem()
@@ -242,8 +242,7 @@ internal fun TabsOverview(
                                 alpha = if (draggingTabId == tab.id) 0.84f else 1f
                                 scaleX = cardScale
                                 scaleY = cardScale
-                            }
-                            .onGloballyPositioned { cardCoordinates[tab.id] = it }
+                            }.onGloballyPositioned { cardCoordinates[tab.id] = it }
                             .pointerInput(tab.id, canReorderTabs) {
                                 if (canReorderTabs) {
                                     detectDragGesturesAfterLongPress(
@@ -264,7 +263,8 @@ internal fun TabsOverview(
                                                 cardCoordinates[tab.id]
                                                     ?.localToRoot(change.position)
                                                     ?: return@detectDragGesturesAfterLongPress
-                                            val targetId = visibleTabs.firstOrNull { candidate ->
+                                            val targetId =
+                                                visibleTabs.firstOrNull { candidate ->
                                                 cardCoordinates[candidate.id]
                                                     ?.boundsInRoot()
                                                     ?.contains(position) == true
@@ -283,20 +283,23 @@ internal fun TabsOverview(
                             },
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxSize()
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
                                 .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
                                     .height(30.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(7.dp),
-                                    color = if (tab.isPrivate) {
+                                    color =
+                                        if (tab.isPrivate) {
                                         Color(0xFF443B50)
                                     } else {
                                         MaterialTheme.colorScheme.surfaceVariant
@@ -306,7 +309,8 @@ internal fun TabsOverview(
                                     Box(contentAlignment = Alignment.Center) {
                                         Text(
                                             text = mark,
-                                            color = if (tab.isPrivate) {
+                                            color =
+                                                if (tab.isPrivate) {
                                                 Color(0xFFE6DDF0)
                                             } else {
                                                 MaterialTheme.colorScheme.primary
@@ -339,9 +343,10 @@ internal fun TabsOverview(
                             }
 
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
                                     .clip(RoundedCornerShape(11.dp)),
                             ) {
                                 tab.previewBitmap?.let { preview ->
@@ -352,8 +357,9 @@ internal fun TabsOverview(
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 } ?: Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
+                                    modifier =
+                                        Modifier
+                                            .fillMaxSize()
                                         .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -366,9 +372,10 @@ internal fun TabsOverview(
                             }
 
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(16.dp),
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 if (tab.isPrivate) {
@@ -407,9 +414,10 @@ internal fun TabsOverview(
             tonalElevation = 2.dp,
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -521,27 +529,31 @@ private fun tabModeAction(
         onClick = onClick,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(13.dp),
-        color = if (selected) {
+        color =
+            if (selected) {
             MaterialTheme.colorScheme.secondaryContainer
         } else {
             Color.Transparent
         },
-        contentColor = if (selected) {
+        contentColor =
+            if (selected) {
             MaterialTheme.colorScheme.onSecondaryContainer
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 9.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
             BrowserGlyph(
                 icon,
-                tint = if (selected) {
+                tint =
+                    if (selected) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
