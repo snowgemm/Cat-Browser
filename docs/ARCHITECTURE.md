@@ -25,10 +25,11 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 2. Each open browser tab owns one `GeckoSession`.
 3. Set `usePrivateMode` when constructing private sessions; this setting is read-only after the session is opened.
 4. Open a session before attaching it to a `GeckoView`.
-5. Set background sessions inactive and unfocused; keep the selected session active and focused.
-6. Detach a session from `GeckoView` when its AndroidView is released. Do not close a session merely because the screen recomposes or the Activity is recreated.
-7. Clear delegates and close a session when its tab is permanently removed.
-8. Never advertise full session restoration unless GeckoSession state is serialized and restored successfully.
+5. Set background sessions inactive and unfocused; keep the selected, attached session active and focused only while the app is foregrounded.
+6. Treat an extension popup as a separate short-lived GeckoSession: transfer focus to it while open, make it inactive/unfocused in the background, and restore focus to the selected browser tab when it closes.
+7. Detach a session from `GeckoView` when its AndroidView is released. Do not close a tab session merely because the screen recomposes or the Activity is recreated.
+8. Clear delegates and close a session when its tab is permanently removed; close extension popup sessions when dismissed or when their extension is disabled/uninstalled.
+9. Never advertise full session restoration unless GeckoSession state is serialized and restored successfully.
 
 ## Local persistence
 

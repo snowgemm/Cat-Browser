@@ -73,7 +73,10 @@ class BrowserController(
         onCreateTabFromExtension = ::createExtensionTab,
         onActivateSession = ::activateExtensionTab,
         onCloseSession = ::closeExtensionTab,
-        onOpenOptionsPage = ::openExtensionOptionsPage
+        onOpenOptionsPage = ::openExtensionOptionsPage,
+        onRestoreBrowserFocus = {
+            activeTab?.session?.let(::activateExtensionTab)
+        }
     )
     // Kept in memory only; private tabs are never added here.
     val recentlyClosedTabs = mutableStateListOf<BrowserEntry>()
@@ -218,7 +221,6 @@ class BrowserController(
      */
     fun onAppBackgrounded() {
         isAppForegrounded = false
-        extensionsManager.onAppBackgrounded()
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
@@ -227,11 +229,11 @@ class BrowserController(
             session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
             runtime.webExtensionController.setTabActive(session, false)
         }
+        extensionsManager.onAppBackgrounded()
     }
 
     fun onAppForegrounded() {
         isAppForegrounded = true
-        extensionsManager.onAppForegrounded()
         tabs.forEach { tab ->
             val session = tab.session ?: return@forEach
             if (!session.isOpen) return@forEach
@@ -243,6 +245,7 @@ class BrowserController(
             )
             runtime.webExtensionController.setTabActive(session, visible)
         }
+        extensionsManager.onAppForegrounded()
     }
 
     fun trimMemory(level: Int) {

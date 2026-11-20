@@ -92,7 +92,8 @@ class BrowserExtensionsManager(
     private val onCreateTabFromExtension: (Boolean) -> GeckoSession?,
     private val onActivateSession: (GeckoSession) -> Unit,
     private val onCloseSession: (GeckoSession) -> Boolean,
-    private val onOpenOptionsPage: (String) -> Unit
+    private val onOpenOptionsPage: (String) -> Unit,
+    private val onRestoreBrowserFocus: () -> Unit
 ) {
     private val controller = runtime.webExtensionController
     private val webExecutor = GeckoWebExecutor(runtime)
@@ -444,6 +445,7 @@ class BrowserExtensionsManager(
 
     private fun openPopup(extension: WebExtension): GeckoResult<GeckoSession>? {
         if (popup != null) closePopup()
+        sessionProvider().filter { it.isOpen }.forEach { it.setFocused(false) }
         val session = GeckoSession()
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onCloseRequest(session: GeckoSession) {
@@ -473,6 +475,7 @@ class BrowserExtensionsManager(
         current.session.setActive(false)
         current.session.setPriorityHint(GeckoSession.PRIORITY_DEFAULT)
         if (current.session.isOpen) current.session.close()
+        if (isAppForegrounded) onRestoreBrowserFocus()
     }
 
     fun onAppBackgrounded() {
@@ -486,6 +489,7 @@ class BrowserExtensionsManager(
 
     fun onAppForegrounded() {
         isAppForegrounded = true
+        sessionProvider().filter { it.isOpen }.forEach { it.setFocused(false) }
         popup?.session?.takeIf { it.isOpen }?.let { session ->
             session.setActive(true)
             session.setFocused(true)
