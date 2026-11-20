@@ -62,4 +62,13 @@ The repository currently does not declare a license for Cat Browser's own source
 
 ## Kotlin lint baseline
 
-The app module uses a committed KtLint baseline to record style violations that predate lint adoption. New violations fail CI; the baseline is technical debt, not a permanent exemption. When cleaning a legacy file, regenerate the baseline with `./gradlew :app:ktlintGenerateBaseline`, then replace the compressed archive at `app/config/ktlint/baseline.xml.zip` with the generated `app/build/ktlint/baseline.xml` and commit the smaller baseline.
+The app module uses a committed KtLint baseline to record style violations that predate lint adoption. New violations should fail CI; the baseline is technical debt, not a permanent exemption.
+
+When cleaning a legacy file:
+
+1. Fix the violations in the touched code first. Do not use a baseline refresh to hide new violations.
+2. Run `./gradlew :app:ktlintGenerateBaseline`.
+3. Put the generated XML in a ZIP archive with the single entry named `baseline.xml`, then replace `app/config/ktlint/baseline.xml.zip`.
+4. Commit the refreshed archive and verify the normal Android CI lint, unit-test and APK-build steps.
+
+For a CI-generated baseline snapshot, include the exact marker `[refresh-ktlint-baseline]` in the commit message. That one run generates and uploads `cat-browser-ktlint-baseline`; the lint step is intentionally skipped for the snapshot run. Review the generated entries before replacing the committed archive, then use a normal commit message to run the full checks.
