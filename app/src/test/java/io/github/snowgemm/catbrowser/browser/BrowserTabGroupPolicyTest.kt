@@ -40,8 +40,8 @@ class BrowserTabGroupPolicyTest {
     @Test
     fun privateTabsNeverRetainGroupMembership() {
         val tab =
-            BrowserTab(
-                isPrivate = true,
+                BrowserTab(
+                    isPrivate = true,
                 initialGroupId = "group-private",
             )
 
@@ -51,8 +51,8 @@ class BrowserTabGroupPolicyTest {
     @Test
     fun regularTabsCanRetainGroupMembership() {
         val tab =
-            BrowserTab(
-                isPrivate = false,
+                BrowserTab(
+                    isPrivate = false,
                 initialGroupId = "group-regular",
             )
 
@@ -64,21 +64,21 @@ class BrowserTabGroupPolicyTest {
         val preferences = InMemorySharedPreferences()
         val store = BrowserLocalStore(preferences)
         val group =
-            BrowserTabGroup(
-                id = "group-regular",
+                BrowserTabGroup(
+                    id = "group-regular",
                 name = "Research",
                 colorIndex = 2,
             )
         val regularTab =
-            BrowserTab(
-                id = "regular-tab",
+                BrowserTab(
+                    id = "regular-tab",
                 initialUrl = "https://example.com/",
                 initialTitle = "Example",
                 initialGroupId = group.id,
             )
         val privateTab =
-            BrowserTab(
-                id = "private-tab",
+                BrowserTab(
+                    id = "private-tab",
                 initialUrl = "https://private.example/",
                 initialTitle = "Private page",
                 isPrivate = true,
