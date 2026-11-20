@@ -1,6 +1,6 @@
 # Cat Browser feature roadmap
 
-Last reviewed: 2026-11-18
+Last reviewed: 2026-11-20
 
 This is an implementation-status audit of the Android app, not a promise that every item is available today. A feature is marked implemented only when the repository contains its user-facing flow and the corresponding app behavior.
 
@@ -18,6 +18,9 @@ This is an implementation-status audit of the Android app, not a promise that ev
 - Settings screen for reviewing stored website permissions and resetting supported permissions.
 - Clear browsing data controls for history, cookies/DOM storage/auth sessions, cache and site permissions. Open GeckoSessions are closed before the GeckoView storage clear call and the selected tab is recreated afterward.
 - Find in Page with debounced search, highlight-all, previous/next match, match count when available and clear/close behavior.
+- Per-tab desktop-site mode that sets both GeckoView's desktop User-Agent and viewport, with the preference persisted for regular tabs only.
+- Save current page as PDF through GeckoView's PDF renderer and Android Storage Access Framework; print through GeckoView's Android print delegate.
+- Address-bar secure indicator based on GeckoView's TLS/mixed-content callback rather than URL scheme alone.
 - Native New Tab Page with bookmark shortcuts, recent normal-mode visits, and user-added website shortcuts.
 - Local address-bar suggestions from same-mode open tabs, bookmarks and (normal mode only) history; no remote search suggestions are sent while typing.
 - Swipe left/right on the unfocused address bar to switch adjacent tabs; Back/Forward navigation actions live in the overflow menu.
@@ -41,7 +44,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | New Tab Page and address suggestions | Implemented; physical-device UX validation pending | Native start page with shortcuts and recent visits; suggestions use local tabs, bookmarks and normal-mode history only. |
 | Address-bar tab switching | Implemented; physical-device gesture validation pending | Horizontal swipes switch adjacent tabs only while the address field is not focused. |
 | Tab search, preview and reorder | Implemented in overview | Search current titles/URLs; capture a scaled GeckoView preview after successful page load; long-press drag reorder in the unfiltered list; recently closed normal tabs restore last URL only. Preview images are memory-only. |
-| Desktop-site mode | Missing | Per-tab toggle, correct viewport configuration and persisted preference for regular tabs only. |
+| Desktop-site mode | Implemented; physical-device validation pending | Per-tab desktop User-Agent and viewport settings; preference is persisted for regular tabs only. |
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
 | Bookmark manager | Basic | Edit titles, folders or collections, sort, import/export and duplicate handling. |
 | Extension toolbar, tabs, popup and downloads | Partial; matrix and physical-device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, selected tab callbacks, downloads progress/terminal updates and Android `saveAs` picker are integrated. Public GeckoView does not expose extension pause/resume/cancel callbacks; `UNIQUIFY` is implemented, `PROMPT` delegates to Android's document picker and `OVERWRITE` conservatively falls back to a unique name. Full Firefox API coverage and Chrome Store compatibility remain unsupported or unverified. |
@@ -54,7 +57,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Reader mode | Missing | Readability extraction, font/spacing controls and a clear exit action. |
 | Translation | Missing | User-triggered translation with language selection and a clear privacy/data notice. |
 | Media and picture-in-picture | Partial | Consistent media controls, fullscreen handling and Android PiP integration where supported. |
-| Page actions | Partial | Share link, copy URL, print/PDF, open externally and QR display with correct Android intents. |
+| Page actions | Partial; print/PDF implemented | Save a page as PDF through SAF and print through Android PrintManager. Share, copy URL, open externally and QR remain future work. |
 | Per-site privacy controls | Missing | Tracking protection controls, site data inspection and a visible explanation of protection limits. |
 
 ## Release rule
