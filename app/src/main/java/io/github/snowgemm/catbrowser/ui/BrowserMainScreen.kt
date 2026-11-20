@@ -90,6 +90,7 @@ internal fun BrowserMainScreen(
     controller: BrowserController,
     onOpenTabs: () -> Unit,
     onOpenExtensions: () -> Unit,
+    onOpenAssistant: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDownloads: () -> Unit
 ) {
@@ -761,6 +762,13 @@ internal fun BrowserMainScreen(
                 }
                 BrowserMenuListAction(BrowserGlyphType.EXTENSIONS, "Tiện ích mở rộng") {
                     showMenu = false; onOpenExtensions()
+                }
+                BrowserMenuListAction(
+                    BrowserGlyphType.AI,
+                    "Cat AI",
+                    subtitle = "Trợ lý có kiểm soát thao tác"
+                ) {
+                    showMenu = false; onOpenAssistant()
                 }
                 if (controller.recentlyClosedTabs.isNotEmpty()) {
                     BrowserMenuListAction(BrowserGlyphType.RELOAD, "Mở lại tab vừa đóng",
