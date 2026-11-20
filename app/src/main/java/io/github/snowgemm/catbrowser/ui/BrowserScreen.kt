@@ -28,9 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import io.github.snowgemm.catbrowser.browser.BrowserController
-import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.BrowserPictureInPictureActivity
+import io.github.snowgemm.catbrowser.R
+import io.github.snowgemm.catbrowser.browser.BrowserController
 
 
 private val CatDarkColorScheme = darkColorScheme(

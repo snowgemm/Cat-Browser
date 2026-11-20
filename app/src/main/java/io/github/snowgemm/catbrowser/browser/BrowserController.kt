@@ -11,8 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.ExperimentalGeckoViewApi
+import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
@@ -310,6 +310,13 @@ class BrowserController(
 
     fun onPictureInPictureWindowDestroyed(session: GeckoSession) {
         completePictureInPictureSession(session)
+    }
+
+    fun restorePictureInPictureSourceTab() {
+        val sourceSession = pictureInPictureSourceSession ?: return
+        tabs.firstOrNull { it.session === sourceSession }?.let { sourceTab ->
+            selectTab(sourceTab.id)
+        }
     }
 
     fun onPictureInPictureModeChanged(inPictureInPictureMode: Boolean) {
