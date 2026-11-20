@@ -65,6 +65,7 @@ class BrowserExtensionRegressionTest {
 
         assertEquals(listOf(true), decisions)
     }
+
     @Test
     fun parsesPublicAndroidAddonsEvenWhenInstallFileIsUnavailable() {
         val payload = """
@@ -169,5 +170,4 @@ class BrowserExtensionRegressionTest {
         assertEquals(2, entries.size)
         assertTrue(entries.none { it.canInstall })
     }
-
 }

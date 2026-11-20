@@ -34,10 +34,15 @@ internal object ExtensionCatalogParser {
                     }
 
                 val rawDownloadUrl = file?.optString("url").orEmpty()
-                val explicitlyUnsigned = file?.has("is_mozilla_signed_extension") == true &&
+                val explicitlyUnsigned = file != null &&
+                    file.has("is_mozilla_signed_extension") &&
                     !file.optBoolean("is_mozilla_signed_extension")
+                val fileStatus = file?.optString("status").orEmpty()
+                val fileApproved = fileStatus.isBlank() || fileStatus == "public"
                 val downloadUrl = rawDownloadUrl.takeIf {
-                    !explicitlyUnsigned && ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it)
+                    fileApproved &&
+                        !explicitlyUnsigned &&
+                        ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it)
                 }
 
                 val rawListingUrl = item.optString("url")

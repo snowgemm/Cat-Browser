@@ -32,11 +32,14 @@ data class ExtensionCatalogEntry(
     val name: String,
     val summary: String,
     val version: String,
-    val downloadUrl: String,
+    val downloadUrl: String?,
     val listingUrl: String,
     val averageRating: Double,
     val dailyUsers: Int
-)
+) {
+    val canInstall: Boolean
+        get() = downloadUrl != null
+}
 
 data class ExtensionPermissionPrompt(
     val extensionName: String,
