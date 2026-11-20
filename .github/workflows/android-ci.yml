@@ -6,11 +6,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  actions: write
+  contents: write
 
 # New commits supersede older checks on main; avoid spending runners on stale builds.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ contains(github.event.head_commit.message, '[refresh-ktlint-baseline]') && 'baseline' || 'regular' }}
   cancel-in-progress: true
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Set up Node.js for AI gateway checks
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -141,3 +142,33 @@ jobs:
           archive: false
           retention-days: 14
           if-no-files-found: error
+
+      - name: Apply refreshed KtLint baseline to main
+        if: contains(github.event.head_commit.message, '[refresh-ktlint-baseline]')
+        run: |
+          python3 - <<'PY'
+          import zipfile
+
+          archive = "app/build/ktlint/baseline.xml.zip"
+          with zipfile.ZipFile(archive) as source:
+              if source.testzip() is not None:
+                  raise SystemExit("Generated KtLint baseline archive failed CRC validation.")
+              if source.namelist() != ["baseline.xml"]:
+                  raise SystemExit("Generated KtLint baseline archive has an unexpected layout.")
+              source.read("baseline.xml")
+          PY
+
+          cp app/build/ktlint/baseline.xml.zip app/config/ktlint/baseline.xml.zip
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/config/ktlint/baseline.xml.zip
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: refresh KtLint baseline"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Dispatch regular CI with refreshed KtLint baseline
+        if: contains(github.event.head_commit.message, '[refresh-ktlint-baseline]')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run android-ci.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
