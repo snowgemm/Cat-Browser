@@ -7,7 +7,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 ## Available today
 
 - GeckoView-based HTTP(S) browsing with back, forward, reload and stop.
-- Multiple tabs, tab overview, tab closing and URL-level restore for regular tabs.
+- Multiple tabs, tab overview, persistent groups for regular tabs, tab closing and URL-level restore for regular tabs.
 - Local browsing history and bookmarks.
 - Configurable home page, startup behavior, four search engines and light/dark/system themes.
 - Firefox WebExtension manager with AMO search/install, local signed XPI import, enable/disable/update/uninstall, action buttons and badges, popup sessions, options-page routing, supported tab lifecycle callbacks, basic `downloads.download()` and explicit per-extension private-browsing permission. Full API compatibility reporting and physical-device validation are not complete.
@@ -24,7 +24,8 @@ This is an implementation-status audit of the Android app, not a promise that ev
 - Native New Tab Page with bookmark shortcuts, recent normal-mode visits, and user-added website shortcuts.
 - Local address-bar suggestions from same-mode open tabs, bookmarks and (normal mode only) history; no remote search suggestions are sent while typing.
 - Swipe left/right on the unfocused address bar to switch adjacent tabs; Back/Forward navigation actions live in the overflow menu.
-- Tab overview search and in-memory restoration of recently closed normal tabs (last URL only).
+- Tab overview search, regular-tab groups and in-memory restoration of recently closed normal tabs (last URL only).
+- GeckoView long-press context menus for HTTP(S) links and image/video/audio resources: open in a new tab with the source privacy mode and group, or copy the validated address. Text-selection controls remain GeckoView-native.
 
 ## Priority 0 — Browser essentials
 

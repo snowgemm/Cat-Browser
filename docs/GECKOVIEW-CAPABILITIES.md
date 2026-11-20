@@ -47,6 +47,8 @@ This document separates APIs provided by GeckoView from complete browser feature
 - PiP uses GeckoView 160's experimental placement-token flow. A dedicated, non-exported Activity renders the cloned session and enters Android PiP; the source session stays active while its clone plays. Expanding PiP reselects the original source tab. The controller stores no Activity reference: the browser UI registers the launch callback and the PiP Activity registers its close callback for their respective lifetimes.
 - A lock symbol is not inferred from an `https://` prefix. GeckoView's security callback is the source of truth; the indicator is withheld for security exceptions and loaded mixed content.
 - Session snapshots are intentionally not written to disk until form-data privacy and encrypted storage are designed.
+- Context-menu targets are length-bounded, normalized with the browser's HTTP(S) address policy, and revalidated against the active source request before opening. New tabs inherit the source tab's regular/private mode and tab group; the source GeckoSession is used as referrer for that same-mode navigation only. Pending referrer references are cleared if the source crashes or closes.
+- The context menu does not offer a simulated "Save image/media" action. GeckoView's `ContextElement` supplies the resource URI, not an authenticated response body; a real save action needs Gecko-authenticated fetching and private-session isolation.
 - Translation model downloads, Autofill credential storage and native messaging are not enabled without explicit user-facing consent and capability controls.
 - No full Firefox WebExtensions API parity or general Chrome Web Store CRX support is claimed.
 

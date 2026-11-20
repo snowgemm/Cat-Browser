@@ -8,12 +8,12 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 
 - `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
 - New tabs and the default startup page use a native Compose New Tab Page while retaining `about:blank` as the internal start-page marker; no GeckoSession is created until the user navigates. The page shows bookmark shortcuts and recent normal-mode visits. A custom HTTP(S) home page remains configurable.
-- `BrowserController` coordinates in-memory tab metadata, GeckoSession instances, tab selection, navigation, desktop-site settings, engine-reported TLS state, PDF export and print actions.
+- `BrowserController` coordinates in-memory tab metadata, GeckoSession instances, tab selection, navigation, desktop-site settings, engine-reported TLS state, PDF export, print and safe long-press context-menu routing.
 - `BrowserLocalStore` persists regular-tab metadata (including the desktop-site preference), normal-mode history and bookmarks in the existing app-private SharedPreferences store; private tabs are excluded before writes.
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
 - Each tab has a separate GeckoSession. The controller handles new-session requests from web content and retains the returned session.
-- `BrowserScreen` renders the active tab, find-in-page, download manager and GeckoView permission prompts. The active GeckoView receives the current Activity through `ActivityContextDelegate` for native printing.
+- `BrowserScreen` renders the active tab, find-in-page, download manager, GeckoView permission prompts and the browser-owned long-press context menu. The active GeckoView receives the current Activity through `ActivityContextDelegate` for native printing.
 - `BrowserDownloadManager` consumes GeckoView's original `WebResponse.body` stream, writes files to MediaStore Downloads on Android 10+ or app-scoped Downloads on Android 8/9, and tracks progress/cancel/open/share/delete in memory.
 - `BrowserController` owns the GeckoView `StorageController` workflow for site permission inspection/reset and browsing-data clearing; storage clearing closes all sessions before clearing and recreates the selected tab afterward.
 - `BrowserUrlResolver` validates HTTP(S) addresses, hostnames, IPv4/IPv6 and ports; plain text becomes a blank start page.
@@ -65,14 +65,15 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 
 | Component | Responsibility |
 |---|---|
-| Browser UI | `BrowserScreen` navigation shell, `BrowserMainScreen`, shared `BrowserChrome` controls, `TabsOverview`, native New Tab Page, address suggestions, bookmark/history dialogs, downloads, find-in-page and permission prompts |
+| Browser UI | `BrowserScreen` navigation shell, `BrowserMainScreen`, shared `BrowserChrome` controls, `TabsOverview`, native New Tab Page, address suggestions, bookmark/history dialogs, downloads, find-in-page, permission prompts and context-menu sheet |
 | FaviconRepository | Fetches only same-host HTTPS /favicon.ico, rejects local/private resolved addresses, bounds icon size and memory caches, and uses monogram fallback; no third-party proxy |
 | Cat AI | Optional Gemini assistant, Supabase anonymous Auth, Android Keystore session storage, stateless Gemini Interactions client, explicit approval queue for every browser tool call; private tabs and page contents excluded |
 | AI gateway | Supabase Edge Function with JWT verification, server-only Gemini API key, fixed function-tool allowlist, bounded request parsing and database-backed per-user/global quotas |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
-| BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, desktop-site settings, TLS state, PDF export, print, find-in-page and storage clearing |
+| BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, desktop-site settings, TLS state, PDF export, print, find-in-page, context-menu routing and storage clearing |
 | BrowserLocalStore | Reads and writes saved regular tabs (including desktop-site preference), normal-mode history and bookmarks using the existing SharedPreferences keys and compatible JSON schema; excludes private tabs |
-| BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode, desktop-site preference, current security snapshot and GeckoSession reference |
+| BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode, desktop-site preference, current security snapshot, GeckoSession reference and temporary same-mode navigation referrer |
+| Context-menu policy | Restricts page-provided targets to normalized, bounded HTTP(S) URLs before the controller can open them. |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
 | Extension manager | GeckoView WebExtensionController, AMO v5 Android discovery, official listing links, signed-XPI installation, permission prompts and lifecycle actions |
 | Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped/SAF destination, progress, app cancellation, open/share/delete and persisted non-private task metadata. Transfers interrupted by process death are not resumed. |

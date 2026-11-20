@@ -46,4 +46,23 @@ class BrowserContextMenuPolicyTest {
             BrowserContextMenuPolicy.safeWebUrl("  https://example.com/  "),
         )
     }
+
+    @Test
+    fun normalizesSchemeHostAndInternationalizedDomains() {
+        assertEquals(
+            "https://example.com/path?q=cat",
+            BrowserContextMenuPolicy.safeWebUrl("HTTPS://EXAMPLE.COM/path?q=cat"),
+        )
+        assertEquals(
+            "https://xn--bcher-kva.de/",
+            BrowserContextMenuPolicy.safeWebUrl("https://bücher.de/"),
+        )
+    }
+
+    @Test
+    fun rejectsWhitespaceInsideAndOversizedUrls() {
+        assertNull(BrowserContextMenuPolicy.safeWebUrl("https://example.com/a b"))
+        val longUrl = "https://example.com/" + "a".repeat(8_192)
+        assertNull(BrowserContextMenuPolicy.safeWebUrl(longUrl))
+    }
 }

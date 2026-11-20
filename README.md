@@ -31,9 +31,10 @@ Cat Browser is an independent Android browser application. Cat owns the browser 
 
 - GeckoView Stable embedded as the browser engine; version is pinned in `app/build.gradle.kts`.
 - Native Compose browser interface and a Cat New Tab dashboard.
-- Up to 20 regular and private tabs, tab search, tab previews, drag reordering and recently closed regular tabs.
+- Up to 20 regular and private tabs, persistent groups for regular tabs, tab search, tab previews, drag reordering and recently closed regular tabs.
 - Address and search input, local suggestions, adjacent-tab gestures, page loading feedback and find-in-page.
 - Local bookmarks, recent history and downloads.
+- Long-press context menus for HTTP(S) links and image/video/audio targets: open in a new tab with the source privacy mode and group, or copy the validated address.
 - HTTP(S) links can be opened from other Android applications.
 - Configurable home page, search provider, theme and local New Tab wallpaper.
 - Fullscreen media handling through GeckoView delegates.

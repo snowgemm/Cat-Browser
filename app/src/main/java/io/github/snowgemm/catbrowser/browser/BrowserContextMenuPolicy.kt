@@ -1,7 +1,5 @@
 package io.github.snowgemm.catbrowser.browser
 
-import java.net.URI
-
 internal enum class BrowserContextResourceType {
     NONE,
     IMAGE,
@@ -18,13 +16,24 @@ internal data class BrowserContextMenuRequest(
 )
 
 internal object BrowserContextMenuPolicy {
+    private const val MAX_CONTEXT_URL_LENGTH = 8_192
+
     fun safeWebUrl(value: String?): String? {
-        val candidate = value?.trim()?.takeIf(String::isNotEmpty) ?: return null
-        val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
-        val scheme = uri.scheme?.lowercase() ?: return null
-        if (scheme != "http" && scheme != "https") return null
-        if (uri.isOpaque || uri.rawUserInfo != null || uri.host.isNullOrBlank()) return null
-        if (uri.port == 0 || uri.port > 65535) return null
-        return candidate
+        val candidate = value
+            ?.trim()
+            ?.takeIf {
+                it.isNotEmpty() &&
+                    it.length <= MAX_CONTEXT_URL_LENGTH &&
+                    it.none(Char::isWhitespace)
+            } ?: return null
+
+        if (
+            !candidate.startsWith("https://", ignoreCase = true) &&
+            !candidate.startsWith("http://", ignoreCase = true)
+        ) {
+            return null
+        }
+
+        return BrowserUrlResolver.resolveAddress(candidate)
     }
 }

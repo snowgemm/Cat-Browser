@@ -1683,6 +1683,9 @@ class BrowserController(
                 hasUserGesture: Boolean
             ) {
                 if (tab.session !== session || url.isNullOrBlank()) return
+                if (contextMenuRequest?.tabId == tab.id && tab.url != url) {
+                    dismissContextMenu()
+                }
                 tab.url = url
                 persistTabs()
             }
@@ -1982,7 +1985,14 @@ class BrowserController(
                 notifyGecko = false,
             )
         }
-        if (contextMenuSourceSession === failedSession) dismissContextMenu()
+        if (contextMenuSourceSession === failedSession ||
+            contextMenuRequest?.tabId == tab.id
+        ) {
+            dismissContextMenu()
+        }
+        tab.pendingReferrerSession = null
+        tabs.filter { it.pendingReferrerSession === failedSession }
+            .forEach { it.pendingReferrerSession = null }
         extensionsManager.detachSession(failedSession)
         tab.session = null
         tab.isViewAttached = false
@@ -1998,6 +2008,8 @@ class BrowserController(
     private fun destroySession(tab: BrowserTab) {
         val session = tab.session ?: run {
             tab.isFullScreen = false
+            tab.pendingReferrerSession = null
+            if (contextMenuRequest?.tabId == tab.id) dismissContextMenu()
             return
         }
         if (pictureInPictureSourceSession === session) {
@@ -2009,7 +2021,11 @@ class BrowserController(
         tab.isFullScreen = false
         tab.pageSecurity = null
         tab.pendingReferrerSession = null
-        if (contextMenuSourceSession === session) dismissContextMenu()
+        if (contextMenuRequest?.tabId == tab.id || contextMenuSourceSession === session) {
+            dismissContextMenu()
+        }
+        tabs.filter { it.pendingReferrerSession === session }
+            .forEach { it.pendingReferrerSession = null }
 
         if (pendingContentPermissionSession === session) {
             pendingContentPermissionResult?.complete(
