@@ -50,10 +50,11 @@ class BrowserTabGroupPolicyTest {
 
     @Test
     fun regularTabsCanRetainGroupMembership() {
-        val tab = BrowserTab(
-            isPrivate = false,
-            initialGroupId = "group-regular",
-        )
+        val tab =
+            BrowserTab(
+                isPrivate = false,
+                initialGroupId = "group-regular",
+            )
 
         assertEquals("group-regular", tab.groupId)
     }
@@ -91,10 +92,11 @@ class BrowserTabGroupPolicyTest {
             groups = listOf(group),
         )
 
-        val restored = store.restoreTabs(
-            defaultUrl = "https://example.org/",
-            maxTabs = 20,
-        )
+        val restored =
+            store.restoreTabs(
+                defaultUrl = "https://example.org/",
+                maxTabs = 20,
+            )
 
         assertEquals(1, restored.tabs.size)
         assertEquals("regular-tab", restored.tabs.single().id)
