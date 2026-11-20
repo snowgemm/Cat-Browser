@@ -1,9 +1,9 @@
 package io.github.snowgemm.catbrowser.browser
 
-import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
@@ -253,14 +253,14 @@ class BrowserController(
     }
 
     fun trimMemory(level: Int) {
-        when {
-            level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
-                level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+        when (BrowserMemoryTrimPolicy.actionFor(level, Build.VERSION.SDK_INT)) {
+            BrowserMemoryTrimAction.CLEAR_ALL_PREVIEWS -> {
                 tabs.forEach { it.previewBitmap = null }
             }
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+            BrowserMemoryTrimAction.CLEAR_INACTIVE_PREVIEWS -> {
                 tabs.filter { it.id != selectedTabId }.forEach { it.previewBitmap = null }
             }
+            BrowserMemoryTrimAction.KEEP_PREVIEWS -> Unit
         }
     }
 
