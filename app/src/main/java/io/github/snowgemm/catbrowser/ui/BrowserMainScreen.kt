@@ -132,10 +132,6 @@ internal fun BrowserMainScreen(
         null -> null
     }
 
-    LaunchedEffect(tab.id) {
-        controller.dismissContextMenu()
-    }
-
     LaunchedEffect(showHistory) {
         if (showHistory) controller.loadHistory()
     }
@@ -146,6 +142,10 @@ internal fun BrowserMainScreen(
     val tab = controller.activeTab ?: return
     val context = LocalContext.current
     val contextMenuRequest = controller.contextMenuRequest?.takeIf { it.tabId == tab.id }
+
+    LaunchedEffect(tab.id) {
+        controller.dismissContextMenu()
+    }
     var pendingPdfTabId by remember { mutableStateOf<String?>(null) }
     val isVerifiedSecure = tab.pageSecurity?.isVerifiedSecure == true
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
