@@ -436,7 +436,7 @@ internal fun TabsOverview(
                         DropdownMenuItem(
                             text = { Text("Tab thường") },
                             leadingIcon = { BrowserGlyph(BrowserGlyphType.NEW_TAB, iconSize = 18.dp) },
-                            enabled = controller.tabs.size < BrowserController.MAX_TABS,
+                            enabled = controller.canCreateTab,
                             onClick = {
                                 showAddMenu = false
                                 onNewTab()
@@ -445,7 +445,7 @@ internal fun TabsOverview(
                         DropdownMenuItem(
                             text = { Text("Tab riêng tư") },
                             leadingIcon = { BrowserGlyph(BrowserGlyphType.INCOGNITO, iconSize = 18.dp) },
-                            enabled = controller.tabs.size < BrowserController.MAX_TABS,
+                            enabled = controller.canCreateTab,
                             onClick = {
                                 showAddMenu = false
                                 onNewPrivateTab()
