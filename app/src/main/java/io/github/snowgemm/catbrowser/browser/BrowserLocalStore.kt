@@ -35,7 +35,8 @@ internal class BrowserLocalStore(
                     BrowserTab(
                         id = item.optString("id").ifBlank { UUID.randomUUID().toString() },
                         initialUrl = url,
-                        initialTitle = item.optString("title").ifBlank { "Restored tab" }
+                        initialTitle = item.optString("title").ifBlank { "Restored tab" },
+                        initialDesktopMode = item.optBoolean("desktopMode", false)
                     )
                 )
             }
@@ -68,6 +69,7 @@ internal class BrowserLocalStore(
                     .put("id", tab.id)
                     .put("url", if (isWebUrl(tab.url)) tab.url else defaultUrl)
                     .put("title", tab.title.take(200))
+                    .put("desktopMode", tab.isDesktopMode)
             )
         }
 
