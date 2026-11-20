@@ -74,10 +74,11 @@ internal object ExtensionCatalogParser {
             .filter { candidate ->
                 candidate.optString("status") == "public" &&
                     candidate.optString("url").isNotBlank() &&
-                    !(candidate.has("is_mozilla_signed_extension") &&
-                        !candidate.optBoolean("is_mozilla_signed_extension"))
-            }
-            .sortedByDescending { it.optBoolean("is_mozilla_signed_extension") }
+                    !(
+                        candidate.has("is_mozilla_signed_extension") &&
+                            !candidate.optBoolean("is_mozilla_signed_extension")
+                    )
+            }.sortedByDescending { it.optBoolean("is_mozilla_signed_extension") }
             .firstOrNull {
                 ExtensionSourcePolicy.isTrustedAmoDownloadUrl(it.optString("url"))
             }
@@ -92,7 +93,8 @@ internal object ExtensionCatalogParser {
         if (value is String) return value
         if (value !is JSONObject) return ""
 
-        return value.optString("vi")
+        return value
+            .optString("vi")
             .ifBlank { value.optString("en-US") }
             .ifBlank { value.optString(fallbackLocale) }
             .ifBlank {
