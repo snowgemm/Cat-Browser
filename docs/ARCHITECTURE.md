@@ -8,7 +8,8 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 
 - `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
 - New tabs and the default startup page use a native Compose New Tab Page while retaining `about:blank` as the internal start-page marker; no GeckoSession is created until the user navigates. The page shows bookmark shortcuts and recent normal-mode visits. A custom HTTP(S) home page remains configurable.
-- `BrowserController` owns tab metadata, GeckoSession instances, tab selection, normal-mode history and bookmarks.
+- `BrowserController` coordinates in-memory tab metadata, GeckoSession instances, tab selection and navigation.
+- `BrowserLocalStore` persists regular-tab metadata, normal-mode history and bookmarks in the existing app-private SharedPreferences store; private tabs are excluded before writes.
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
 - Each tab has a separate GeckoSession. The controller handles new-session requests from web content and retains the returned session.
@@ -31,7 +32,7 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 
 ## Local persistence
 
-The app stores regular-tab IDs, titles and last HTTP(S) URLs, plus bookmarks and recent history, in app-private SharedPreferences. Regular tabs are reopened at their last URL when the application process starts again.
+`BrowserLocalStore` stores regular-tab IDs, titles and last HTTP(S) URLs, plus bookmarks and recent history, in the existing app-private SharedPreferences file. Regular tabs are reopened at their last URL when the application process starts again. The established preference keys and JSON shape are retained across upgrades.
 
 Private tabs are excluded from tab persistence. Their IDs, titles and URLs are not written to the app's saved-tab record; private visits are not added to app history, and private tabs cannot add bookmarks. Their Gecko sessions use GeckoView private mode. Private mode does not hide a user's activity from visited websites or the network they use.
 
@@ -59,7 +60,8 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | Cat AI | Optional Gemini assistant, Supabase anonymous Auth, Android Keystore session storage, stateless Gemini Interactions client, explicit approval queue for every browser tool call; private tabs and page contents excluded |
 | AI gateway | Supabase Edge Function with JWT verification, server-only Gemini API key, fixed function-tool allowlist, bounded request parsing and database-backed per-user/global quotas |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
-| BrowserController | GeckoSession collection, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, find-in-page, storage clearing and local state persistence |
+| BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, find-in-page and storage clearing |
+| BrowserLocalStore | Reads and writes saved regular tabs, normal-mode history and bookmarks using the existing SharedPreferences keys and JSON schema; excludes private tabs |
 | BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode and GeckoSession reference |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
 | Extension manager | GeckoView WebExtensionController, AMO Android catalog, install prompts and lifecycle actions |
