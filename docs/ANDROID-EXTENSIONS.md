@@ -9,7 +9,7 @@ Implemented in the Android app:
 - Discover public extensions through the official [Mozilla Add-ons for Android catalog](https://addons.mozilla.org/android/) using the AMO v5 search API (`/api/v5/addons/search/`).
 - Open the official AMO listing for each catalog result; entries without an approved, trusted XPI download remain discoverable but cannot be installed from the in-app button.
 - Keep the AMO Android compatibility filter distinct from GeckoView compatibility: AMO availability is not a Cat certification.
-- Parse catalog responses defensively, preserve entries when a downloadable file is unavailable, reject explicitly unsigned/non-public files, and let GeckoView validate the XPI manifest and signature at install time.
+- Parse catalog responses defensively and preserve entries when no installable file exists. Only explicitly `public` AMO files with a trusted Mozilla download URL are eligible; explicitly unsigned files are rejected, and explicitly Mozilla-signed candidates are preferred when multiple files are returned. GeckoView remains the final XPI manifest/signature validator.
 - List installed extensions from GeckoView.
 - Install AMO packages over HTTPS.
 - Import a local `.xpi` from Android's document picker. Cat stages the selected file in its private cache, limits it to 50 MB, and passes a local `file:` URI to GeckoView.
