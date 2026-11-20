@@ -48,6 +48,7 @@ class BrowserUpdateManager(context: Context) {
         Thread(task, "CatBrowserUpdater").apply { isDaemon = true }
     }
     private val pendingUpdates = mutableMapOf<UpdateChannel, PendingUpdate>()
+    private val checkGenerations = mutableMapOf<UpdateChannel, Long>()
     private val preferences = appContext.getSharedPreferences("cat_update_preferences", Context.MODE_PRIVATE)
 
     init {
@@ -89,6 +90,8 @@ class BrowserUpdateManager(context: Context) {
         if (enabled) {
             checkForUpdates(UpdateChannel.BETA)
         } else {
+            checkGenerations[UpdateChannel.BETA] =
+                (checkGenerations[UpdateChannel.BETA] ?: 0L) + 1L
             pendingUpdates.remove(UpdateChannel.BETA)
             File(appContext.cacheDir, fileName(UpdateChannel.BETA)).delete()
             File(appContext.cacheDir, fileName(UpdateChannel.BETA) + ".part").delete()
@@ -115,6 +118,8 @@ class BrowserUpdateManager(context: Context) {
     fun checkForUpdates(channel: UpdateChannel) {
         val currentState = state(channel)
         if (currentState.isChecking || currentState.isDownloading) return
+        val generation = (checkGenerations[channel] ?: 0L) + 1L
+        checkGenerations[channel] = generation
 
         updateState(channel) {
             it.copy(isChecking = true, error = false, message = "Đang kiểm tra " + channel.label + "…")
@@ -123,8 +128,8 @@ class BrowserUpdateManager(context: Context) {
             try {
                 val release = fetchRelease(channel)
                 if (release == null) {
-                    pendingUpdates.remove(channel)
-                    post {
+                    postIfCurrent(channel, generation) {
+                        pendingUpdates.remove(channel)
                         setState(
                             channel,
                             UpdateUiState(
@@ -156,8 +161,8 @@ class BrowserUpdateManager(context: Context) {
                     (versionComparison == 0 && candidateVersionCode != null &&
                         candidateVersionCode > currentVersionCode)
                 if (!isNewer) {
-                    pendingUpdates.remove(channel)
-                    post {
+                    postIfCurrent(channel, generation) {
+                        pendingUpdates.remove(channel)
                         setState(
                             channel,
                             UpdateUiState(
@@ -197,12 +202,13 @@ class BrowserUpdateManager(context: Context) {
                     throw IllegalStateException("Bản phát hành chưa có SHA-256 hợp lệ.")
                 }
 
-                pendingUpdates[channel] = PendingUpdate(
+                val pendingUpdate = PendingUpdate(
                     downloadUrl = assetUrl,
                     expectedSha256 = digest.removePrefix("sha256:").lowercase()
                 )
                 val notes = release.optString("body").take(1200)
-                post {
+                postIfCurrent(channel, generation) {
+                    pendingUpdates[channel] = pendingUpdate
                     setState(
                         channel,
                         UpdateUiState(
@@ -214,8 +220,8 @@ class BrowserUpdateManager(context: Context) {
                     )
                 }
             } catch (error: Exception) {
-                pendingUpdates.remove(channel)
-                post {
+                postIfCurrent(channel, generation) {
+                    pendingUpdates.remove(channel)
                     setState(
                         channel,
                         UpdateUiState(
@@ -396,6 +402,16 @@ class BrowserUpdateManager(context: Context) {
 
     private fun post(action: () -> Unit) {
         mainHandler.post(action)
+    }
+
+    private fun postIfCurrent(
+        channel: UpdateChannel,
+        generation: Long,
+        action: () -> Unit
+    ) {
+        post {
+            if (checkGenerations[channel] == generation) action()
+        }
     }
 
     private companion object {
