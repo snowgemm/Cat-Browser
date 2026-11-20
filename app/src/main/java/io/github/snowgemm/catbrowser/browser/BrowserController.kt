@@ -1620,7 +1620,7 @@ class BrowserController(
 
     private companion object {
         const val PREFERENCES_NAME = "cat_browser_local_state"
-move storage constants        const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_THEME_MODE = "theme_mode"
         const val KEY_SEARCH_ENGINE = "search_engine"
         const val KEY_HOME_PAGE = "home_page"
         const val KEY_STARTUP_MODE = "startup_mode"
