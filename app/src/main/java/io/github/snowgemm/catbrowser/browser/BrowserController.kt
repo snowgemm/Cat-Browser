@@ -1119,12 +1119,12 @@ class BrowserController(
                         { input ->
                             pdfWriterExecutor.execute {
                                 val saveResult = runCatching {
-                                    input.use { source ->
+                                    input?.use { source ->
                                         val output = appContext.contentResolver
                                             .openOutputStream(destinationUri, "w")
                                             ?: error("Unable to open the selected document.")
                                         output.use { target -> source.copyTo(target) }
-                                    }
+                                    } ?: error("GeckoView returned an empty PDF stream.")
                                 }
                                 dataHandler.post {
                                     isPdfExporting = false
