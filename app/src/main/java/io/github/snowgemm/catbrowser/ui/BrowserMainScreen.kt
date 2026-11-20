@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import io.github.snowgemm.catbrowser.browser.BrowserContextResourceType
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
