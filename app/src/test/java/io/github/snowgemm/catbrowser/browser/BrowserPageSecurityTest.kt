@@ -8,7 +8,7 @@ class BrowserPageSecurityTest {
     @Test
     fun verifiedSecureConnectionShowsSecureIndicator() {
         val security =
-        BrowserPageSecurity(
+            BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = false,
@@ -21,7 +21,7 @@ class BrowserPageSecurityTest {
     @Test
     fun securityExceptionDoesNotShowSecureIndicator() {
         val security =
-        BrowserPageSecurity(
+            BrowserPageSecurity(
             isSecure = true,
             isException = true,
             activeMixedContentLoaded = false,
@@ -34,7 +34,7 @@ class BrowserPageSecurityTest {
     @Test
     fun loadedActiveMixedContentDoesNotShowSecureIndicator() {
         val security =
-        BrowserPageSecurity(
+            BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = true,
@@ -47,12 +47,12 @@ class BrowserPageSecurityTest {
     @Test
     fun loadedPassiveMixedContentDoesNotShowSecureIndicator() {
         val security =
-        BrowserPageSecurity(
+            BrowserPageSecurity(
             isSecure = true,
             isException = false,
             activeMixedContentLoaded = false,
-            passiveMixedContentLoaded = true
-        )
+            passiveMixedContentLoaded = true,
+            )
 
         assertFalse(security.isVerifiedSecure)
     }
