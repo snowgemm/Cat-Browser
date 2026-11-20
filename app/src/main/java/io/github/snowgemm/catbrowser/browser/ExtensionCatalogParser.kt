@@ -10,8 +10,9 @@ import org.json.JSONObject
  */
 internal object ExtensionCatalogParser {
     fun parse(payload: String): List<ExtensionCatalogEntry> {
-        val results = JSONObject(payload).optJSONArray("results")
-            ?: throw IllegalStateException("Phản hồi Mozilla không chứa danh sách tiện ích.")
+        val results =
+            JSONObject(payload).optJSONArray("results")
+                ?: throw IllegalStateException("Phản hồi Mozilla không chứa danh sách tiện ích.")
 
         return buildList {
             for (index in 0 until results.length()) {
@@ -22,21 +23,26 @@ internal object ExtensionCatalogParser {
                 val type = item.optString("type")
                 if (type.isNotBlank() && type != "extension") continue
 
-                val slug = item.optString("slug").takeIf(String::isNotBlank) ?: continue
+                val slug = item.optString("slug")
+                    .takeIf(String::isNotBlank)
+                    ?: continue
+
                 val version = item.optJSONObject("current_version")
-                val file = version?.optJSONObject("file")
-                    ?: version?.optJSONArray("files")?.let { files ->
-                        (0 until files.length())
-                            .mapNotNull(files::optJSONObject)
-                            .firstOrNull { candidate ->
-                                candidate.optString("status") != "disabled"
-                            }
-                    }
+                val file =
+                    version?.optJSONObject("file")
+                        ?: version?.optJSONArray("files")?.let { files ->
+                            (0 until files.length())
+                                .mapNotNull(files::optJSONObject)
+                                .firstOrNull { candidate ->
+                                    candidate.optString("status") != "disabled"
+                                }
+                        }
 
                 val rawDownloadUrl = file?.optString("url").orEmpty()
-                val explicitlyUnsigned = file != null &&
-                    file.has("is_mozilla_signed_extension") &&
-                    !file.optBoolean("is_mozilla_signed_extension")
+                val explicitlyUnsigned =
+                    file != null &&
+                        file.has("is_mozilla_signed_extension") &&
+                        !file.optBoolean("is_mozilla_signed_extension")
                 val fileStatus = file?.optString("status").orEmpty()
                 val fileApproved = fileStatus.isBlank() || fileStatus == "public"
                 val downloadUrl = rawDownloadUrl.takeIf {
@@ -46,8 +52,9 @@ internal object ExtensionCatalogParser {
                 }
 
                 val rawListingUrl = item.optString("url")
-                val listingUrl = rawListingUrl.takeIf(ExtensionSourcePolicy::isTrustedAmoListingUrl)
-                    ?: "https://addons.mozilla.org/android/addon/$slug/"
+                val listingUrl =
+                    rawListingUrl.takeIf(ExtensionSourcePolicy::isTrustedAmoListingUrl)
+                        ?: "https://addons.mozilla.org/android/addon/$slug/"
                 val locale = item.optString("default_locale", "en-US")
                 val ratings = item.optJSONObject("ratings")
 
@@ -61,8 +68,8 @@ internal object ExtensionCatalogParser {
                         downloadUrl = downloadUrl,
                         listingUrl = listingUrl,
                         averageRating = ratings?.optDouble("average", 0.0) ?: 0.0,
-                        dailyUsers = item.optInt("average_daily_users", 0)
-                    )
+                        dailyUsers = item.optInt("average_daily_users", 0),
+                    ),
                 )
             }
         }
