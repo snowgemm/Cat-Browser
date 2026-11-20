@@ -1,11 +1,13 @@
 package io.github.snowgemm.catbrowser
 
 import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Rational
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 
@@ -13,6 +15,7 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
     private var pictureInPictureSession: GeckoSession? = null
     private var pictureInPictureView: GeckoView? = null
     private var hasEnteredPictureInPicture = false
+    private var returnToBrowserOnResume = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +51,16 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (returnToBrowserOnResume) {
+            returnToBrowserOnResume = false
+            startActivity(
+                Intent(this, MainActivity::class.java).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP,
+                ),
+            )
+            finish()
+            return
+        }
         if (hasEnteredPictureInPicture) return
         hasEnteredPictureInPicture = true
 
@@ -68,8 +81,13 @@ class BrowserPictureInPictureActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         val controller = (application as CatBrowserApplication).existingBrowserController()
         controller?.onPictureInPictureModeChanged(isInPictureInPictureMode)
-        if (!isInPictureInPictureMode && !isFinishing) {
+        if (isInPictureInPictureMode || isFinishing) return
+
+        // Android reports CREATED after user dismissal, but STARTED when expanding PiP.
+        if (lifecycle.currentState == Lifecycle.State.CREATED) {
             finish()
+        } else {
+            returnToBrowserOnResume = true
         }
     }
 

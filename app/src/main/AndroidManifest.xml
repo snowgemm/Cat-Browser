@@ -60,6 +60,9 @@
             android:theme="@style/Theme.CatBrowser"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity="${applicationId}.PictureInPicture"
+            android:resizeableActivity="true"
             android:supportsPictureInPicture="true"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
     </application>

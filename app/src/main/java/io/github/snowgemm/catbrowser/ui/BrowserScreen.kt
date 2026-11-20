@@ -135,7 +135,8 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
             } else {
                 runCatching {
                     activity.startActivity(
-                        Intent(activity, BrowserPictureInPictureActivity::class.java),
+                        Intent(activity, BrowserPictureInPictureActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                     )
                     true
                 }.getOrDefault(false)
