@@ -18,10 +18,16 @@ internal object BrowserTabGroupPolicy {
     fun normalizeColorIndex(value: Int): Int = value.coerceIn(0, COLOR_COUNT - 1)
 }
 
+data class BrowserBookmarkFolder(
+    val id: String,
+    val name: String,
+)
+
 data class BrowserEntry(
     val title: String,
     val url: String,
     val timestamp: Long,
+    val folderId: String? = null,
 )
 
 data class SitePermissionPrompt(

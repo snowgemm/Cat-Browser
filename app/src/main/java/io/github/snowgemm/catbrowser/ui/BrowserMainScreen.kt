@@ -5,7 +5,9 @@ package io.github.snowgemm.catbrowser.ui
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ContentResolver
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.widget.Toast
@@ -59,13 +61,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import io.github.snowgemm.catbrowser.R
+import io.github.snowgemm.catbrowser.browser.BrowserBookmarkBackupSnapshot
+import io.github.snowgemm.catbrowser.browser.BrowserBookmarkTransferPolicy
 import io.github.snowgemm.catbrowser.browser.BrowserContextResourceType
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.update.UpdateChannel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.mozilla.geckoview.GeckoView
+import java.io.ByteArrayOutputStream
+import java.io.IOException
 import kotlin.math.abs
 
 private val CatDarkColorScheme =
@@ -103,6 +112,39 @@ private val CatLightColorScheme =
         onSurfaceVariant = Color(0xFF526171),
         outline = Color(0xFFD2DCE8),
     )
+
+private fun readBookmarkBackup(
+    resolver: ContentResolver,
+    uri: Uri,
+): String {
+    val input = resolver.openInputStream(uri) ?: throw IOException("Không thể mở tệp đã chọn.")
+    val output = ByteArrayOutputStream()
+    input.use { stream ->
+        val buffer = ByteArray(8 * 1024)
+        var totalBytes = 0
+        while (true) {
+            val count = stream.read(buffer)
+            if (count < 0) break
+            totalBytes += count
+            if (totalBytes > BrowserBookmarkTransferPolicy.MAX_IMPORT_BYTES) {
+                throw IOException("Tệp JSON vượt quá giới hạn 5 MB.")
+            }
+            output.write(buffer, 0, count)
+        }
+    }
+    return String(output.toByteArray(), Charsets.UTF_8)
+}
+
+private fun writeBookmarkBackup(
+    resolver: ContentResolver,
+    uri: Uri,
+    json: String,
+) {
+    val output = resolver.openOutputStream(uri, "wt") ?: throw IOException("Không thể tạo tệp đã chọn.")
+    output.bufferedWriter(Charsets.UTF_8).use { writer ->
+        writer.write(json)
+    }
+}
 
 private fun suggestedPdfFileName(title: String): String {
     val safeTitle =
@@ -166,6 +208,9 @@ internal fun BrowserMainScreen(
         controller.dismissContextMenu()
     }
     var pendingPdfTabId by remember { mutableStateOf<String?>(null) }
+    var pendingBookmarkBackup by remember { mutableStateOf<BrowserBookmarkBackupSnapshot?>(null) }
+    var isBookmarkTransferBusy by remember { mutableStateOf(false) }
+    val bookmarkTransferScope = rememberCoroutineScope()
     val isVerifiedSecure = tab.pageSecurity?.isVerifiedSecure == true
     var attachedGeckoView by remember(tab.id) { mutableStateOf<GeckoView?>(null) }
     val extensionActions = controller.extensionsManager.actionsFor(tab.session)
@@ -297,6 +342,77 @@ internal fun BrowserMainScreen(
             pendingPdfTabId = null
             if (uri != null && targetTabId != null) {
                 controller.saveTabAsPdf(targetTabId, uri)
+            }
+        }
+    val bookmarkBackupExportLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json"),
+        ) { uri ->
+            val snapshot = pendingBookmarkBackup
+            pendingBookmarkBackup = null
+            if (uri != null && snapshot != null) {
+                bookmarkTransferScope.launch {
+                    isBookmarkTransferBusy = true
+                    val json =
+                        withContext(Dispatchers.Default) {
+                            runCatching {
+                                BrowserBookmarkTransferPolicy.exportJson(
+                                    snapshot.bookmarks,
+                                    snapshot.folders,
+                                )
+                            }
+                        }
+                    val saved =
+                        json.getOrNull()?.let { contents ->
+                            withContext(Dispatchers.IO) {
+                                runCatching {
+                                    writeBookmarkBackup(context.contentResolver, uri, contents)
+                                }.isSuccess
+                            }
+                        }
+                    isBookmarkTransferBusy = false
+                    val message =
+                        when {
+                            json.isFailure -> "Bản sao lưu vượt quá giới hạn 5 MB hoặc có quá nhiều dấu trang."
+                            saved == true -> "Đã xuất dấu trang thành công."
+                            else -> "Không thể ghi tệp JSON."
+                        }
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    val bookmarkBackupImportLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            if (uri != null) {
+                bookmarkTransferScope.launch {
+                    if (isBookmarkTransferBusy) return@launch
+                    isBookmarkTransferBusy = true
+                    val json =
+                        withContext(Dispatchers.IO) {
+                            runCatching { readBookmarkBackup(context.contentResolver, uri) }
+                        }
+                    val summary =
+                        json.getOrNull()?.let { contents ->
+                            val backup =
+                                withContext(Dispatchers.Default) {
+                                    BrowserBookmarkTransferPolicy.parse(contents)
+                                }
+                            backup?.let(controller::importBookmarkBackup)
+                        }
+                    isBookmarkTransferBusy = false
+                    val message =
+                        when {
+                            json.isFailure -> "Không thể đọc tệp JSON hoặc tệp vượt quá 5 MB."
+                            summary == null -> "Tệp không đúng định dạng Cat Browser hoặc không hợp lệ."
+                            else ->
+                                "Đã nhập ${summary.importedBookmarks} dấu trang, thêm " +
+                                    "${summary.addedFolders} thư mục; bỏ qua " +
+                                    "${summary.skippedBookmarks} mục trùng hoặc không hợp lệ."
+                        }
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
             }
         }
 
@@ -1146,6 +1262,7 @@ internal fun BrowserMainScreen(
     if (showBookmarks) {
         BookmarkManagerDialog(
             entries = controller.bookmarks.toList(),
+            folders = controller.bookmarkFolders.toList(),
             emptyMessage = "Bạn chưa lưu trang nào.",
             onDismiss = { showBookmarks = false },
             onSelect = {
@@ -1154,6 +1271,35 @@ internal fun BrowserMainScreen(
             },
             onRename = controller::renameBookmark,
             onDelete = controller::removeBookmark,
+            onMoveToFolder = controller::moveBookmarkToFolder,
+            onCreateFolder = controller::createBookmarkFolder,
+            onRenameFolder = controller::renameBookmarkFolder,
+            onDeleteFolder = controller::removeBookmarkFolder,
+            onImport = {
+                if (!isBookmarkTransferBusy) {
+                    bookmarkBackupImportLauncher.launch(
+                        arrayOf("application/json", "text/json", "text/plain"),
+                    )
+                }
+            },
+            onExport = {
+                if (!isBookmarkTransferBusy) {
+                    val snapshot = controller.bookmarkBackupSnapshot()
+                    if (snapshot == null) {
+                        val backupErrorToast =
+                            Toast.makeText(
+                                context,
+                                "Không thể tạo bản sao lưu: dữ liệu chưa tải xong hoặc vượt quá giới hạn.",
+                                Toast.LENGTH_LONG,
+                            )
+                        backupErrorToast.show()
+                    } else {
+                        pendingBookmarkBackup = snapshot
+                        bookmarkBackupExportLauncher.launch("cat-browser-bookmarks.json")
+                    }
+                }
+            },
+            isTransferBusy = isBookmarkTransferBusy,
             isLoading = !controller.isBookmarksLoaded || controller.isBookmarksLoading,
         )
     }

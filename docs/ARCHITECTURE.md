@@ -9,7 +9,8 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 - `CatBrowserApplication` creates one process-wide `GeckoRuntime` and one application-scoped `BrowserController`.
 - New tabs and the default startup page use a native Compose New Tab Page while retaining `about:blank` as the internal start-page marker; no GeckoSession is created until the user navigates. The page shows bookmark shortcuts and recent normal-mode visits. A custom HTTP(S) home page remains configurable.
 - `BrowserController` coordinates in-memory tab metadata, GeckoSession instances, tab selection, navigation, desktop-site settings, engine-reported TLS state, PDF export, print and safe long-press context-menu routing.
-- `BrowserLocalStore` persists regular-tab metadata (including the desktop-site preference), normal-mode history and bookmarks in the existing app-private SharedPreferences store; private tabs are excluded before writes.
+- `BrowserLocalStore` persists regular-tab metadata (including the desktop-site preference), normal-mode history, bookmarks and bookmark-folder metadata in the existing app-private SharedPreferences store; older bookmark records remain compatible because folder IDs are optional, and private tabs are excluded before writes.
+- Bookmark JSON backup version 1 exports only regular bookmarks and folders. Import validates HTTP(S) URLs, bounds the input size and record count, reuses same-named folders, creates new local folder IDs where needed, and merges without overwriting existing URLs. Android's Storage Access Framework provides user-selected file access without broad storage permissions.
 - Regular and private tabs use separate GeckoSession settings. Private sessions are created with `GeckoSessionSettings.Builder.usePrivateMode(true)`; the setting is fixed before the session is opened.
 - GeckoSession instances are created lazily when a tab becomes active. Inactive sessions are marked inactive so GeckoView can reduce their memory footprint.
 - Each tab has a separate GeckoSession. The controller handles new-session requests from web content and retains the returned session.
@@ -42,7 +43,7 @@ Cat Browser is the Android application. It owns the browsing experience and is r
 
 ## Local persistence
 
-`BrowserLocalStore` stores regular-tab IDs, titles and last HTTP(S) URLs, plus bookmarks and recent history, in the existing app-private SharedPreferences file. Regular tabs are reopened at their last URL when the application process starts again. The established preference keys and JSON shape are retained across upgrades.
+`BrowserLocalStore` stores regular-tab IDs, titles and last HTTP(S) URLs, plus bookmarks, bookmark folders and recent history, in the existing app-private SharedPreferences file. Bookmarks without a known folder ID are restored as Unfiled for compatibility and recovery. Regular tabs are reopened at their last URL when the application process starts again. The established preference keys and JSON shape are retained across upgrades.
 
 Private tabs are excluded from tab persistence. Their IDs, titles and URLs are not written to the app's saved-tab record; private visits are not added to app history, and private tabs cannot add bookmarks. Their Gecko sessions use GeckoView private mode. Private mode does not hide a user's activity from visited websites or the network they use.
 
@@ -71,7 +72,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | AI gateway | Supabase Edge Function with JWT verification, server-only Gemini API key, fixed function-tool allowlist, bounded request parsing and database-backed per-user/global quotas |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
 | BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, desktop-site settings, TLS state, PDF export, print, find-in-page, context-menu routing and storage clearing |
-| BrowserLocalStore | Reads and writes saved regular tabs (including desktop-site preference), normal-mode history and bookmarks using the existing SharedPreferences keys and compatible JSON schema; excludes private tabs |
+| BrowserLocalStore | Reads and writes saved regular tabs (including desktop-site preference), normal-mode history, bookmarks and bookmark folders using additive SharedPreferences keys/fields; excludes private tabs |
 | BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode, desktop-site preference, current security snapshot, GeckoSession reference and temporary same-mode navigation referrer |
 | Context-menu policy | Restricts page-provided targets to normalized, bounded HTTP(S) URLs before the controller can open them. |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |

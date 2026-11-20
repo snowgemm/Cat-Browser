@@ -63,7 +63,31 @@ internal class BrowserLocalStore(
             .sortedByDescending { it.timestamp }
             .take(maxEntries)
 
-    fun readBookmarks(): List<BrowserEntry> = BrowserBookmarkPolicy.uniqueByUrl(readEntries(KEY_BOOKMARKS))
+    fun readBookmarkFolders(): List<BrowserBookmarkFolder> {
+        val saved = readArray(KEY_BOOKMARK_FOLDERS)
+        return BrowserBookmarkPolicy.normalizeFolders(
+            buildList {
+                for (index in 0 until saved.length()) {
+                    val item = saved.optJSONObject(index) ?: continue
+                    add(
+                        BrowserBookmarkFolder(
+                            id = item.optString("id"),
+                            name = item.optString("name"),
+                        ),
+                    )
+                }
+            },
+        )
+    }
+
+    fun readBookmarks(): List<BrowserEntry> {
+        val validFolderIds = readBookmarkFolders().mapTo(mutableSetOf()) { it.id }
+        return BrowserBookmarkPolicy.uniqueByUrl(
+            readEntries(KEY_BOOKMARKS).map { entry ->
+                entry.copy(folderId = entry.folderId?.takeIf { it in validFolderIds })
+            },
+        )
+    }
 
     fun saveTabs(
         tabs: List<BrowserTab>,
@@ -126,6 +150,18 @@ internal class BrowserLocalStore(
         writeEntries(KEY_BOOKMARKS, entries)
     }
 
+    fun saveBookmarkFolders(folders: List<BrowserBookmarkFolder>) {
+        val array = JSONArray()
+        BrowserBookmarkPolicy.normalizeFolders(folders).forEach { folder ->
+            array.put(
+                JSONObject()
+                    .put("id", folder.id)
+                    .put("name", folder.name),
+            )
+        }
+        preferences.edit().putString(KEY_BOOKMARK_FOLDERS, array.toString()).apply()
+    }
+
     fun recordHistoryVisit(
         visit: BrowserEntry,
         maxEntries: Int,
@@ -186,6 +222,7 @@ internal class BrowserLocalStore(
                         title = item.optString("title").ifBlank { url },
                         url = url,
                         timestamp = item.optLong("timestamp"),
+                        folderId = item.optString("folderId").takeIf { it.isNotBlank() },
                     ),
                 )
             }
@@ -209,12 +246,13 @@ internal class BrowserLocalStore(
     private fun entriesToJson(entries: List<BrowserEntry>): JSONArray {
         val array = JSONArray()
         entries.forEach { entry ->
-            array.put(
+            val item =
                 JSONObject()
                     .put("title", entry.title.take(200))
                     .put("url", entry.url)
-                    .put("timestamp", entry.timestamp),
-            )
+                    .put("timestamp", entry.timestamp)
+            entry.folderId?.takeIf { it.isNotBlank() }?.let { item.put("folderId", it) }
+            array.put(item)
         }
         return array
     }
@@ -229,6 +267,7 @@ internal class BrowserLocalStore(
         const val KEY_TAB_GROUPS = "tab_groups"
         const val KEY_HISTORY = "history"
         const val KEY_BOOKMARKS = "bookmarks"
+        const val KEY_BOOKMARK_FOLDERS = "bookmark_folders"
         const val MAX_GROUP_ID_LENGTH = 80
     }
 }

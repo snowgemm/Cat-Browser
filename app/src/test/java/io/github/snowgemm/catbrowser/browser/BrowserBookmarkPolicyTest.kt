@@ -8,7 +8,7 @@ class BrowserBookmarkPolicyTest {
     @Test
     fun renameTrimsTitleAndPreservesUrlTimestampAndPosition() {
         val first = entry("First", "https://first.example", 10L)
-        val target = entry("Old title", "https://target.example", 20L)
+        val target = entry("Old title", "https://target.example", 20L).copy(folderId = "reading")
         val updated =
             BrowserBookmarkPolicy.rename(
                 listOf(first, target),
@@ -78,6 +78,89 @@ class BrowserBookmarkPolicyTest {
             listOf(alpha, beta, gamma),
             BrowserBookmarkPolicy.sortAlphabetically(listOf(beta, gamma, alpha)),
         )
+    }
+
+    @Test
+    fun createFolderTrimsNameAndRejectsDuplicatesAndBlankNames() {
+        val created = BrowserBookmarkPolicy.createFolder(emptyList(), "folder-1", "  Reading  ")
+        assertEquals(listOf(BrowserBookmarkFolder("folder-1", "Reading")), created)
+        assertNull(BrowserBookmarkPolicy.createFolder(created.orEmpty(), "folder-2", "reading"))
+        assertNull(BrowserBookmarkPolicy.createFolder(created.orEmpty(), "folder-2", "  "))
+    }
+
+    @Test
+    fun folderNamesAreBoundedAndNormalized() {
+        val name = "  " + "Long ".repeat(15) + "Name  "
+        val created = BrowserBookmarkPolicy.createFolder(emptyList(), "folder-1", name)
+        assertEquals(BrowserBookmarkPolicy.MAX_FOLDER_NAME_LENGTH, created?.single()?.name?.length)
+    }
+
+    @Test
+    fun renameFolderRejectsDuplicateAndUnknownFolder() {
+        val folders =
+            listOf(
+                BrowserBookmarkFolder("one", "Reading"),
+                BrowserBookmarkFolder("two", "Work"),
+            )
+        assertEquals(
+            listOf(BrowserBookmarkFolder("one", "Reference"), folders[1]),
+            BrowserBookmarkPolicy.renameFolder(folders, "one", " Reference "),
+        )
+        assertNull(BrowserBookmarkPolicy.renameFolder(folders, "one", "work"))
+        assertNull(BrowserBookmarkPolicy.renameFolder(folders, "missing", "Other"))
+    }
+
+    @Test
+    fun deletingFolderDoesNotMutateTheInputList() {
+        val first = BrowserBookmarkFolder("one", "Reading")
+        val second = BrowserBookmarkFolder("two", "Work")
+        assertEquals(listOf(second), BrowserBookmarkPolicy.removeFolder(listOf(first, second), "one"))
+        assertNull(BrowserBookmarkPolicy.removeFolder(listOf(second), "missing"))
+    }
+
+    @Test
+    fun movingBookmarkAssignsAndClearsFolder() {
+        val folder = BrowserBookmarkFolder("reading", "Reading")
+        val bookmark = entry("Example", "https://example.com", 10L)
+        assertEquals(
+            listOf(bookmark.copy(folderId = folder.id)),
+            BrowserBookmarkPolicy.moveToFolder(listOf(bookmark), bookmark.url, folder.id, listOf(folder)),
+        )
+        assertEquals(
+            listOf(bookmark),
+            BrowserBookmarkPolicy.moveToFolder(
+                listOf(bookmark.copy(folderId = folder.id)),
+                bookmark.url,
+                null,
+                listOf(folder),
+            ),
+        )
+        assertNull(
+            BrowserBookmarkPolicy.moveToFolder(listOf(bookmark), bookmark.url, "missing", listOf(folder)),
+        )
+        assertNull(
+            BrowserBookmarkPolicy.moveToFolder(listOf(bookmark), "https://missing.example", null, emptyList()),
+        )
+    }
+
+    @Test
+    fun normalizeFoldersDropsDuplicateIdsNamesAndLimitsCount() {
+        val folders =
+            (1..(BrowserBookmarkPolicy.MAX_FOLDERS + 2)).map { index ->
+                BrowserBookmarkFolder("folder-$index", "Folder $index")
+            } + BrowserBookmarkFolder("folder-1", "Another")
+        val normalized = BrowserBookmarkPolicy.normalizeFolders(folders)
+        assertEquals(BrowserBookmarkPolicy.MAX_FOLDERS, normalized.size)
+        assertEquals(BrowserBookmarkPolicy.MAX_FOLDERS, normalized.map { it.id }.distinct().size)
+        val normalizedNames =
+            BrowserBookmarkPolicy.normalizeFolders(
+                listOf(
+                    BrowserBookmarkFolder("first", "Folder 1"),
+                    BrowserBookmarkFolder("second", "folder 1"),
+                    BrowserBookmarkFolder("third", "Folder 2"),
+                ),
+            )
+        assertEquals(listOf("Folder 1", "Folder 2"), normalizedNames.map { it.name })
     }
 
     private fun entry(

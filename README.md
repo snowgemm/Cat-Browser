@@ -33,7 +33,7 @@ Cat Browser is an independent Android browser application. Cat owns the browser 
 - Native Compose browser interface and a Cat New Tab dashboard.
 - Up to 20 regular and private tabs, persistent groups for regular tabs, tab search, tab previews, drag reordering and recently closed regular tabs.
 - Address and search input, local suggestions, adjacent-tab gestures, page loading feedback and find-in-page.
-- Local bookmarks with editable titles, per-entry deletion, newest/name sorting and duplicate URL cleanup, plus recent history and downloads.
+- Local bookmarks with editable titles, per-entry deletion, newest/name sorting, duplicate URL cleanup, user-created folders and bookmark moves, plus versioned JSON import/export through Android's system file picker. Imports merge with existing data and keep existing entries when URLs match.
 - Long-press context menus for HTTP(S) links and image/video/audio targets: open in a new tab with the source privacy mode and group, or copy the validated address.
 - HTTP(S) links can be opened from other Android applications.
 - Configurable home page, search provider, theme and local New Tab wallpaper.
@@ -124,7 +124,7 @@ Key ownership boundaries:
 
 - `CatBrowserApplication` owns the process-wide `GeckoRuntime`.
 - `BrowserController` coordinates in-memory tab state, navigation, `GeckoSession` lifecycle, permissions and privacy controls.
-- `BrowserLocalStore` persists regular-tab metadata, bookmarks and normal-mode history in app-private SharedPreferences; private tabs are excluded.
+- `BrowserLocalStore` persists regular-tab metadata, bookmarks and normal-mode history in app-private SharedPreferences; private tabs are excluded. Bookmark backups contain only bookmark titles, HTTP(S) URLs, timestamps and folder names.
 - `BrowserDownloadManager` and `BrowserExtensionsManager` isolate download and WebExtension integration.
 - `BrowserScreen`, `BrowserMainScreen`, `BrowserChrome` and `TabsOverview` keep the Compose shell, main browser UI, reusable controls and tab overview separate.
 - `macrobenchmark` measures application journeys; it does not change the production browser code.

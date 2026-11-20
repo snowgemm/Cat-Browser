@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.snowgemm.catbrowser.browser.BrowserBookmarkFolder
 import io.github.snowgemm.catbrowser.browser.BrowserBookmarkPolicy
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.BrowserEntry
@@ -1171,24 +1173,50 @@ private fun tabModeAction(
 @Suppress("ktlint:standard:function-naming")
 internal fun BookmarkManagerDialog(
     entries: List<BrowserEntry>,
+    folders: List<BrowserBookmarkFolder>,
     emptyMessage: String,
     onDismiss: () -> Unit,
     onSelect: (BrowserEntry) -> Unit,
     onRename: (String, String) -> Boolean,
     onDelete: (String) -> Boolean,
+    onMoveToFolder: (String, String?) -> Boolean,
+    onCreateFolder: (String) -> Boolean,
+    onRenameFolder: (String, String) -> Boolean,
+    onDeleteFolder: (String) -> Boolean,
+    onImport: () -> Unit,
+    onExport: () -> Unit,
+    isTransferBusy: Boolean = false,
     isLoading: Boolean = false,
 ) {
     var sortAlphabetically by remember { mutableStateOf(false) }
+    var transferMenuExpanded by remember { mutableStateOf(false) }
+    var selectedFolderId by remember { mutableStateOf<String?>(null) }
+    var showUnfiledOnly by remember { mutableStateOf(false) }
     var editingEntry by remember { mutableStateOf<BrowserEntry?>(null) }
     var deletingEntry by remember { mutableStateOf<BrowserEntry?>(null) }
+    var movingEntry by remember { mutableStateOf<BrowserEntry?>(null) }
     var editedTitle by remember { mutableStateOf("") }
     var editError by remember { mutableStateOf(false) }
-    val sortedEntries =
-        remember(entries, sortAlphabetically) {
+    var showFolderManager by remember { mutableStateOf(false) }
+
+    LaunchedEffect(folders, selectedFolderId) {
+        if (selectedFolderId != null && folders.none { it.id == selectedFolderId }) {
+            selectedFolderId = null
+        }
+    }
+
+    val visibleEntries =
+        remember(entries, selectedFolderId, showUnfiledOnly, sortAlphabetically) {
+            val filtered =
+                when {
+                    showUnfiledOnly -> entries.filter { it.folderId == null }
+                    selectedFolderId != null -> entries.filter { it.folderId == selectedFolderId }
+                    else -> entries
+                }
             if (sortAlphabetically) {
-                BrowserBookmarkPolicy.sortAlphabetically(entries)
+                BrowserBookmarkPolicy.sortAlphabetically(filtered)
             } else {
-                entries.sortedByDescending { it.timestamp }
+                filtered.sortedByDescending { it.timestamp }
             }
         }
 
@@ -1196,7 +1224,7 @@ internal fun BookmarkManagerDialog(
         onDismissRequest = onDismiss,
         title = { Text("Dấu trang") },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (isLoading) {
                     Row(
                         Modifier.fillMaxWidth().padding(vertical = 18.dp),
@@ -1207,8 +1235,6 @@ internal fun BookmarkManagerDialog(
                         Spacer(Modifier.width(10.dp))
                         Text("Đang tải dữ liệu…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                } else if (entries.isEmpty()) {
-                    Text(emptyMessage, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Row(
                         Modifier.fillMaxWidth(),
@@ -1216,54 +1242,145 @@ internal fun BookmarkManagerDialog(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = "${entries.size} dấu trang",
+                            text = "${visibleEntries.size}/${entries.size} dấu trang",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.labelMedium,
                         )
-                        TextButton(onClick = { sortAlphabetically = !sortAlphabetically }) {
-                            Text(if (sortAlphabetically) "Mới nhất" else "Tên A–Z")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { showFolderManager = true }) {
+                                Text("Thư mục")
+                            }
+                            TextButton(onClick = { sortAlphabetically = !sortAlphabetically }) {
+                                Text(if (sortAlphabetically) "Mới nhất" else "Tên A–Z")
+                            }
+                            Box {
+                                TextButton(
+                                    onClick = { transferMenuExpanded = true },
+                                    enabled = !isTransferBusy,
+                                ) {
+                                    Text("⋮")
+                                }
+                                DropdownMenu(
+                                    expanded = transferMenuExpanded,
+                                    onDismissRequest = { transferMenuExpanded = false },
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Nhập từ JSON") },
+                                        enabled = !isTransferBusy,
+                                        onClick = {
+                                            transferMenuExpanded = false
+                                            onImport()
+                                        },
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Xuất ra JSON") },
+                                        enabled = !isTransferBusy,
+                                        onClick = {
+                                            transferMenuExpanded = false
+                                            onExport()
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
-                    LazyColumn(Modifier.heightIn(max = 380.dp)) {
-                        items(sortedEntries, key = { it.url }) { entry ->
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                TextButton(
-                                    onClick = { onSelect(entry) },
-                                    modifier = Modifier.weight(1f),
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item {
+                            FilterChip(
+                                selected = selectedFolderId == null && !showUnfiledOnly,
+                                onClick = {
+                                    selectedFolderId = null
+                                    showUnfiledOnly = false
+                                },
+                                label = { Text("Tất cả") },
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = showUnfiledOnly,
+                                onClick = {
+                                    selectedFolderId = null
+                                    showUnfiledOnly = true
+                                },
+                                label = { Text("Chưa phân loại") },
+                            )
+                        }
+                        items(folders, key = { it.id }) { folder ->
+                            FilterChip(
+                                selected = selectedFolderId == folder.id,
+                                onClick = {
+                                    selectedFolderId = folder.id
+                                    showUnfiledOnly = false
+                                },
+                                label = { Text(folder.name, maxLines = 1) },
+                            )
+                        }
+                    }
+                    if (visibleEntries.isEmpty()) {
+                        Text(
+                            if (entries.isEmpty()) emptyMessage else "Thư mục này chưa có dấu trang.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                            items(visibleEntries, key = { it.url }) { entry ->
+                                var menuExpanded by remember(entry.url) { mutableStateOf(false) }
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Column(Modifier.fillMaxWidth()) {
-                                        Text(
-                                            entry.title,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                        Text(
-                                            entry.url,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontSize = 11.sp,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
+                                    TextButton(
+                                        onClick = { onSelect(entry) },
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Column(Modifier.fillMaxWidth()) {
+                                            Text(
+                                                entry.title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                entry.url,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                        }
                                     }
-                                }
-                                TextButton(
-                                    onClick = {
-                                        editingEntry = entry
-                                        editedTitle = entry.title
-                                        editError = false
-                                    },
-                                ) {
-                                    Text("Sửa", fontSize = 11.sp)
-                                }
-                                TextButton(onClick = { deletingEntry = entry }) {
-                                    Text(
-                                        "Xóa",
-                                        color = MaterialTheme.colorScheme.error,
-                                        fontSize = 11.sp,
-                                    )
+                                    Box {
+                                        TextButton(onClick = { menuExpanded = true }) {
+                                            Text("⋮")
+                                        }
+                                        DropdownMenu(
+                                            expanded = menuExpanded,
+                                            onDismissRequest = { menuExpanded = false },
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Chuyển thư mục") },
+                                                onClick = {
+                                                    menuExpanded = false
+                                                    movingEntry = entry
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Sửa tên") },
+                                                onClick = {
+                                                    menuExpanded = false
+                                                    editingEntry = entry
+                                                    editedTitle = entry.title
+                                                    editError = false
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Xóa dấu trang") },
+                                                onClick = {
+                                                    menuExpanded = false
+                                                    deletingEntry = entry
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1275,6 +1392,55 @@ internal fun BookmarkManagerDialog(
             TextButton(onClick = onDismiss) { Text("Xong") }
         },
     )
+
+    if (showFolderManager) {
+        BookmarkFolderManagerDialog(
+            folders = folders,
+            onDismiss = { showFolderManager = false },
+            onCreate = onCreateFolder,
+            onRename = onRenameFolder,
+            onDelete = onDeleteFolder,
+        )
+    }
+
+    movingEntry?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { movingEntry = null },
+            title = { Text("Chuyển dấu trang") },
+            text = {
+                Column {
+                    Text(
+                        entry.title,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    TextButton(
+                        onClick = {
+                            onMoveToFolder(entry.url, null)
+                            movingEntry = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Chưa phân loại", modifier = Modifier.fillMaxWidth())
+                    }
+                    folders.forEach { folder ->
+                        TextButton(
+                            onClick = {
+                                onMoveToFolder(entry.url, folder.id)
+                                movingEntry = null
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(folder.name, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { movingEntry = null }) { Text("Đóng") }
+            },
+        )
+    }
 
     editingEntry?.let { entry ->
         AlertDialog(
@@ -1353,6 +1519,171 @@ internal fun BookmarkManagerDialog(
             },
             dismissButton = {
                 TextButton(onClick = { deletingEntry = null }) { Text("Hủy") }
+            },
+        )
+    }
+}
+
+@Composable
+@Suppress("ktlint:standard:function-naming")
+private fun BookmarkFolderManagerDialog(
+    folders: List<BrowserBookmarkFolder>,
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Boolean,
+    onRename: (String, String) -> Boolean,
+    onDelete: (String) -> Boolean,
+) {
+    var creatingFolder by remember { mutableStateOf(false) }
+    var editingFolder by remember { mutableStateOf<BrowserBookmarkFolder?>(null) }
+    var deletingFolder by remember { mutableStateOf<BrowserBookmarkFolder?>(null) }
+    var folderName by remember { mutableStateOf("") }
+    var folderError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Thư mục dấu trang") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(
+                    onClick = {
+                        creatingFolder = true
+                        editingFolder = null
+                        folderName = ""
+                        folderError = false
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("＋ Tạo thư mục", modifier = Modifier.fillMaxWidth())
+                }
+                if (folders.isEmpty()) {
+                    Text(
+                        "Chưa có thư mục. Dấu trang mới sẽ nằm trong nhóm Chưa phân loại.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    LazyColumn(Modifier.heightIn(max = 300.dp)) {
+                        items(folders, key = { it.id }) { folder ->
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    folder.name,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                TextButton(
+                                    onClick = {
+                                        editingFolder = folder
+                                        creatingFolder = false
+                                        folderName = folder.name
+                                        folderError = false
+                                    },
+                                ) {
+                                    Text("Sửa")
+                                }
+                                TextButton(onClick = { deletingFolder = folder }) {
+                                    Text("Xóa", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Xong") }
+        },
+    )
+
+    if (creatingFolder || editingFolder != null) {
+        val currentFolder = editingFolder
+        AlertDialog(
+            onDismissRequest = {
+                creatingFolder = false
+                editingFolder = null
+                folderError = false
+            },
+            title = { Text(if (currentFolder == null) "Tạo thư mục" else "Đổi tên thư mục") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = folderName,
+                        onValueChange = {
+                            folderName = it.take(BrowserBookmarkPolicy.MAX_FOLDER_NAME_LENGTH)
+                            folderError = false
+                        },
+                        singleLine = true,
+                        label = { Text("Tên thư mục") },
+                        isError = folderError,
+                    )
+                    if (folderError) {
+                        Text(
+                            "Tên trống, trùng hoặc đã đạt giới hạn 30 thư mục.",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val saved =
+                            if (currentFolder == null) {
+                                onCreate(folderName)
+                            } else {
+                                onRename(currentFolder.id, folderName)
+                            }
+                        if (saved) {
+                            creatingFolder = false
+                            editingFolder = null
+                            folderError = false
+                        } else {
+                            folderError = true
+                        }
+                    },
+                ) {
+                    Text("Lưu")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        creatingFolder = false
+                        editingFolder = null
+                        folderError = false
+                    },
+                ) {
+                    Text("Hủy")
+                }
+            },
+        )
+    }
+
+    deletingFolder?.let { folder ->
+        AlertDialog(
+            onDismissRequest = { deletingFolder = null },
+            title = { Text("Xóa thư mục?") },
+            text = {
+                Text(
+                    "Các dấu trang trong “${folder.name}” sẽ được chuyển về Chưa phân loại.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(folder.id)
+                        deletingFolder = null
+                    },
+                ) {
+                    Text("Xóa", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingFolder = null }) { Text("Hủy") }
             },
         )
     }

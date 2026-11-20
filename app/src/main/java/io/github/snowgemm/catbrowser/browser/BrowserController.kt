@@ -73,6 +73,7 @@ class BrowserController(
     val tabGroups = mutableStateListOf<BrowserTabGroup>()
     val history = mutableStateListOf<BrowserEntry>()
     val bookmarks = mutableStateListOf<BrowserEntry>()
+    val bookmarkFolders = mutableStateListOf<BrowserBookmarkFolder>()
     val extensionsManager =
         BrowserExtensionsManager(
             runtime = runtime,
@@ -1018,13 +1019,20 @@ class BrowserController(
         if (isBookmarksLoaded || isBookmarksLoading) return
         isBookmarksLoading = true
         dataExecutor.execute {
+            val folders =
+                runCatching {
+                    localStore.readBookmarkFolders()
+                }.getOrDefault(emptyList())
             val entries =
                 runCatching {
                     localStore.readBookmarks()
                 }.getOrDefault(emptyList())
 
             dataHandler.post {
-                if (!isBookmarksLoaded) bookmarks.addAll(entries)
+                if (!isBookmarksLoaded) {
+                    bookmarkFolders.addAll(folders)
+                    bookmarks.addAll(entries)
+                }
                 isBookmarksLoaded = true
                 isBookmarksLoading = false
                 if (pendingBookmarkToggle) {
@@ -1075,13 +1083,39 @@ class BrowserController(
             title.trim().take(100).ifBlank {
                 Uri.parse(url).host ?: url
             }
+        val existingFolderId = bookmarks.firstOrNull { it.url == url }?.folderId
         bookmarks.removeAll { it.url == url }
         bookmarks.add(
             0,
-            BrowserEntry(cleanTitle, url, System.currentTimeMillis()),
+            BrowserEntry(cleanTitle, url, System.currentTimeMillis(), existingFolderId),
         )
         persistBookmarks()
         return true
+    }
+
+    internal fun bookmarkBackupSnapshot(): BrowserBookmarkBackupSnapshot? {
+        if (!isBookmarksLoaded || isBookmarksLoading) return null
+        return BrowserBookmarkBackupSnapshot(
+            bookmarks = bookmarks.toList(),
+            folders = bookmarkFolders.toList(),
+        )
+    }
+
+    internal fun importBookmarkBackup(backup: ParsedBrowserBookmarkBackup): BrowserBookmarkImportSummary? {
+        if (!isBookmarksLoaded || isBookmarksLoading) return null
+        val merged =
+            BrowserBookmarkTransferPolicy.merge(
+                existingBookmarks = bookmarks.toList(),
+                existingFolders = bookmarkFolders.toList(),
+                imported = backup,
+            )
+        bookmarks.clear()
+        bookmarks.addAll(merged.bookmarks)
+        bookmarkFolders.clear()
+        bookmarkFolders.addAll(merged.folders)
+        persistBookmarks()
+        persistBookmarkFolders()
+        return merged.summary
     }
 
     fun renameBookmark(
@@ -1106,6 +1140,65 @@ class BrowserController(
     }
 
     fun isBookmarked(url: String): Boolean = bookmarks.any { it.url == url }
+
+    fun createBookmarkFolder(name: String): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated =
+            BrowserBookmarkPolicy.createFolder(
+                bookmarkFolders.toList(),
+                UUID.randomUUID().toString(),
+                name,
+            ) ?: return false
+        bookmarkFolders.clear()
+        bookmarkFolders.addAll(updated)
+        persistBookmarkFolders()
+        return true
+    }
+
+    fun renameBookmarkFolder(
+        id: String,
+        name: String,
+    ): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated = BrowserBookmarkPolicy.renameFolder(bookmarkFolders.toList(), id, name) ?: return false
+        bookmarkFolders.clear()
+        bookmarkFolders.addAll(updated)
+        persistBookmarkFolders()
+        return true
+    }
+
+    fun removeBookmarkFolder(id: String): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated = BrowserBookmarkPolicy.removeFolder(bookmarkFolders.toList(), id) ?: return false
+        bookmarkFolders.clear()
+        bookmarkFolders.addAll(updated)
+        bookmarks.indices.forEach { index ->
+            if (bookmarks[index].folderId == id) {
+                bookmarks[index] = bookmarks[index].copy(folderId = null)
+            }
+        }
+        persistBookmarkFolders()
+        persistBookmarks()
+        return true
+    }
+
+    fun moveBookmarkToFolder(
+        url: String,
+        folderId: String?,
+    ): Boolean {
+        if (!isBookmarksLoaded) return false
+        val updated =
+            BrowserBookmarkPolicy.moveToFolder(
+                bookmarks.toList(),
+                url,
+                folderId,
+                bookmarkFolders.toList(),
+            ) ?: return false
+        bookmarks.clear()
+        bookmarks.addAll(updated)
+        persistBookmarks()
+        return true
+    }
 
     fun clearHistory() {
         historyClearGeneration++
@@ -2274,6 +2367,13 @@ class BrowserController(
         val snapshot = bookmarks.toList()
         dataExecutor.execute {
             localStore.saveBookmarks(snapshot)
+        }
+    }
+
+    private fun persistBookmarkFolders() {
+        val snapshot = bookmarkFolders.toList()
+        dataExecutor.execute {
+            localStore.saveBookmarkFolders(snapshot)
         }
     }
 
