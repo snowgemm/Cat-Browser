@@ -4,6 +4,10 @@
 
 The Android Cat AI screen uses Google Gemini 3.8 Flash through the Supabase Edge Function at `supabase/functions/cat-ai/`. The legacy Vercel/OpenAI gateway under `ai-gateway/` is not used by the current Android app and is retained temporarily for rollback and CI compatibility.
 
+The old Android gateway URL/token store and its policy tests have been removed because no production code referenced them. On the first launch after this migration, Cat Browser clears the obsolete `cat_ai_gateway` preferences and its dedicated Android Keystore key; the active Supabase session uses a separate preference file and key alias.
+
+The legacy Vercel/OpenAI source under `ai-gateway/` remains isolated as rollback material and CI-only mocked tests. It is not the Android backend. Do not deploy or delete the Vercel project/rollback configuration until the physical-device acceptance checks below pass.
+
 ### Android client
 
 - Uses the existing Supabase project URL and publishable key. The publishable key is public client configuration; no Supabase secret/service-role key is embedded in the APK.

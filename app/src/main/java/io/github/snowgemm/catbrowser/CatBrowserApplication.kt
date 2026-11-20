@@ -26,7 +26,10 @@ class CatBrowserApplication : Application() {
         isMainProcess = processName == packageName
         if (!isMainProcess) {
             Log.i(TAG, "Skipping browser initialization in non-main process: $processName")
+            return
         }
+
+        LegacyAiGatewayCleanup.clear(this)
     }
 
     /**
