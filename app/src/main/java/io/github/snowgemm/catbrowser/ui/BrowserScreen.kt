@@ -1,8 +1,7 @@
 package io.github.snowgemm.catbrowser.ui
 
 import android.app.Activity
-import android.app.PictureInPictureParams
-import android.util.Rational
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.*
@@ -27,12 +26,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.R
-import org.mozilla.geckoview.GeckoView
+import io.github.snowgemm.catbrowser.BrowserPictureInPictureActivity
 
 
 private val CatDarkColorScheme = darkColorScheme(
@@ -125,66 +123,25 @@ fun BrowserStartupScreen(errorMessage: String?, onRetry: () -> Unit) {
 }
 
 @Composable
-fun BrowserScreen(
-    controller: BrowserController,
-    activity: Activity,
-    isPictureInPictureMode: Boolean,
-) {
+fun BrowserScreen(controller: BrowserController, activity: Activity) {
     DisposableEffect(controller, activity) {
-        controller.setPictureInPictureHost(
-            onEnter = {
-                if (
-                    !activity.packageManager.hasSystemFeature(
-                        android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE,
-                    )
-                ) {
-                    false
-                } else {
-                    runCatching {
-                        activity.enterPictureInPictureMode(
-                            PictureInPictureParams.Builder()
-                                .setAspectRatio(Rational(16, 9))
-                                .build(),
-                        )
-                    }.getOrDefault(false)
-                }
-            },
-            onExit = { activity.moveTaskToBack(true) },
-        )
-        onDispose { controller.clearPictureInPictureHost() }
-    }
-
-    if (isPictureInPictureMode) {
-        val session = controller.pictureInPictureSession
-        if (session == null) {
-            Box(Modifier.fillMaxSize())
-        } else {
-            key(session) {
-                AndroidView(
-                    factory = { context ->
-                        GeckoView(context).apply {
-                            setActivityContextDelegate { activity }
-                            setSession(session)
-                            controller.onPictureInPictureViewAttached(session)
-                        }
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    update = { view ->
-                        view.setActivityContextDelegate { activity }
-                        if (view.getSession() !== session) {
-                            view.releaseSession()
-                            view.setSession(session)
-                            controller.onPictureInPictureViewAttached(session)
-                        }
-                    },
-                    onRelease = { view ->
-                        controller.onPictureInPictureViewDetached(session)
-                        view.releaseSession()
-                    },
+        controller.setPictureInPictureLaunchHost {
+            if (
+                !activity.packageManager.hasSystemFeature(
+                    android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE,
                 )
+            ) {
+                false
+            } else {
+                runCatching {
+                    activity.startActivity(
+                        Intent(activity, BrowserPictureInPictureActivity::class.java),
+                    )
+                    true
+                }.getOrDefault(false)
             }
         }
-        return
+        onDispose { controller.clearPictureInPictureLaunchHost() }
     }
 
     val isFullScreen = controller.activeTab?.isFullScreen == true

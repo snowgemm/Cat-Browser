@@ -1,7 +1,6 @@
 package io.github.snowgemm.catbrowser
 
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,16 +28,6 @@ class MainActivity : ComponentActivity() {
     private var activeController: BrowserController? = null
     private var pendingExternalUrl: String? = null
     private var isActivityStarted = false
-    private var isPipMode by mutableStateOf(false)
-
-    override fun onPictureInPictureModeChanged(
-        isInPictureInPictureMode: Boolean,
-        newConfig: Configuration,
-    ) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        isPipMode = isInPictureInPictureMode
-        currentController()?.onPictureInPictureModeChanged(isInPictureInPictureMode)
-    }
 
     override fun onStart() {
         super.onStart()
@@ -61,7 +50,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         pendingExternalUrl = intent?.dataString
-        isPipMode = isInPictureInPictureMode
 
         setContent {
             var controller by remember { mutableStateOf<BrowserController?>(null) }
@@ -105,11 +93,7 @@ class MainActivity : ComponentActivity() {
                             onRetry = { startupAttempt++ }
                         )
                     } else {
-                        BrowserScreen(
-                            controller = initialized,
-                            activity = this@MainActivity,
-                            isPictureInPictureMode = isPipMode,
-                        )
+                        BrowserScreen(controller = initialized, activity = this@MainActivity)
                     }
                 }
             }

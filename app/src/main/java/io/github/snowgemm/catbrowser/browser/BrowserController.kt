@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import org.mozilla.geckoview.GeckoResult
+import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
@@ -28,6 +29,7 @@ const val DEFAULT_HOME_PAGE_URL = "about:blank"
 const val SEARCH_HOME_PAGE_URL = "cat-internal://search-home"
 private const val LEGACY_DEFAULT_HOME_PAGE_URL = "https://duckduckgo.com/"
 
+@OptIn(ExperimentalGeckoViewApi::class)
 class BrowserController(
     context: Context,
     private val runtime: GeckoRuntime
@@ -288,17 +290,25 @@ class BrowserController(
         extensionsManager.onAppForegrounded()
     }
 
-    fun setPictureInPictureHost(
-        onEnter: () -> Boolean,
-        onExit: () -> Unit,
-    ) {
-        enterPictureInPictureWindow = onEnter
-        exitPictureInPictureWindow = onExit
+    fun setPictureInPictureLaunchHost(onLaunch: () -> Boolean) {
+        enterPictureInPictureWindow = onLaunch
     }
 
-    fun clearPictureInPictureHost() {
+    fun clearPictureInPictureLaunchHost() {
         enterPictureInPictureWindow = null
+    }
+
+    fun setPictureInPictureCloseHost(onClose: () -> Unit) {
+        exitPictureInPictureWindow = onClose
+    }
+
+    fun clearPictureInPictureCloseHost() {
         exitPictureInPictureWindow = null
+    }
+
+    fun onPictureInPictureWindowDestroyed(session: GeckoSession) {
+        if (pictureInPictureSession !== session) return
+        finishPictureInPicture()
     }
 
     fun onPictureInPictureModeChanged(inPictureInPictureMode: Boolean) {
@@ -343,6 +353,13 @@ class BrowserController(
                 pictureInPictureAlreadyOpen = pictureInPictureSession != null,
             )
         ) {
+            sourceSession.sessionPictureInPicture.exit()
+            return
+        }
+
+        val launchHost = enterPictureInPictureWindow
+        if (launchHost == null) {
+            sourceSession.sessionPictureInPicture.exit()
             return
         }
 
@@ -363,15 +380,13 @@ class BrowserController(
         sourceSession.setActive(true)
         sourceSession.setPriorityHint(GeckoSession.PRIORITY_HIGH)
 
-        val entered = runCatching {
-            enterPictureInPictureWindow?.invoke() == true
-        }.getOrDefault(false)
-        if (!entered) finishPictureInPicture()
+        val launched = runCatching { launchHost() }.getOrDefault(false)
+        if (!launched) finishPictureInPicture()
     }
 
     private fun finishPictureInPicture(
         sourceSession: GeckoSession? = pictureInPictureSourceSession,
-        moveActivityToBackground: Boolean = false,
+        closePictureInPictureWindow: Boolean = false,
     ) {
         val source = pictureInPictureSourceSession ?: return
         if (sourceSession != null && sourceSession !== source) return
@@ -409,7 +424,7 @@ class BrowserController(
             )
         }
 
-        if (moveActivityToBackground) exitPictureInPictureWindow?.invoke()
+        if (closePictureInPictureWindow) exitPictureInPictureWindow?.invoke()
     }
 
     fun trimMemory(level: Int) {
@@ -1651,7 +1666,7 @@ class BrowserController(
                     if (pictureInPictureSourceSession === session) {
                         finishPictureInPicture(
                             sourceSession = session,
-                            moveActivityToBackground = true,
+                            closePictureInPictureWindow = true,
                         )
                     }
                 }
@@ -1738,7 +1753,10 @@ class BrowserController(
         // GeckoView closes a session before delivering onCrash/onKill. It must not
         // remain attached to Compose's AndroidView or be reused for the retry.
         if (pictureInPictureSourceSession === failedSession) {
-            finishPictureInPicture(sourceSession = failedSession)
+            finishPictureInPicture(
+                sourceSession = failedSession,
+                closePictureInPictureWindow = true,
+            )
         }
         extensionsManager.detachSession(failedSession)
         tab.session = null
@@ -1758,7 +1776,10 @@ class BrowserController(
             return
         }
         if (pictureInPictureSourceSession === session) {
-            finishPictureInPicture(sourceSession = session)
+            finishPictureInPicture(
+                sourceSession = session,
+                closePictureInPictureWindow = true,
+            )
         }
         tab.isFullScreen = false
         tab.pageSecurity = null
