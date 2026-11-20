@@ -59,10 +59,34 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
-      # Explicit one-shot formatter path for generated Kotlin changes.
-      - name: Format Kotlin sources on request
+      # Format only the tab-group files so unrelated legacy lint findings do not block it.
+      - name: Configure KtLint filter for tab group sources
         if: contains(github.event.head_commit.message, '[format-kotlin]')
-        run: ./gradlew --no-daemon --stacktrace :app:ktlintFormat
+        run: |
+          cat > "$RUNNER_TEMP/ktlint-format.init.gradle" <<'EOF'
+          import org.gradle.api.Action
+          import org.gradle.api.tasks.util.PatternFilterable
+
+          allprojects { target ->
+              target.plugins.withId("org.jlleitschuh.gradle.ktlint") {
+                  def extension = target.extensions.getByName("ktlint")
+                  extension.filter(new Action<PatternFilterable>() {
+                      @Override
+                      void execute(PatternFilterable patterns) {
+                          patterns.include("**/TabsOverview.kt")
+                          patterns.include("**/BrowserTabGroupPolicyTest.kt")
+                      }
+                  })
+              }
+          }
+          EOF
+
+      - name: Format tab group Kotlin sources
+        if: contains(github.event.head_commit.message, '[format-kotlin]')
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            -I "$RUNNER_TEMP/ktlint-format.init.gradle" \
+            :app:ktlintFormat
 
       - name: Generate refreshed KtLint baseline snapshot
         if: contains(github.event.head_commit.message, '[refresh-ktlint-baseline]')
