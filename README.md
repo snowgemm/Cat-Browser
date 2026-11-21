@@ -38,6 +38,7 @@ Cat Browser is an independent Android browser application. Cat owns the browser 
 - HTTP(S) links can be opened from other Android applications.
 - Configurable home page, search provider, theme and local New Tab wallpaper.
 - Fullscreen media handling, Android media notification controls and audio-focus handling through GeckoView delegates.
+- Android system Autofill on regular tabs; private tabs opt out and use no Cat-owned credential storage.
 
 ### Privacy and permissions
 

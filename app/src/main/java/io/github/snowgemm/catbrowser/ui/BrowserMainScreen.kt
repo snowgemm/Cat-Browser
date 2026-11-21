@@ -631,6 +631,7 @@ internal fun BrowserMainScreen(
                                         attachedGeckoView = this
                                         setActivityContextDelegate { activity }
                                         setSession(session)
+                                        setAutofillEnabled(!tab.isPrivate)
                                         controller.onSessionViewAttached(tab.id, session)
                                     }
                                 },
@@ -639,13 +640,16 @@ internal fun BrowserMainScreen(
                                     attachedGeckoView = view
                                     view.setActivityContextDelegate { activity }
                                     if (view.getSession() !== session) {
+                                        view.setAutofillEnabled(false)
                                         view.releaseSession()
                                         view.setSession(session)
                                         controller.onSessionViewAttached(tab.id, session)
                                     }
+                                    view.setAutofillEnabled(!tab.isPrivate)
                                 },
                                 onRelease = { view ->
                                     if (attachedGeckoView === view) attachedGeckoView = null
+                                    view.setAutofillEnabled(false)
                                     controller.onSessionViewDetached(tab.id, session)
                                     view.releaseSession()
                                 },
