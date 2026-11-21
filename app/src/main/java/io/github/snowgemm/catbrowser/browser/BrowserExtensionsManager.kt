@@ -223,20 +223,20 @@ class BrowserExtensionsManager(
         kind: ExtensionPermissionPrompt.Kind,
         decision: (Boolean, Boolean) -> Unit
     ) {
-        permissionPrompt =
-            pendingPermissionPrompts.enqueue(
-                extension,
-                permissions,
-                origins,
-                dataCollectionPermissions,
-                kind,
-                decision,
-            )
-        // GeckoView may issue several requests while another dialog is visible.
-        // Each request keeps its own callback in FIFO order until it is resolved.
+        permissionPrompt = pendingPermissionPrompts.enqueue(
+            extension,
+            permissions,
+            origins,
+            dataCollectionPermissions,
+            kind,
+            decision,
+        )
     }
 
-    fun resolvePermissionPrompt(approved: Boolean, allowDataCollection: Boolean = false) {
+    fun resolvePermissionPrompt(
+        approved: Boolean,
+        allowDataCollection: Boolean = false,
+    ) {
         permissionPrompt =
             pendingPermissionPrompts
                 .resolve(approved, allowDataCollection)
