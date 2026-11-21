@@ -1,28 +1,27 @@
 name: Android Release
 
+# A tag push is the single release trigger. The workflow itself creates or
+# updates the GitHub Release, avoiding a second build from release.published.
 on:
   push:
     tags:
       - "v*"
-  release:
-    types:
-      - published
 
-# A tag push and its published-release event can target the same assets.
-# Serialize both runs per tag to prevent concurrent GitHub Release uploads.
+# Serialize retries for the same tag without cancelling an active signed build.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
   queue: max
 
-permissions:
-  contents: write
-
 jobs:
-  release:
-    name: Build and publish signed ABI APKs
+  build:
+    name: Build and validate signed ABI APKs
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,7 +29,18 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Test release notes generator
+      - name: Set up Node.js for AI gateway checks
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Check AI gateway JavaScript
+        run: npm run check --prefix ai-gateway
+
+      - name: Test AI gateway request handling
+        run: npm test --prefix ai-gateway
+
+      - name: Test APK ABI validation and release notes generator
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Derive Android version from release tag
@@ -43,7 +53,7 @@ jobs:
           import sys
 
           tag = os.environ["RELEASE_TAG"]
-          match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-beta(?:\.(\d+))?)?", tag)
+          match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)(?:-beta(?:\.(\d+))?)?", tag)
           if not match:
               sys.exit("Release tags must use vMAJOR.MINOR.PATCH, vMAJOR.MINOR.PATCH-beta, or vMAJOR.MINOR.PATCH-beta.N")
 
@@ -103,14 +113,23 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
 
-      - name: Run unit tests and build release APKs
+      # Release tags receive the same source-quality gates as main before signing.
+      # Signing secrets are deliberately absent from all test and lint processes.
+      - name: Run Android lint, Kotlin lint and unit tests
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :app:lintDebug \
+            :app:ktlintCheck \
+            :macrobenchmark:ktlintCheck \
+            :app:testDebugUnitTest
+
+      - name: Build signed release APKs
         env:
           CAT_RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/cat-browser-release.jks
           CAT_RELEASE_STORE_PASSWORD: ${{ secrets.CAT_RELEASE_STORE_PASSWORD }}
           CAT_RELEASE_KEY_ALIAS: ${{ secrets.CAT_RELEASE_KEY_ALIAS }}
           CAT_RELEASE_KEY_PASSWORD: ${{ secrets.CAT_RELEASE_KEY_PASSWORD }}
-        run: |
-          ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleRelease
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease
 
       - name: Validate release APK ABI contents
         run: |
@@ -141,7 +160,7 @@ jobs:
           done
           echo "All ABI APKs use the same release certificate: $expected_certificate" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish release checksums
+      - name: Publish release checksums in workflow summary
         run: |
           {
             echo "## Cat Browser $GITHUB_REF_NAME"
@@ -167,33 +186,70 @@ jobs:
               --output "$release_notes_file"
           fi
           test -s "$release_notes_file"
-          echo "RELEASE_NOTES_FILE=$release_notes_file" >> "$GITHUB_ENV"
+          mkdir -p dist/release-assets
+          cp dist/abi-apks/*-release.apk dist/release-assets/
+          cp dist/abi-apks/SHA256SUMS dist/release-assets/
+          cp "$release_notes_file" dist/release-assets/RELEASE_NOTES.md
 
+      # Signed SLSA provenance binds the published binaries to this exact workflow run.
+      - name: Attest release APKs and checksums
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/release-assets/*.apk
+            dist/release-assets/SHA256SUMS
+
+      - name: Upload validated release assets for the publish job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cat-browser-release-assets
+          path: dist/release-assets/
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download validated release assets
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: cat-browser-release-assets
+          path: release-assets
+
+      # Only this small job receives contents:write; build and signing remain read-only.
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          release_dir="$GITHUB_WORKSPACE/release-assets"
+          test -s "$release_dir/RELEASE_NOTES.md"
+          test -s "$release_dir/SHA256SUMS"
+          compgen -G "$release_dir/*.apk" > /dev/null
+
+          release_assets=( "$release_dir"/*.apk "$release_dir/SHA256SUMS" )
           release_create_flags=()
           release_edit_flags=()
-          if [[ "$GITHUB_REF_NAME" == *-beta* ]]; then
+          if [[ "$RELEASE_TAG" == *-beta* ]]; then
             release_create_flags+=(--prerelease)
             release_edit_flags+=(--prerelease)
           fi
 
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" \
-              dist/abi-apks/*-release.apk \
-              dist/abi-apks/SHA256SUMS \
-              --clobber
-            gh release edit "$GITHUB_REF_NAME" \
-              --title "Cat Browser $GITHUB_REF_NAME" \
-              --notes-file "$RELEASE_NOTES_FILE" \
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${release_assets[@]}" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --title "Cat Browser $RELEASE_TAG" \
+              --notes-file "$release_dir/RELEASE_NOTES.md" \
               "${release_edit_flags[@]}"
           else
-            gh release create "$GITHUB_REF_NAME" \
-              dist/abi-apks/*-release.apk \
-              dist/abi-apks/SHA256SUMS \
-              --title "Cat Browser $GITHUB_REF_NAME" \
-              --notes-file "$RELEASE_NOTES_FILE" \
+            gh release create "$RELEASE_TAG" "${release_assets[@]}" \
+              --title "Cat Browser $RELEASE_TAG" \
+              --notes-file "$release_dir/RELEASE_NOTES.md" \
               "${release_create_flags[@]}"
           fi
