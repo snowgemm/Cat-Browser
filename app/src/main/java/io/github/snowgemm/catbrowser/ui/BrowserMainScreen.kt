@@ -326,7 +326,6 @@ internal fun BrowserMainScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { results ->
-            val request = controller.pendingAndroidPermissionRequest
             controller.resolveAndroidPermissionRequest(results)
         }
     val extensionSaveAsLauncher =
@@ -435,7 +434,9 @@ internal fun BrowserMainScreen(
                 context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
             }
         if (alreadyGranted) {
-            controller.resolveAndroidPermissionRequest(true)
+            controller.resolveAndroidPermissionRequest(
+                request.permissions.associateWith { true },
+            )
         } else {
             androidPermissionLauncher.launch(request.permissions.toTypedArray())
         }
