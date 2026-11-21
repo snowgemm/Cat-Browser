@@ -14,7 +14,7 @@ object BrowserUrlResolver {
     }
 
     fun resolveAddress(input: String): String? {
-        val value = input.trim()
+        val value = stripWrappingQuotes(input)
         if (value.isEmpty()) return null
         if (value.startsWith("https://", ignoreCase = true) ||
             value.startsWith("http://", ignoreCase = true)
@@ -165,5 +165,25 @@ object BrowserUrlResolver {
         val encodedQuery = URLEncoder.encode(value, StandardCharsets.UTF_8.name())
             .replace("+", "%20")
         return baseUrl + encodedQuery
+    }
+
+    // Clipboard and share sources sometimes wrap a URL in matching quotation marks.
+    private fun stripWrappingQuotes(input: String): String {
+        val value = input.trim()
+        if (value.length < 2) return value
+
+        val closingQuote =
+            when (value.first()) {
+                '"' -> '"'
+                '\'' -> '\''
+                '“' -> '”'
+                '‘' -> '’'
+                else -> return value
+            }
+        return if (value.last() == closingQuote) {
+            value.substring(1, value.lastIndex).trim()
+        } else {
+            value
+        }
     }
 }

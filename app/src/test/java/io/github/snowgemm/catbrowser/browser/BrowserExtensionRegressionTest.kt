@@ -99,6 +99,74 @@ class BrowserExtensionRegressionTest {
     }
 
     @Test
+    fun fallsBackToDefaultLocaleWhenRequestedTranslationIsNull() {
+        val payload =
+            """
+            {
+              "results": [
+                {
+                  "id": 42,
+                  "slug": "fallback-addon",
+                  "status": "public",
+                  "type": "extension",
+                  "default_locale": "en-US",
+                  "name": {
+                    "vi": null,
+                    "en-US": "Example Add-on",
+                    "_default": "en-US"
+                  },
+                  "summary": {
+                    "vi": null,
+                    "en-US": "An extension without a Vietnamese translation",
+                    "_default": "en-US"
+                  },
+                  "current_version": {"version": "2.1"}
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val entry = ExtensionCatalogParser.parse(payload).single()
+
+        assertEquals("Example Add-on", entry.name)
+        assertEquals("An extension without a Vietnamese translation", entry.summary)
+        assertFalse(entry.name == "null")
+        assertFalse(entry.summary == "null")
+    }
+
+    @Test
+    fun prefersVietnameseTranslationWhenItExists() {
+        val payload =
+            """
+            {
+              "results": [
+                {
+                  "id": 43,
+                  "slug": "translated-addon",
+                  "status": "public",
+                  "type": "extension",
+                  "name": {
+                    "vi": "Tiện ích mẫu",
+                    "en-US": "Example Add-on",
+                    "_default": "en-US"
+                  },
+                  "summary": {
+                    "vi": "Mô tả tiếng Việt",
+                    "en-US": "English summary",
+                    "_default": "en-US"
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+
+        val entry = ExtensionCatalogParser.parse(payload).single()
+
+        assertEquals("Tiện ích mẫu", entry.name)
+        assertEquals("Mô tả tiếng Việt", entry.summary)
+    }
+
+    @Test
     fun parsesMozillaSignedXpiFromCurrentVersionFile() {
         val payload =
             """

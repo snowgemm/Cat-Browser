@@ -90,20 +90,27 @@ internal object ExtensionCatalogParser {
         fallbackLocale: String,
     ): String {
         val value = item.opt(field) ?: return ""
-        if (value is String) return value
+        if (value is String) return value.trim()
         if (value !is JSONObject) return ""
 
-        return value
-            .optString("vi")
-            .ifBlank { value.optString("en-US") }
-            .ifBlank { value.optString(fallbackLocale) }
-            .ifBlank {
-                val keys = value.keys()
-                var translated = ""
-                while (keys.hasNext() && translated.isBlank()) {
-                    translated = value.optString(keys.next())
-                }
-                translated
-            }
+        fun translation(locale: String?): String? {
+            if (locale.isNullOrBlank()) return null
+            return (value.opt(locale) as? String)?.trim()?.takeIf(String::isNotEmpty)
+        }
+
+        // AMO marks an unavailable requested locale as JSON null and supplies its fallback in _default.
+        val defaultLocale = value.opt("_default") as? String
+        translation("vi")?.let { return it }
+        translation(defaultLocale)?.let { return it }
+        translation(fallbackLocale)?.let { return it }
+        translation("en-US")?.let { return it }
+
+        val keys = value.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            if (key == "_default") continue
+            translation(key)?.let { return it }
+        }
+        return ""
     }
 }

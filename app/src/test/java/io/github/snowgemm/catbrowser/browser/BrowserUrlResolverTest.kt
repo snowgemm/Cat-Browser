@@ -46,6 +46,38 @@ class BrowserUrlResolverTest {
     }
 
     @Test
+    fun resolvesUrlsWrappedInStraightOrCurlyQuotes() {
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc123",
+            BrowserUrlResolver.resolve("\"https://www.youtube.com/watch?v=abc123\""),
+        )
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc123",
+            BrowserUrlResolver.resolve("'https://www.youtube.com/watch?v=abc123'"),
+        )
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc123",
+            BrowserUrlResolver.resolve("“https://www.youtube.com/watch?v=abc123”"),
+        )
+        assertEquals(
+            "https://www.youtube.com/watch?v=abc123",
+            BrowserUrlResolver.resolveAddress("\"https://www.youtube.com/watch?v=abc123\""),
+        )
+    }
+
+    @Test
+    fun preservesQuotedSearchPhrasesAndUnmatchedQuotes() {
+        assertEquals(
+            "https://duckduckgo.com/?q=%22cat%20browser%22",
+            BrowserUrlResolver.resolve("\"cat browser\""),
+        )
+        assertEquals(
+            "https://duckduckgo.com/?q=%22https%3A%2F%2Fexample.com",
+            BrowserUrlResolver.resolve("\"https://example.com"),
+        )
+    }
+
+    @Test
     fun sendsPlainTextToSearchEngine() {
         assertEquals(
             "https://duckduckgo.com/?q=cat%20browser",
