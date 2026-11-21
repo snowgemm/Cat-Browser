@@ -327,9 +327,7 @@ internal fun BrowserMainScreen(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { results ->
             val request = controller.pendingAndroidPermissionRequest
-            controller.resolveAndroidPermissionRequest(
-                request != null && areRequestedAndroidPermissionsGranted(request.permissions, results),
-            )
+            controller.resolveAndroidPermissionRequest(results)
         }
     val extensionSaveAsLauncher =
         rememberLauncherForActivityResult(

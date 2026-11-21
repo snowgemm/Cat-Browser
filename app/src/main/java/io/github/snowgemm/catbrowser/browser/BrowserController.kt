@@ -1304,8 +1304,26 @@ class BrowserController(
         }
     }
 
-    fun resolveAndroidPermissionRequest(granted: Boolean) {
+    fun resolveAndroidPermissionRequest(grantResults: Map<String, Boolean>) {
+        val request = pendingAndroidPermissionRequest
         val callback = pendingAndroidPermissionCallback
+        if (request != null) {
+            val denied = preferences
+                .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                .orEmpty()
+                .toMutableSet()
+            denied.removeAll(request.permissions.toSet())
+            denied.addAll(
+                BrowserAndroidPermissionPolicy.deniedPermissionsAfterRequest(
+                    request.permissions,
+                    grantResults,
+                ),
+            )
+            preferences.edit().putStringSet(KEY_DENIED_ANDROID_PERMISSIONS, denied).apply()
+        }
+
+        val granted = request != null &&
+            areRequestedAndroidPermissionsGranted(request.permissions, grantResults)
         pendingAndroidPermissionCallback = null
         pendingAndroidPermissionSession = null
         pendingAndroidPermissionRequest = null
@@ -1985,6 +2003,28 @@ class BrowserController(
                         return
                     }
 
+                    val denied = preferences
+                        .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                        .orEmpty()
+                        .toMutableSet()
+                    val alreadyGranted = requested.filterTo(mutableSetOf()) {
+                        appContext.checkSelfPermission(it) ==
+                            android.content.pm.PackageManager.PERMISSION_GRANTED
+                    }
+                    if (denied.removeAll(alreadyGranted)) {
+                        preferences.edit().putStringSet(KEY_DENIED_ANDROID_PERMISSIONS, denied).apply()
+                    }
+                    if (
+                        BrowserAndroidPermissionPolicy.shouldRejectPreviouslyDenied(
+                            requested,
+                            denied,
+                            alreadyGranted,
+                        )
+                    ) {
+                        callback.reject()
+                        return
+                    }
+
                     pendingAndroidPermissionCallback?.reject()
                     val request =
                         AndroidPermissionRequest(
@@ -2436,6 +2476,7 @@ class BrowserController(
         const val KEY_HOME_PAGE = "home_page"
         const val KEY_STARTUP_MODE = "startup_mode"
         const val KEY_TRACKING_PROTECTION = "tracking_protection_enabled"
+        const val KEY_DENIED_ANDROID_PERMISSIONS = "denied_android_permissions"
         const val KEY_DEVELOPER_MODE = "developer_mode"
         const val PRIVACY_STATS_RANGE_MS = 7L * 24L * 60L * 60L * 1000L
         const val PRIVACY_STATS_REFRESH_INTERVAL_MS = 15_000L
