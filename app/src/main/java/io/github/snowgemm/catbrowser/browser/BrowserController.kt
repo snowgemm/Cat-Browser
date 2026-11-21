@@ -474,7 +474,7 @@ class BrowserController(
         ) {
             return
         }
-        if (activeMediaGeckoSession !== session && hasMediaPlaybackNotification) {
+        if (activeMediaGeckoSession !== session && hasMediaPlaybackNotification && !force) {
             hasMediaPlaybackNotification = false
             runCatching { BrowserMediaPlaybackService.stop(appContext) }
         }
