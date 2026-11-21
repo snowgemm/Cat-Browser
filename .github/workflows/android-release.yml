@@ -241,15 +241,18 @@ jobs:
             release_edit_flags+=(--prerelease)
           fi
 
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "${release_assets[@]}" --clobber
+          # This job intentionally does not check out source; always specify the repository.
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${release_assets[@]}" --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$RELEASE_TAG" \
               --title "Cat Browser $RELEASE_TAG" \
               --notes-file "$release_dir/RELEASE_NOTES.md" \
-              "${release_edit_flags[@]}"
+              "${release_edit_flags[@]}" \
+              --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$RELEASE_TAG" "${release_assets[@]}" \
               --title "Cat Browser $RELEASE_TAG" \
               --notes-file "$release_dir/RELEASE_NOTES.md" \
-              "${release_create_flags[@]}"
+              "${release_create_flags[@]}" \
+              --repo "$GITHUB_REPOSITORY"
           fi
