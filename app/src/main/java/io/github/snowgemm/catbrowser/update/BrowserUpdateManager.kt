@@ -284,7 +284,7 @@ class BrowserUpdateManager(
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     throw IllegalStateException("GitHub API trả về lỗi " + connection.responseCode + ".")
                 }
-                connection.inputStream.use { io.github.snowgemm.catbrowser.util.readUtf8Bounded(it, MAX_RELEASE_METADATA_BYTES) }
+                connection.inputStream.use(::readReleaseMetadata)
             } finally {
                 connection.disconnect()
             }
@@ -537,3 +537,6 @@ private val UpdateChannel.label: String
     get() = if (this == UpdateChannel.STABLE) "Stable" else "Beta"
 
 private const val MAX_RELEASE_METADATA_BYTES = 4 * 1024 * 1024
+
+private fun readReleaseMetadata(input: java.io.InputStream): String =
+    io.github.snowgemm.catbrowser.util.readUtf8Bounded(input, MAX_RELEASE_METADATA_BYTES)

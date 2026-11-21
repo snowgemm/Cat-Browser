@@ -4,7 +4,8 @@ internal fun areRequestedAndroidPermissionsGranted(
     requestedPermissions: List<String>,
     grantResults: Map<String, Boolean>
 ): Boolean {
-    val locationPermissions = setOf(
+    val locationPermissions =
+        setOf(
         android.Manifest.permission.ACCESS_COARSE_LOCATION,
         android.Manifest.permission.ACCESS_FINE_LOCATION
     )
@@ -18,7 +19,6 @@ internal fun areRequestedAndroidPermissionsGranted(
 
     return (!requestedLocation || locationGranted) && otherPermissionsGranted
 }
-
 
 internal object BrowserAndroidPermissionPolicy {
     private val locationPermissions = setOf(
@@ -49,10 +49,12 @@ internal object BrowserAndroidPermissionPolicy {
         currentlyGranted: Set<String>,
     ): Boolean {
         val locationRequested = requestedPermissions.any { it in locationPermissions }
-        val locationAlreadyGranted = requestedPermissions.any {
+        val locationAlreadyGranted =
+            requestedPermissions.any {
             it in locationPermissions && it in currentlyGranted
         }
-        val locationDeniedBefore = requestedPermissions.any {
+        val locationDeniedBefore =
+            requestedPermissions.any {
             it in locationPermissions && it in previouslyDenied && it !in currentlyGranted
         }
         if (locationRequested && !locationAlreadyGranted && locationDeniedBefore) return true

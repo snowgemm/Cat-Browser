@@ -586,7 +586,7 @@ class BrowserExtensionsManager(
                 } else {
                     connection.errorStream
                 }
-                val payload = responseStream?.use { io.github.snowgemm.catbrowser.util.readUtf8Bounded(it, MAX_AMO_RESPONSE_BYTES) }.orEmpty()
+                val payload = responseStream?.use(::readAmoResponse).orEmpty()
                 if (responseCode !in 200..299) {
                     val detail = runCatching {
                         JSONObject(payload).optString("detail")
@@ -982,3 +982,6 @@ class BrowserExtensionsManager(
 }
 
 private const val MAX_AMO_RESPONSE_BYTES = 2 * 1024 * 1024
+
+private fun readAmoResponse(input: java.io.InputStream): String =
+    io.github.snowgemm.catbrowser.util.readUtf8Bounded(input, MAX_AMO_RESPONSE_BYTES)

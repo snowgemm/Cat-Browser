@@ -1308,10 +1308,10 @@ class BrowserController(
         val request = pendingAndroidPermissionRequest
         val callback = pendingAndroidPermissionCallback
         if (request != null) {
-            val denied = preferences
-                .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
-                .orEmpty()
-                .toMutableSet()
+            val denied =
+                preferences.getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                    .orEmpty()
+                    .toMutableSet()
             denied.removeAll(request.permissions.toSet())
             denied.addAll(
                 BrowserAndroidPermissionPolicy.deniedPermissionsAfterRequest(
@@ -1322,8 +1322,8 @@ class BrowserController(
             preferences.edit().putStringSet(KEY_DENIED_ANDROID_PERMISSIONS, denied).apply()
         }
 
-        val granted = request != null &&
-            areRequestedAndroidPermissionsGranted(request.permissions, grantResults)
+        val granted =
+            request != null && areRequestedAndroidPermissionsGranted(request.permissions, grantResults)
         pendingAndroidPermissionCallback = null
         pendingAndroidPermissionSession = null
         pendingAndroidPermissionRequest = null
@@ -1611,8 +1611,8 @@ class BrowserController(
         val finder = session.getFinder()
         findInPageResult = null
         finder.setDisplayFlags(GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL)
-        finder
-            .find(
+        val findResult =
+            finder.find(
                 value,
                 if (forward) {
                     GeckoSession.FINDER_FIND_FORWARD
@@ -1620,7 +1620,7 @@ class BrowserController(
                     GeckoSession.FINDER_FIND_BACKWARDS
                 },
             )
-            .accept(
+        findResult.accept(
                 { result ->
                     dataHandler.post {
                         if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
@@ -1649,8 +1649,7 @@ class BrowserController(
             return
         }
 
-        session.getFinder()
-            .find(
+        val findResult = session.getFinder().find(
                 null,
                 if (forward) {
                     GeckoSession.FINDER_FIND_FORWARD
@@ -1658,7 +1657,7 @@ class BrowserController(
                     GeckoSession.FINDER_FIND_BACKWARDS
                 },
             )
-            .accept(
+        findResult.accept(
                 { result ->
                     dataHandler.post {
                         if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
@@ -2003,14 +2002,14 @@ class BrowserController(
                         return
                     }
 
-                    val denied = preferences
-                        .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
-                        .orEmpty()
-                        .toMutableSet()
-                    val alreadyGranted = requested.filterTo(mutableSetOf()) {
-                        appContext.checkSelfPermission(it) ==
-                            android.content.pm.PackageManager.PERMISSION_GRANTED
-                    }
+                    val denied =
+                        preferences.getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                            .orEmpty()
+                            .toMutableSet()
+                    val alreadyGranted =
+                        requested.filterTo(mutableSetOf()) {
+                            appContext.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        }
                     if (denied.removeAll(alreadyGranted)) {
                         preferences.edit().putStringSet(KEY_DENIED_ANDROID_PERMISSIONS, denied).apply()
                     }
