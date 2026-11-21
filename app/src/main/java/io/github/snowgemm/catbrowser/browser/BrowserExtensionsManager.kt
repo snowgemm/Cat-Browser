@@ -154,8 +154,8 @@ class BrowserExtensionsManager(
                     val name = extension?.metaData?.name ?: extension?.id
                     statusMessage =
                         "Cài đặt tiện ích thất bại" +
-                            (name?.let { " ($it)" } ?: "") +
-                            ": ${error.message ?: "Lỗi GeckoView"}"
+                        (name?.let { " ($it)" } ?: "") +
+                        ": ${error.message ?: "Lỗi GeckoView"}"
                 },
             ),
         )

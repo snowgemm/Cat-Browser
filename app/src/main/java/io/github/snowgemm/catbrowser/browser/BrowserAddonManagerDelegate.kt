@@ -26,8 +26,7 @@ internal class BrowserAddonManagerDelegate(
 
     override fun onUninstalled(extension: WebExtension) = onUninstalled.invoke(extension)
 
-    override fun onOptionalPermissionsChanged(extension: WebExtension) =
-        onOptionalPermissionsChanged.invoke(extension)
+    override fun onOptionalPermissionsChanged(extension: WebExtension) = onOptionalPermissionsChanged.invoke(extension)
 
     override fun onInstallationFailed(
         extension: WebExtension?,

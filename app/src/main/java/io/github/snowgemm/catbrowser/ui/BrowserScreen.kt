@@ -244,7 +244,7 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
     }
 
     controller.extensionsManager.permissionPrompt?.let { prompt ->
-        ExtensionPermissionDialog(prompt) { approved, allowDataCollection ->
+        extensionPermissionDialog(prompt) { approved, allowDataCollection ->
             controller.extensionsManager.resolvePermissionPrompt(approved, allowDataCollection)
         }
     }
