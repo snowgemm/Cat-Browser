@@ -68,7 +68,6 @@ import io.github.snowgemm.catbrowser.browser.BrowserContextMenuPolicy
 import io.github.snowgemm.catbrowser.browser.BrowserContextResourceType
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.START_PAGE_URL
-import io.github.snowgemm.catbrowser.browser.areRequestedAndroidPermissionsGranted
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

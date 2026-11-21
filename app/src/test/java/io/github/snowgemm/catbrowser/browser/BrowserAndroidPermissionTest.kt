@@ -69,16 +69,16 @@ class BrowserAndroidPermissionTest {
                 Manifest.permission.ACCESS_FINE_LOCATION,
             )
 
-        assertTrue(
-            BrowserAndroidPermissionPolicy
-                .deniedPermissionsAfterRequest(
-                    requested,
-                    mapOf(
-                        Manifest.permission.ACCESS_COARSE_LOCATION to true,
-                        Manifest.permission.ACCESS_FINE_LOCATION to false,
-                    ),
-                ).isEmpty(),
-        )
+        val deniedPermissions =
+            BrowserAndroidPermissionPolicy.deniedPermissionsAfterRequest(
+                requested,
+                mapOf(
+                    Manifest.permission.ACCESS_COARSE_LOCATION to true,
+                    Manifest.permission.ACCESS_FINE_LOCATION to false,
+                ),
+            )
+
+        assertTrue(deniedPermissions.isEmpty())
     }
 
     @Test
