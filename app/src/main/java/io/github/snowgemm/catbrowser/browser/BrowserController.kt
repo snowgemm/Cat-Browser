@@ -678,6 +678,11 @@ class BrowserController(
     fun selectTab(tabId: String) {
         val target = tabs.firstOrNull { it.id == tabId } ?: return
         if (selectedTabId != tabId) {
+            activeTab
+                ?.session
+                ?.takeIf { it.isOpen }
+                ?.getFinder()
+                ?.clear()
             findInPageRequests.invalidate()
             findInPageResult = null
             dismissContextMenu()
@@ -1430,9 +1435,7 @@ class BrowserController(
                                             else -> "Mặc định"
                                         },
                                     isPrivate = permission.privateMode,
-                                    canReset =
-                                        permission.permission !=
-                                            GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE,
+                                    canReset = BrowserSitePermissionPolicy.canReset(permission.permission),
                                 )
                             }.sortedWith(compareBy<SitePermissionEntry>({ it.origin }, { it.permissionLabel }))
 
