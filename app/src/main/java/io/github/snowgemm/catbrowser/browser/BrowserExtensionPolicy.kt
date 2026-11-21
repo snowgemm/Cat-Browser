@@ -2,22 +2,49 @@ package io.github.snowgemm.catbrowser.browser
 
 import java.net.URI
 
-internal class ReplaceableDecision<T> {
-    private var pending: ((T) -> Unit)? = null
+internal class ExtensionPromptQueue<T> {
+    private val waiting = java.util.ArrayDeque<T>()
 
-    fun replace(
-        next: (T) -> Unit,
-        rejectedValue: T,
-    ) {
-        val previous = pending
-        pending = next
-        previous?.let { callback -> runCatching { callback(rejectedValue) } }
+    var active: T? = null
+        private set
+
+    fun enqueue(item: T) {
+        waiting.addLast(item)
+        activateNextIfNeeded()
     }
 
-    fun resolve(value: T) {
-        val callback = pending
-        pending = null
-        callback?.invoke(value)
+    fun resolveActive(): T? {
+        active = null
+        activateNextIfNeeded()
+        return active
+    }
+
+    fun removeAll(predicate: (T) -> Boolean): List<T> {
+        val removed = mutableListOf<T>()
+        val current = active
+        if (current != null && predicate(current)) {
+            removed += current
+            active = null
+        }
+
+        val retained = java.util.ArrayDeque<T>()
+        while (waiting.isNotEmpty()) {
+            val item = waiting.removeFirst()
+            if (predicate(item)) {
+                removed += item
+            } else {
+                retained.addLast(item)
+            }
+        }
+        waiting.addAll(retained)
+        activateNextIfNeeded()
+        return removed
+    }
+
+    private fun activateNextIfNeeded() {
+        if (active == null && waiting.isNotEmpty()) {
+            active = waiting.removeFirst()
+        }
     }
 }
 

@@ -42,6 +42,7 @@ data class ExtensionCatalogEntry(
 }
 
 data class ExtensionPermissionPrompt(
+    val extensionId: String,
     val extensionName: String,
     val description: String,
     val permissions: List<String>,
@@ -84,6 +85,11 @@ private data class PendingExtensionDownload(
     val extension: WebExtension,
     val request: WebExtension.DownloadRequest,
     val result: GeckoResult<WebExtension.DownloadInitData>
+)
+
+private data class PendingExtensionPermissionPrompt(
+    val prompt: ExtensionPermissionPrompt,
+    val decision: (Boolean, Boolean) -> Unit
 )
 
 /** Owns installed WebExtensions, browser actions and the Mozilla Add-ons catalog. */
@@ -130,35 +136,100 @@ class BrowserExtensionsManager(
         private set
     var saveAsRequest by mutableStateOf<ExtensionSaveAsRequest?>(null)
         private set
+    var isExtensionProcessSpawningDisabled by mutableStateOf(false)
+        private set
 
-    private val pendingPermissionDecision = ReplaceableDecision<Pair<Boolean, Boolean>>()
+    private val permissionPrompts = ExtensionPromptQueue<PendingExtensionPermissionPrompt>()
+    private var refreshInstalledAgain = false
     private var pendingExtensionDownload: PendingExtensionDownload? = null
     private var isAppForegrounded = true
 
     init {
-        controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
-            override fun onReady(extension: WebExtension) {
-                attachExtension(extension)
-                sessionProvider().forEach(::attachSession)
-            }
+        controller.setAddonManagerDelegate(
+            object : WebExtensionController.AddonManagerDelegate {
+                override fun onInstalled(extension: WebExtension) {
+                    attachExtension(extension)
+                    sessionProvider().forEach(::attachSession)
+                    refreshInstalled()
+                }
 
-            override fun onEnabled(extension: WebExtension) {
-                attachExtension(extension)
-                sessionProvider().forEach(::attachSession)
-            }
+                override fun onReady(extension: WebExtension) {
+                    // GeckoView resolves extension-relative URLs by this point.
+                    // Re-register delegates so optionsPageUrl and action metadata are current.
+                    attachExtension(extension)
+                    sessionProvider().forEach(::attachSession)
+                    refreshInstalled()
+                }
 
-            override fun onDisabled(extension: WebExtension) {
-                detachExtensionFromSessions(extension)
-                toolbarActions.removeAll { it.extensionId == extension.id }
-                if (popup?.extensionId == extension.id) closePopup()
-            }
+                override fun onEnabled(extension: WebExtension) {
+                    attachExtension(extension)
+                    sessionProvider().forEach(::attachSession)
+                    refreshInstalled()
+                }
 
-            override fun onUninstalled(extension: WebExtension) {
-                detachExtensionFromSessions(extension)
-                toolbarActions.removeAll { it.extensionId == extension.id }
-                if (popup?.extensionId == extension.id) closePopup()
-            }
-        })
+                override fun onDisabled(extension: WebExtension) {
+                    rejectPermissionPrompts(extension.id)
+                    detachExtension(extension)
+                    toolbarActions.removeAll { it.extensionId == extension.id }
+                    if (popup?.extensionId == extension.id) closePopup()
+                    refreshInstalled()
+                }
+
+                override fun onUninstalled(extension: WebExtension) {
+                    rejectPermissionPrompts(extension.id)
+                    detachExtension(extension)
+                    toolbarActions.removeAll { it.extensionId == extension.id }
+                    if (popup?.extensionId == extension.id) closePopup()
+                    installed.removeAll { it.id == extension.id }
+                    refreshInstalled()
+                }
+
+                override fun onOptionalPermissionsChanged(extension: WebExtension) {
+                    if (extension.metaData.enabled) {
+                        attachExtension(extension)
+                        sessionProvider().forEach(::attachSession)
+                    }
+                    refreshInstalled()
+                }
+
+                override fun onInstallationFailed(
+                    extension: WebExtension?,
+                    installException: WebExtension.InstallException,
+                ) {
+                    val name = extension?.metaData?.name ?: extension?.id
+                    statusMessage =
+                        buildString {
+                            append("Cài đặt tiện ích thất bại")
+                            if (!name.isNullOrBlank()) append(" ($name)")
+                            installException.message?.takeIf(String::isNotBlank)?.let {
+                                append(": ")
+                                append(it)
+                            }
+                        }
+                }
+            },
+        )
+
+        controller.setDebuggerDelegate(
+            object : WebExtensionController.DebuggerDelegate {
+                override fun onExtensionListUpdated() {
+                    // Temporary extensions installed/removed with web-ext do not necessarily
+                    // pass through the normal add-on manager UI callbacks.
+                    refreshInstalled()
+                }
+            },
+        )
+
+        controller.setExtensionProcessDelegate(
+            object : WebExtensionController.ExtensionProcessDelegate {
+                override fun onDisabledProcessSpawning() {
+                    isExtensionProcessSpawningDisabled = true
+                    statusMessage =
+                        "GeckoView đã tạm dừng tiến trình tiện ích sau nhiều lần lỗi. " +
+                            "Bạn có thể thử khởi động lại tiến trình."
+                }
+            },
+        )
 
         controller.setPromptDelegate(object : WebExtensionController.PromptDelegate {
             override fun onInstallPromptRequest(
@@ -221,26 +292,47 @@ class BrowserExtensionsManager(
         origins: Array<String>,
         dataCollectionPermissions: Array<String>,
         kind: ExtensionPermissionPrompt.Kind,
-        decision: (Boolean, Boolean) -> Unit
+        decision: (Boolean, Boolean) -> Unit,
     ) {
-        permissionPrompt = ExtensionPermissionPrompt(
-            extensionName = extension.metaData.name?.takeIf(String::isNotBlank) ?: extension.id,
-            description = extension.metaData.description.orEmpty(),
-            permissions = permissions.toList(),
-            origins = origins.toList(),
-            dataCollectionPermissions = dataCollectionPermissions.toList(),
-            kind = kind
-        )
-        // Resolve any older GeckoView prompt instead of leaving its result pending.
-        pendingPermissionDecision.replace(
-            { value -> decision(value.first, value.second) },
-            false to false
-        )
+        val pending =
+            PendingExtensionPermissionPrompt(
+                prompt =
+                    ExtensionPermissionPrompt(
+                        extensionId = extension.id,
+                        extensionName = extension.metaData.name?.takeIf(String::isNotBlank) ?: extension.id,
+                        description = extension.metaData.description.orEmpty(),
+                        permissions = permissions.toList(),
+                        origins = origins.toList(),
+                        dataCollectionPermissions = dataCollectionPermissions.toList(),
+                        kind = kind,
+                    ),
+                decision = decision,
+            )
+        mainHandler.post {
+            permissionPrompts.enqueue(pending)
+            permissionPrompt = permissionPrompts.active?.prompt
+        }
     }
 
     fun resolvePermissionPrompt(approved: Boolean, allowDataCollection: Boolean = false) {
+        val active = permissionPrompts.active ?: return
         permissionPrompt = null
-        pendingPermissionDecision.resolve(approved to allowDataCollection)
+        val next = permissionPrompts.resolveActive()
+        permissionPrompt = next?.prompt
+        runCatching { active.decision(approved, allowDataCollection) }
+            .onFailure { error ->
+                statusMessage = "Không thể hoàn tất yêu cầu quyền: ${error.message ?: "lỗi không xác định"}"
+            }
+    }
+
+    private fun rejectPermissionPrompts(extensionId: String) {
+        mainHandler.post {
+            val rejected = permissionPrompts.removeAll { it.prompt.extensionId == extensionId }
+            permissionPrompt = permissionPrompts.active?.prompt
+            rejected.forEach { pending ->
+                runCatching { pending.decision(false, false) }
+            }
+        }
     }
 
     private fun attachExtension(extension: WebExtension) {
@@ -285,6 +377,13 @@ class BrowserExtensionsManager(
             session.getWebExtensionController().setActionDelegate(extension, null)
             session.getWebExtensionController().setTabDelegate(extension, null)
         }
+    }
+
+    private fun detachExtension(extension: WebExtension) {
+        detachExtensionFromSessions(extension)
+        extension.setActionDelegate(null)
+        extension.setTabDelegate(null)
+        extension.setDownloadDelegate(null)
     }
 
     fun detachSession(session: GeckoSession) {
@@ -527,7 +626,10 @@ class BrowserExtensionsManager(
     }
 
     fun refreshInstalled() {
-        if (isLoadingInstalled) return
+        if (isLoadingInstalled) {
+            refreshInstalledAgain = true
+            return
+        }
         isLoadingInstalled = true
         controller.list().accept(
             { extensions ->
@@ -536,20 +638,35 @@ class BrowserExtensionsManager(
                 installed.addAll(
                     available.sortedBy {
                         it.metaData.name?.lowercase().orEmpty().ifBlank { it.id.lowercase() }
-                    }
+                    },
                 )
                 val enabledIds = available.filter { it.metaData.enabled }.mapTo(mutableSetOf()) { it.id }
                 toolbarActions.removeAll { it.extensionId !in enabledIds }
                 if (popup?.extensionId?.let { it !in enabledIds } == true) closePopup()
                 available.filter { it.metaData.enabled }.forEach(::attachExtension)
                 sessionProvider().forEach(::attachSession)
-                isLoadingInstalled = false
+                finishInstalledRefresh()
             },
             { error ->
-                isLoadingInstalled = false
                 statusMessage = "Không thể đọc danh sách tiện ích: ${error?.message ?: "Lỗi GeckoView"}"
-            }
+                finishInstalledRefresh()
+            },
         )
+    }
+
+    private fun finishInstalledRefresh() {
+        isLoadingInstalled = false
+        if (refreshInstalledAgain) {
+            refreshInstalledAgain = false
+            refreshInstalled()
+        }
+    }
+
+    fun retryExtensionProcessSpawning() {
+        controller.enableExtensionProcessSpawning()
+        isExtensionProcessSpawningDisabled = false
+        statusMessage = "Đã yêu cầu GeckoView khởi động lại tiến trình tiện ích."
+        refreshInstalled()
     }
 
     fun searchCatalog(query: String) {

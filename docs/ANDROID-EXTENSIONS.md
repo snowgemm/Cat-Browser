@@ -16,6 +16,10 @@ Implemented in the Android app:
 - Rely on GeckoView to validate the XPI manifest and Mozilla signature. Cat does not bypass signature validation or install arbitrary unsigned packages.
 - Show requested permissions, host origins and data-collection permissions before install or permission changes.
 - Enable, disable, update and uninstall installed extensions.
+- Track GeckoView installation, ready, enable/disable, uninstall, optional-permission and installation-failure events; also refresh the installed list when developer tooling changes it.
+- Re-register extension and per-session action/tab delegates when an extension becomes ready or the installed list changes.
+- Serialize permission prompts in arrival order so concurrent installation, update and optional-permission requests are not overwritten; pending prompts for an extension are rejected when that extension is disabled or removed.
+- Detect when GeckoView disables extension-process spawning after repeated crashes, and provide an explicit user-triggered restart action.
 - Register browser actions and page actions; display action icons when GeckoView can decode them, with a monogram fallback, and display badges.
 - Open extension popup pages in a separate GeckoSession hosted in a Cat dialog.
 - Route `runtime.openOptionsPage()` to a Cat tab when GeckoView delegates options-page handling to the app.
@@ -59,6 +63,8 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 | `tabs.update` / `tabs.remove` | URL navigation, active/highlighted selection and session close | Partial; mute/pin/auto-discard changes are not supported |
 | `downloads.download()` | Uses GeckoWebExecutor, reports progress and terminal metadata, handles `saveAs` through Android's Storage Access Framework, and applies safe filename conflict handling | Partial; `OVERWRITE` is conservatively uniquified and query/control APIs are not complete |
 | Download task history in Cat UI | Persists up to 100 non-private task records and output references | Implemented for local display; interrupted transfers are restored as interrupted records, not resumed |
+| Extension process recovery | `ExtensionProcessDelegate`, `enableExtensionProcessSpawning()` | Detects GeckoView process-spawning shutdown and exposes an explicit retry action; a retry can be disabled again if crashes continue |
+| Automatic extension updates | WorkManager + `WebExtensionController.update()` + update-permission queue | Not yet integrated; only manual update is exposed |
 | `downloads.pause()` / `resume()` / `cancel()` from extensions | GeckoView's public `WebExtension.Download` surface only exposes `update(Info)`; no public app callback is available for these commands | Not implementable through the pinned public API |
 | `storage`, content scripts and other engine APIs | Executed by Gecko where supported by the bundled GeckoView build | Not comprehensively certified by Cat |
 | `contextMenus`, `notifications`, `identity`, `sessions`, `cookies`, `history`, `bookmarks`, `scripting`, `declarativeNetRequest`, native messaging | No complete Cat-side integration and compatibility test suite | Not verified; do not advertise as supported |

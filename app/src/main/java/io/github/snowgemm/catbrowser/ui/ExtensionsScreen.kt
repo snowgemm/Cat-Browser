@@ -129,6 +129,35 @@ fun ExtensionsScreen(
                 }
             }
 
+            if (manager.isExtensionProcessSpawningDisabled) {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Tiến trình tiện ích đã bị tạm dừng",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "GeckoView đã ngừng chạy extension process sau nhiều lần lỗi. " +
+                                "Các tiện ích có thể không hoạt động cho đến khi bạn thử lại.",
+                            modifier = Modifier.padding(top = 4.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontSize = 12.sp,
+                        )
+                        TextButton(
+                            onClick = manager::retryExtensionProcessSpawning,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text("Thử khởi động lại")
+                        }
+                    }
+                }
+            }
+
             manager.statusMessage?.let { message ->
                 Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)) {

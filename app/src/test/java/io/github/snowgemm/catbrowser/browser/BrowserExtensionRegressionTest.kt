@@ -22,48 +22,33 @@ class BrowserExtensionRegressionTest {
     }
 
     @Test
-    fun newerPermissionPromptRejectsOlderPendingPrompt() {
-        val decisions = mutableListOf<String>()
-        val queue = ReplaceableDecision<String>()
+    fun permissionPromptsArePresentedInArrivalOrder() {
+        val queue = ExtensionPromptQueue<String>()
 
-        queue.replace({ decisions += "first:$it" }, "denied")
-        queue.replace({ decisions += "second:$it" }, "denied")
-        queue.resolve("approved")
+        queue.enqueue("install")
+        assertEquals("install", queue.active)
 
-        assertEquals(listOf("first:denied", "second:approved"), decisions)
+        queue.enqueue("optional")
+        queue.enqueue("update")
+        assertEquals("install", queue.active)
+
+        assertEquals("optional", queue.resolveActive())
+        assertEquals("update", queue.resolveActive())
+        assertNull(queue.resolveActive())
     }
 
     @Test
-    fun reentrantPromptReplacementKeepsTheNewestDecisionPending() {
-        val decisions = mutableListOf<String>()
-        val queue = ReplaceableDecision<Boolean>()
+    fun removingAnExtensionRejectsOnlyItsPendingPermissionPrompts() {
+        val queue = ExtensionPromptQueue<Pair<String, String>>()
+        queue.enqueue("addon-a" to "active")
+        queue.enqueue("addon-b" to "queued")
+        queue.enqueue("addon-a" to "later")
 
-        queue.replace(
-            {
-                decisions += "first:$it"
-                queue.replace({ decisions += "nested:$it" }, false)
-            },
-            false,
-        )
-        queue.replace({ decisions += "second:$it" }, false)
-        queue.resolve(true)
+        val removed = queue.removeAll { it.first == "addon-a" }
 
-        assertEquals(
-            listOf("first:false", "second:false", "nested:true"),
-            decisions,
-        )
-    }
-
-    @Test
-    fun resolvingPromptIsOneShot() {
-        val decisions = mutableListOf<Boolean>()
-        val queue = ReplaceableDecision<Boolean>()
-        queue.replace({ decisions += it }, false)
-
-        queue.resolve(true)
-        queue.resolve(false)
-
-        assertEquals(listOf(true), decisions)
+        assertEquals(listOf("addon-a" to "active", "addon-a" to "later"), removed)
+        assertEquals("addon-b" to "queued", queue.active)
+        assertNull(queue.resolveActive())
     }
 
     @Test
