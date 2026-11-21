@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.snowgemm.catbrowser.browser.BrowserExtensionsManager
 import io.github.snowgemm.catbrowser.browser.ExtensionCatalogEntry
-import io.github.snowgemm.catbrowser.browser.ExtensionPermissionPrompt
 import org.mozilla.geckoview.WebExtension
 
 @Composable
@@ -395,4 +394,3 @@ private fun ExtensionState(title: String, detail: String, modifier: Modifier, lo
         }
     }
 }
-
