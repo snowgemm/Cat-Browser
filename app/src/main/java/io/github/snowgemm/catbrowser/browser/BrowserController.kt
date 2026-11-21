@@ -1649,7 +1649,9 @@ class BrowserController(
             return
         }
 
-        val findResult = session.getFinder().find(
+        val finder = session.getFinder()
+        val findResult =
+            finder.find(
                 null,
                 if (forward) {
                     GeckoSession.FINDER_FIND_FORWARD
