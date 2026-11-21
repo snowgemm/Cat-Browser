@@ -16,7 +16,7 @@ Implemented in the Android app:
 - Rely on GeckoView to validate the XPI manifest and Mozilla signature. Cat does not bypass signature validation or install arbitrary unsigned packages.
 - Show requested permissions, host origins and data-collection permissions before install or permission changes.
 - Enable, disable, update and uninstall installed extensions.
-- Track GeckoView installation, ready, enable/disable, uninstall, optional-permission and installation-failure events; also refresh the installed list when developer tooling changes it.
+- Track GeckoView installation, ready, enable/disable, uninstall, optional-permission and installation-failure events through a dedicated lifecycle delegate; also refresh the installed list when developer tooling changes it.
 - Re-register extension and per-session action/tab delegates when an extension becomes ready or the installed list changes.
 - Serialize permission prompts in arrival order so concurrent installation, update and optional-permission requests are not overwritten; pending prompts for an extension are rejected when that extension is disabled or removed.
 - Detect when GeckoView disables extension-process spawning after repeated crashes, and provide an explicit user-triggered restart action.
@@ -28,6 +28,7 @@ Implemented in the Android app:
 - Preserve GeckoView's private-fetch flag for downloads requested from private browsing.
 - Keep extension private-browsing access disabled by default. A separate confirmation is required before enabling it for an individual extension.
 - Serialize install, optional-permission and update permission prompts in arrival order; reject that extension's outstanding prompts when it is disabled or uninstalled.
+- Render the active permission request at the `BrowserScreen` root so it remains visible while navigating between browser, tabs, settings, downloads and extensions destinations.
 - Detach extension-level and per-session action, tab and download delegates when an extension is disabled or uninstalled.
 - Run `WebExtensionController` operations annotated `@HandlerThread` on a dedicated extension-operation thread, and dispatch `GeckoResult` callbacks back to the UI thread before updating Compose state.
 - Refresh the installed extension list when the GeckoView debugger delegate reports a temporary extension-list change.

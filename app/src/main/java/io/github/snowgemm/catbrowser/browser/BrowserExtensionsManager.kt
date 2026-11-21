@@ -136,29 +136,29 @@ class BrowserExtensionsManager(
     private var isAppForegrounded = true
 
     init {
-        controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
-            override fun onReady(extension: WebExtension) {
-                attachExtension(extension)
-                sessionProvider().forEach(::attachSession)
-            }
-
-            override fun onEnabled(extension: WebExtension) {
-                attachExtension(extension)
-                sessionProvider().forEach(::attachSession)
-            }
-
-            override fun onDisabled(extension: WebExtension) {
-                // Reject queued prompts and release the extension's delegates.
-                // Both extension-level and per-session handlers must be detached.
-                handleExtensionDisabled(extension)
-            }
-
-            override fun onUninstalled(extension: WebExtension) {
-                // Reject queued prompts and close any active extension popup.
-                // GeckoView's registry remains the source of truth for installed state.
-                handleExtensionUninstalled(extension)
-            }
-        })
+        val attachAndRefresh: (WebExtension) -> Unit = { extension ->
+            attachExtension(extension)
+            sessionProvider().forEach(::attachSession)
+            refreshInstalled()
+        }
+        controller.setAddonManagerDelegate(
+            BrowserAddonManagerDelegate(
+                onInstalled = attachAndRefresh,
+                onReady = attachAndRefresh,
+                onDisabled = ::handleExtensionDisabled,
+                onUninstalled = ::handleExtensionUninstalled,
+                onOptionalPermissionsChanged = { extension ->
+                    if (extension.metaData.enabled) attachAndRefresh(extension) else refreshInstalled()
+                },
+                onInstallationFailed = { extension, error ->
+                    val name = extension?.metaData?.name ?: extension?.id
+                    statusMessage =
+                        "Cài đặt tiện ích thất bại" +
+                            (name?.let { " ($it)" } ?: "") +
+                            ": ${error.message ?: "Lỗi GeckoView"}"
+                },
+            ),
+        )
 
         controller.setPromptDelegate(object : WebExtensionController.PromptDelegate {
             override fun onInstallPromptRequest(

@@ -210,11 +210,11 @@ fun ExtensionsScreen(
         }
     }
 
-    manager.permissionPrompt?.let { prompt ->
-        ExtensionPermissionDialog(prompt) { approved, allowData ->
-            manager.resolvePermissionPrompt(approved, allowData)
-        }
-    }
+    /*
+     * Permission dialogs are rendered at BrowserScreen's root so a pending
+     * GeckoView request remains visible across every browser destination.
+     *
+     */
 
     pendingPrivateAccess?.let { extension ->
         AlertDialog(
@@ -397,7 +397,7 @@ private fun ExtensionState(title: String, detail: String, modifier: Modifier, lo
 }
 
 @Composable
-private fun ExtensionPermissionDialog(prompt: ExtensionPermissionPrompt, onDecision: (Boolean, Boolean) -> Unit) {
+internal fun ExtensionPermissionDialog(prompt: ExtensionPermissionPrompt, onDecision: (Boolean, Boolean) -> Unit) {
     var allowDataCollection by remember(prompt) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { onDecision(false, false) },

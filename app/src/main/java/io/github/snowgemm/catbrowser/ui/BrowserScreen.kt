@@ -242,6 +242,12 @@ fun BrowserScreen(controller: BrowserController, activity: Activity) {
             }
         }
     }
+
+    controller.extensionsManager.permissionPrompt?.let { prompt ->
+        ExtensionPermissionDialog(prompt) { approved, allowDataCollection ->
+            controller.extensionsManager.resolvePermissionPrompt(approved, allowDataCollection)
+        }
+    }
 }
 
 private enum class BrowserDestination { BROWSER, TABS, EXTENSIONS, ASSISTANT, SETTINGS, DOWNLOADS }
