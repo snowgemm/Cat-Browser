@@ -677,7 +677,11 @@ class BrowserController(
 
     fun selectTab(tabId: String) {
         val target = tabs.firstOrNull { it.id == tabId } ?: return
-        if (selectedTabId != tabId) dismissContextMenu()
+        if (selectedTabId != tabId) {
+            findInPageRequests.invalidate()
+            findInPageResult = null
+            dismissContextMenu()
+        }
         if (selectedTabId == tabId) {
             if (target.url != START_PAGE_URL || target.session != null) ensureSession(target)
             target.session?.let { session ->
@@ -1568,10 +1572,17 @@ class BrowserController(
         query: String,
         forward: Boolean = true,
     ) {
-        val session = activeTab?.session ?: return
+        val generation = findInPageRequests.next()
+        val session = activeTab?.session
+        if (session == null || !session.isOpen) {
+            findInPageResult = null
+            return
+        }
+
         val value = query.trim()
         if (value.isEmpty()) {
-            clearFindInPage()
+            session.getFinder().clear()
+            findInPageResult = null
             return
         }
 
@@ -1589,20 +1600,33 @@ class BrowserController(
             ).accept(
                 { result ->
                     dataHandler.post {
-                        findInPageResult = result?.let {
-                            FindInPageState(it.found, it.current, it.total)
-                        } ?: FindInPageState(false, 0, 0)
+                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                            findInPageResult =
+                                result?.let {
+                                    FindInPageState(it.found, it.current, it.total)
+                                } ?: FindInPageState(false, 0, 0)
+                        }
                     }
                 },
                 {
-                    dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+                    dataHandler.post {
+                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                            findInPageResult = FindInPageState(false, 0, 0)
+                        }
+                    }
                 },
             )
     }
 
     fun findNextInPage(forward: Boolean) {
-        val finder = activeTab?.session?.getFinder() ?: return
-        finder
+        val generation = findInPageRequests.next()
+        val session = activeTab?.session
+        if (session == null || !session.isOpen) {
+            findInPageResult = null
+            return
+        }
+
+        session.getFinder()
             .find(
                 null,
                 if (forward) {
@@ -1613,19 +1637,27 @@ class BrowserController(
             ).accept(
                 { result ->
                     dataHandler.post {
-                        findInPageResult = result?.let {
-                            FindInPageState(it.found, it.current, it.total)
-                        } ?: FindInPageState(false, 0, 0)
+                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                            findInPageResult =
+                                result?.let {
+                                    FindInPageState(it.found, it.current, it.total)
+                                } ?: FindInPageState(false, 0, 0)
+                        }
                     }
                 },
                 {
-                    dataHandler.post { findInPageResult = FindInPageState(false, 0, 0) }
+                    dataHandler.post {
+                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                            findInPageResult = FindInPageState(false, 0, 0)
+                        }
+                    }
                 },
             )
     }
 
     fun clearFindInPage() {
-        activeTab?.session?.getFinder()?.clear()
+        findInPageRequests.invalidate()
+        activeTab?.session?.takeIf { it.isOpen }?.getFinder()?.clear()
         findInPageResult = null
     }
 
@@ -2148,6 +2180,10 @@ class BrowserController(
                     url: String,
                 ) {
                     if (tab.session !== session) return
+                    if (tab.id == selectedTabId) {
+                        findInPageRequests.invalidate()
+                        findInPageResult = null
+                    }
                     tab.previewBitmap = null
                     tab.pageSecurity = null
                     tab.isLoading = true
@@ -2380,6 +2416,8 @@ class BrowserController(
     private fun isWebUrl(url: String): Boolean =
         url.startsWith("https://", ignoreCase = true) ||
             url.startsWith("http://", ignoreCase = true)
+
+    private val findInPageRequests = BrowserRequestGeneration()
 
     private companion object {
         const val PREFERENCES_NAME = "cat_browser_local_state"

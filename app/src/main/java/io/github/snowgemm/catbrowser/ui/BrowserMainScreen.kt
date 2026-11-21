@@ -443,13 +443,13 @@ internal fun BrowserMainScreen(
         }
     }
 
-    LaunchedEffect(showFind, findQuery, tab.id, tab.url) {
+    LaunchedEffect(showFind, findQuery, tab.id, tab.url, tab.isLoading) {
         if (showFind) {
             if (findQuery.isBlank()) {
                 controller.clearFindInPage()
-            } else {
+            } else if (!tab.isLoading) {
                 delay(250)
-                controller.findInPage(findQuery)
+                if (!tab.isLoading) controller.findInPage(findQuery)
             }
         }
     }
