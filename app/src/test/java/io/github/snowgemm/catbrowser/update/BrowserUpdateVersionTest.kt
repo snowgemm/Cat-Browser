@@ -31,6 +31,21 @@ class BrowserUpdateVersionTest {
     }
 
     @Test
+    fun preservesShortReleaseNotesVerbatim() {
+        assertEquals("## Changes\n- Added a feature", limitReleaseNotesForDisplay("## Changes\n- Added a feature"))
+    }
+
+    @Test
+    fun truncatesLongReleaseNotesWithoutCuttingTheLastLine() {
+        val notes = "line\n".repeat(4_000)
+        val displayed = limitReleaseNotesForDisplay(notes)
+
+        assertTrue(displayed.length <= 16_003)
+        assertTrue(displayed.endsWith("…"))
+        assertTrue(displayed.dropLast(3).endsWith("line"))
+    }
+
+    @Test
     fun rejectsUnsupportedVersionCodeTags() {
         assertNull(browserVersionCodeFromTag("v0.2.2-beta.99"))
         assertNull(browserVersionCodeFromTag("0.2"))

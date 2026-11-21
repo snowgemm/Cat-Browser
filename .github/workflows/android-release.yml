@@ -27,7 +27,11 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Test release notes generator
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Derive Android version from release tag
         env:
@@ -147,6 +151,24 @@ jobs:
             cat dist/abi-apks/SHA256SUMS
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Generate release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          release_notes_file="$RUNNER_TEMP/release-notes.md"
+          curated_notes=".github/release-notes/$RELEASE_TAG.md"
+          if [[ -f "$curated_notes" ]]; then
+            cp "$curated_notes" "$release_notes_file"
+          else
+            python3 scripts/generate_release_notes.py \
+              --tag "$RELEASE_TAG" \
+              --repo "$REPOSITORY" \
+              --output "$release_notes_file"
+          fi
+          test -s "$release_notes_file"
+          echo "RELEASE_NOTES_FILE=$release_notes_file" >> "$GITHUB_ENV"
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -165,21 +187,13 @@ jobs:
               --clobber
             gh release edit "$GITHUB_REF_NAME" \
               --title "Cat Browser $GITHUB_REF_NAME" \
+              --notes-file "$RELEASE_NOTES_FILE" \
               "${release_edit_flags[@]}"
           else
-            if [[ -f ".github/release-notes/$GITHUB_REF_NAME.md" ]]; then
-              gh release create "$GITHUB_REF_NAME" \
-                dist/abi-apks/*-release.apk \
-                dist/abi-apks/SHA256SUMS \
-                --title "Cat Browser $GITHUB_REF_NAME" \
-                --notes-file ".github/release-notes/$GITHUB_REF_NAME.md" \
-                "${release_create_flags[@]}"
-            else
-              gh release create "$GITHUB_REF_NAME" \
-                dist/abi-apks/*-release.apk \
-                dist/abi-apks/SHA256SUMS \
-                --title "Cat Browser $GITHUB_REF_NAME" \
-                --generate-notes \
-                "${release_create_flags[@]}"
-            fi
+            gh release create "$GITHUB_REF_NAME" \
+              dist/abi-apks/*-release.apk \
+              dist/abi-apks/SHA256SUMS \
+              --title "Cat Browser $GITHUB_REF_NAME" \
+              --notes-file "$RELEASE_NOTES_FILE" \
+              "${release_create_flags[@]}"
           fi

@@ -1247,13 +1247,14 @@ internal fun BrowserMainScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Phiên bản " + promptState.version, fontWeight = FontWeight.SemiBold)
                     if (promptState.releaseNotes.isNotBlank()) {
-                        Text(
-                            promptState.releaseNotes,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 8,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 220.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            ReleaseNotesContent(promptState.releaseNotes)
+                        }
                     }
                     if (promptState.isDownloading) {
                         LinearProgressIndicator(progress = { promptState.progress / 100f }, modifier = Modifier.fillMaxWidth())

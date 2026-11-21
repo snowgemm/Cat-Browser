@@ -67,6 +67,8 @@ User messages and approved tool results are transmitted to Google Gemini for pro
 
 Stable updates are checked by default; Beta updates are optional. Release builds are distributed as ABI-specific APKs through GitHub Releases. APKs downloaded by the in-app updater are removed from the app cache after Android confirms a successful package replacement.
 
+Release notes are generated from commits between version tags (with a version-specific curated file taking priority when present). The updater renders the Markdown body published on the GitHub Release, with a 16,000-character display limit in the app.
+
 ## Download and install
 
 Download a signed release from [GitHub Releases](https://github.com/snowgemm/Cat-Browser/releases). Select **one** APK matching the device architecture; do not install multiple ABI variants.

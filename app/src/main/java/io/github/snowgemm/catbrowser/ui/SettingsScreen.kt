@@ -1,9 +1,13 @@
+@file:Suppress("ktlint:standard:function-naming", "ktlint:standard:no-wildcard-imports")
+
 package io.github.snowgemm.catbrowser.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,18 +15,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.foundation.Image
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import io.github.snowgemm.catbrowser.R
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import android.os.Build
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.snowgemm.catbrowser.R
 import io.github.snowgemm.catbrowser.browser.BrowserController
 import io.github.snowgemm.catbrowser.browser.DEFAULT_HOME_PAGE_URL
 import io.github.snowgemm.catbrowser.browser.SEARCH_HOME_PAGE_URL
@@ -30,55 +32,62 @@ import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import io.github.snowgemm.catbrowser.update.UpdateChannel
 import io.github.snowgemm.catbrowser.update.UpdateUiState
 
-
 @Composable
-fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
+fun SettingsScreen(
+    controller: BrowserController,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val updateManager = controller.updateManager
-    val wallpaperPreferences = remember(context) {
-        context.getSharedPreferences(HOME_APPEARANCE_PREFERENCES, android.content.Context.MODE_PRIVATE)
-    }
+    val wallpaperPreferences =
+        remember(context) {
+            context.getSharedPreferences(HOME_APPEARANCE_PREFERENCES, android.content.Context.MODE_PRIVATE)
+        }
     var newTabWallpaperUri by remember {
         mutableStateOf(wallpaperPreferences.getString(HOME_WALLPAPER_URI_KEY, null))
     }
     var wallpaperPickerError by remember { mutableStateOf<String?>(null) }
-    val wallpaperPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            try {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-                val previousUri = newTabWallpaperUri?.let(Uri::parse)
-                if (previousUri != null && previousUri != uri) {
-                    runCatching {
-                        context.contentResolver.releasePersistableUriPermission(
-                            previousUri,
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
+    val wallpaperPicker =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                    val previousUri = newTabWallpaperUri?.let(Uri::parse)
+                    if (previousUri != null && previousUri != uri) {
+                        runCatching {
+                            context.contentResolver.releasePersistableUriPermission(
+                                previousUri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                            )
+                        }
                     }
+                    wallpaperPreferences
+                        .edit()
+                        .putString(HOME_WALLPAPER_URI_KEY, uri.toString())
+                        .apply()
+                    newTabWallpaperUri = uri.toString()
+                    wallpaperPickerError = null
+                } catch (_: Exception) {
+                    wallpaperPickerError = "Không thể lưu quyền đọc ảnh. Hãy thử chọn ảnh khác."
                 }
-                wallpaperPreferences.edit()
-                    .putString(HOME_WALLPAPER_URI_KEY, uri.toString())
-                    .apply()
-                newTabWallpaperUri = uri.toString()
-                wallpaperPickerError = null
-            } catch (_: Exception) {
-                wallpaperPickerError = "Không thể lưu quyền đọc ảnh. Hãy thử chọn ảnh khác."
             }
         }
-    }
     val appVersion = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?" }
     val stableUpdateState = updateManager.stableState
     val betaUpdateState = updateManager.betaState
     var homePageMode by remember(controller.homePage) {
-        mutableStateOf(when (controller.homePage) {
-            SEARCH_HOME_PAGE_URL -> "search"
-            DEFAULT_HOME_PAGE_URL -> "cat"
-            else -> "custom"
-        })
+        mutableStateOf(
+            when (controller.homePage) {
+                SEARCH_HOME_PAGE_URL -> "search"
+                DEFAULT_HOME_PAGE_URL -> "cat"
+                else -> "custom"
+            },
+        )
     }
     var customHomePage by remember(controller.homePage) {
         mutableStateOf(controller.homePage.takeIf { it != DEFAULT_HOME_PAGE_URL && it != SEARCH_HOME_PAGE_URL }.orEmpty())
@@ -97,21 +106,30 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     var settingsQuery by remember { mutableStateOf("") }
 
     val normalizedSettingsQuery = settingsQuery.trim()
+
     fun matchesSettings(vararg terms: String): Boolean =
         normalizedSettingsQuery.isBlank() ||
             terms.any { term -> term.contains(normalizedSettingsQuery, ignoreCase = true) }
 
     val hasMatchingSettings =
         matchesSettings("Cat Browser", "GeckoView", "giới thiệu", "thông tin") ||
-        matchesSettings("cập nhật", "update", "stable", "beta") ||
-        matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền") ||
-        matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search") ||
-        matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL") ||
-        matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab") ||
-        matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa") ||
-        matchesSettings("bảo vệ quyền riêng tư", "quyền riêng tư", "privacy", "tracking protection", "tracker", "chặn theo dõi", "fingerprint") ||
-        matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí") ||
-        matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")
+            matchesSettings("cập nhật", "update", "stable", "beta") ||
+            matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền") ||
+            matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search") ||
+            matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL") ||
+            matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab") ||
+            matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa") ||
+            matchesSettings(
+                "bảo vệ quyền riêng tư",
+                "quyền riêng tư",
+                "privacy",
+                "tracking protection",
+                "tracker",
+                "chặn theo dõi",
+                "fingerprint",
+            ) ||
+            matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí") ||
+            matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")
 
     LaunchedEffect(Unit) {
         updateManager.checkForUpdates(UpdateChannel.STABLE)
@@ -121,12 +139,15 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding().navigationBarsPadding()
+        Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .navigationBarsPadding(),
     ) {
         Row(
             Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = onBack) { Text("‹  Quay lại") }
             Text(
@@ -134,435 +155,567 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                 Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = MaterialTheme.colorScheme.onBackground,
             )
         }
         OutlinedTextField(
             value = settingsQuery,
             onValueChange = { settingsQuery = it },
-            modifier = Modifier.fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 8.dp),
             singleLine = true,
             shape = RoundedCornerShape(18.dp),
             placeholder = { Text("Tìm chế độ cài đặt") },
             leadingIcon = {
-                Text("⌕", color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "⌕",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleLarge,
+                )
             },
             trailingIcon = {
                 if (settingsQuery.isNotBlank()) {
                     TextButton(onClick = { settingsQuery = "" }) { Text("Xóa") }
                 }
-            }
+            },
         )
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 18.dp, end = 18.dp, bottom = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(17.dp)
+            verticalArrangement = Arrangement.spacedBy(17.dp),
         ) {
-            if (matchesSettings("Cat Browser", "GeckoView", "giới thiệu", "thông tin")) item {
-                SettingsSectionTitle("CAT BROWSER")
-                SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Image(painterResource(R.drawable.ic_launcher_foreground),
-                                contentDescription = "Cat Browser",
-                                modifier = Modifier.size(54.dp).padding(4.dp),
-                                contentScale = ContentScale.Fit)
-                        }
-                        Spacer(Modifier.width(13.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Cat Browser", style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold)
-                            Text("Riêng tư · Nhanh · Linh hoạt",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
-                            Text("GECKOVIEW", Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.7.sp)
+            if (matchesSettings("Cat Browser", "GeckoView", "giới thiệu", "thông tin")) {
+                item {
+                    SettingsSectionTitle("CAT BROWSER")
+                    SettingsCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                            ) {
+                                Image(
+                                    painterResource(R.drawable.ic_launcher_foreground),
+                                    contentDescription = "Cat Browser",
+                                    modifier = Modifier.size(54.dp).padding(4.dp),
+                                    contentScale = ContentScale.Fit,
+                                )
+                            }
+                            Spacer(Modifier.width(13.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Cat Browser",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    "Riêng tư · Nhanh · Linh hoạt",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant) {
+                                Text(
+                                    "GECKOVIEW",
+                                    Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.7.sp,
+                                )
+                            }
                         }
                     }
                 }
             }
-            if (matchesSettings("cập nhật", "update", "stable", "beta")) item {
-                SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
-                UpdateChannelCard(
-                    title = "Stable · luôn bật",
-                    description = "Kênh ổn định luôn được kiểm tra và không thể tắt.",
-                    channel = UpdateChannel.STABLE,
-                    state = stableUpdateState,
-                    manager = updateManager
-                )
-                SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Beta · thử nghiệm", style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold)
-                            Text("Chỉ bật khi muốn nhận bản thử nghiệm. Mặc định đang tắt.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        Switch(checked = updateManager.betaEnabled,
-                            enabled = !betaUpdateState.isDownloading,
-                            onCheckedChange = { updateManager.updateBetaEnabled(it) })
-                    }
-                }
-                if (updateManager.betaEnabled) {
+            if (matchesSettings("cập nhật", "update", "stable", "beta")) {
+                item {
+                    SettingsSectionTitle("CẬP NHẬT PHẦN MỀM")
                     UpdateChannelCard(
-                        title = "Beta",
-                        description = "Bản thử nghiệm có thể còn lỗi hoặc thay đổi chưa hoàn thiện.",
-                        channel = UpdateChannel.BETA,
-                        state = betaUpdateState,
-                        manager = updateManager
+                        title = "Stable · luôn bật",
+                        description = "Kênh ổn định luôn được kiểm tra và không thể tắt.",
+                        channel = UpdateChannel.STABLE,
+                        state = stableUpdateState,
+                        manager = updateManager,
                     )
-                } else {
-                    Text("Beta đang tắt. Cat Browser chỉ kiểm tra Stable.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                Text(
-                    "Mỗi kênh tải APK đúng kiến trúc thiết bị và xác minh SHA-256 trước khi mở trình cài đặt Android.",
-                    Modifier.padding(horizontal = 4.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-            if (matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền")) item {
-                SettingsSectionTitle("GIAO DIỆN")
-                SettingsCard {
-                    Text("Chủ đề", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Chọn giao diện cho Cat Browser", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(8.dp))
-                    SettingsChoice("Theo hệ thống", "Tự đổi theo giao diện điện thoại",
-                        controller.themeMode == "system") { controller.updateThemeMode("system") }
-                    SettingsChoice("Sáng", "Nền sáng, chữ tối", controller.themeMode == "light") {
-                        controller.updateThemeMode("light")
-                    }
-                    SettingsChoice("Tối", "Nền tối dịu mắt", controller.themeMode == "dark") {
-                        controller.updateThemeMode("dark")
-                    }
-                }
-                SettingsCard {
-                    Text(
-                        "Hình nền trang tab mới",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Chọn ảnh trên thiết bị để cá nhân hóa trang tab mới. Ảnh chỉ được đọc cục bộ, không tải lên Cat Browser.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        if (newTabWallpaperUri != null) "Đã chọn ảnh nền riêng."
-                        else "Đang sử dụng nền mặc định của Cat Browser.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { wallpaperPicker.launch(arrayOf("image/*")) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text(if (newTabWallpaperUri != null) "Đổi ảnh nền" else "Chọn ảnh nền")
+                    SettingsCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "Beta · thử nghiệm",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "Chỉ bật khi muốn nhận bản thử nghiệm. Mặc định đang tắt.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Switch(
+                                checked = updateManager.betaEnabled,
+                                enabled = !betaUpdateState.isDownloading,
+                                onCheckedChange = { updateManager.updateBetaEnabled(it) },
+                            )
                         }
-                        if (newTabWallpaperUri != null) {
+                    }
+                    if (updateManager.betaEnabled) {
+                        UpdateChannelCard(
+                            title = "Beta",
+                            description = "Bản thử nghiệm có thể còn lỗi hoặc thay đổi chưa hoàn thiện.",
+                            channel = UpdateChannel.BETA,
+                            state = betaUpdateState,
+                            manager = updateManager,
+                        )
+                    } else {
+                        Text(
+                            "Beta đang tắt. Cat Browser chỉ kiểm tra Stable.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Text(
+                        "Mỗi kênh tải APK đúng kiến trúc thiết bị và xác minh SHA-256 trước khi mở trình cài đặt Android.",
+                        Modifier.padding(horizontal = 4.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+            if (matchesSettings("giao diện", "chủ đề", "theme", "hình nền", "wallpaper", "ảnh nền")) {
+                item {
+                    SettingsSectionTitle("GIAO DIỆN")
+                    SettingsCard {
+                        Text("Chủ đề", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "Chọn giao diện cho Cat Browser",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SettingsChoice(
+                            "Theo hệ thống",
+                            "Tự đổi theo giao diện điện thoại",
+                            controller.themeMode == "system",
+                        ) { controller.updateThemeMode("system") }
+                        SettingsChoice("Sáng", "Nền sáng, chữ tối", controller.themeMode == "light") {
+                            controller.updateThemeMode("light")
+                        }
+                        SettingsChoice("Tối", "Nền tối dịu mắt", controller.themeMode == "dark") {
+                            controller.updateThemeMode("dark")
+                        }
+                    }
+                    SettingsCard {
+                        Text(
+                            "Hình nền trang tab mới",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Chọn ảnh trên thiết bị để cá nhân hóa trang tab mới. Ảnh chỉ được đọc cục bộ, không tải lên Cat Browser.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            if (newTabWallpaperUri != null) {
+                                "Đã chọn ảnh nền riêng."
+                            } else {
+                                "Đang sử dụng nền mặc định của Cat Browser."
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = { wallpaperPicker.launch(arrayOf("image/*")) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp),
+                            ) {
+                                Text(if (newTabWallpaperUri != null) "Đổi ảnh nền" else "Chọn ảnh nền")
+                            }
+                            if (newTabWallpaperUri != null) {
+                                TextButton(
+                                    onClick = {
+                                        val previousUri = newTabWallpaperUri?.let(Uri::parse)
+                                        if (previousUri != null) {
+                                            runCatching {
+                                                context.contentResolver.releasePersistableUriPermission(
+                                                    previousUri,
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                                )
+                                            }
+                                        }
+                                        wallpaperPreferences
+                                            .edit()
+                                            .remove(HOME_WALLPAPER_URI_KEY)
+                                            .apply()
+                                        newTabWallpaperUri = null
+                                        wallpaperPickerError = null
+                                    },
+                                ) {
+                                    Text("Xóa")
+                                }
+                            }
+                        }
+                        wallpaperPickerError?.let {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            if (matchesSettings(
+                    "bảo vệ quyền riêng tư",
+                    "quyền riêng tư",
+                    "privacy",
+                    "tracking protection",
+                    "tracker",
+                    "chặn theo dõi",
+                    "fingerprint",
+                )
+            ) {
+                item {
+                    SettingsSectionTitle("BẢO VỆ QUYỀN RIÊNG TƯ")
+                    SettingsCard {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                                Text(
+                                    "Chặn nội dung theo dõi",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "Dùng danh sách bảo vệ của GeckoView để chặn các tracker đã biết trên tab thường và tab ẩn danh.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Switch(
+                                checked = controller.trackingProtectionEnabled,
+                                onCheckedChange = controller::updateTrackingProtection,
+                            )
+                        }
+                        HorizontalDivider(
+                            Modifier.padding(vertical = 10.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                        )
+                        Text(
+                            "Thống kê 7 ngày được tổng hợp cục bộ từ GeckoView. Dữ liệu tab ẩn danh không được tính; số liệu bắt đầu từ khi bộ ghi thống kê được bật.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
+            if (matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search")) {
+                item {
+                    SettingsSectionTitle("TÌM KIẾM")
+                    SettingsCard {
+                        Text(
+                            "Công cụ tìm kiếm",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Dùng khi nhập từ khóa vào thanh địa chỉ",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        listOf(
+                            "google" to "Google",
+                            "duckduckgo" to "DuckDuckGo",
+                            "bing" to "Bing",
+                            "brave" to "Brave Search",
+                        ).forEach { (id, label) ->
+                            SettingsChoice(label, null, controller.searchEngine == id) {
+                                controller.updateSearchEngine(id)
+                            }
+                        }
+                    }
+                }
+            }
+            if (matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL")) {
+                item {
+                    SettingsSectionTitle("TRANG CHỦ")
+                    SettingsCard {
+                        Text(
+                            "Kiểu trang chủ",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "Chọn cách Cat Browser mở trang chủ. URL chỉ cần nhập khi chọn website tùy chỉnh.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        SettingsChoice(
+                            "Trang Cat Browser",
+                            "Lối tắt, dấu trang và website gần đây",
+                            homePageMode == "cat",
+                        ) {
+                            homePageMode = "cat"
+                            homePageError = false
+                            controller.setHomePageMode("cat")
+                        }
+                        SettingsChoice(
+                            "Trang công cụ tìm kiếm",
+                            "Mở trang chủ của công cụ đang chọn trong mục Tìm kiếm",
+                            homePageMode == "search",
+                        ) {
+                            homePageMode = "search"
+                            homePageError = false
+                            controller.setHomePageMode("search")
+                        }
+                        SettingsChoice(
+                            "Website tùy chỉnh",
+                            "Tự nhập địa chỉ trang chủ",
+                            homePageMode == "custom",
+                        ) {
+                            homePageMode = "custom"
+                            homePageError = false
+                        }
+                        if (homePageMode == "custom") {
+                            OutlinedTextField(
+                                customHomePage,
+                                {
+                                    customHomePage = it
+                                    homePageError = false
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                singleLine = true,
+                                label = { Text("URL trang chủ") },
+                                placeholder = { Text("https://example.com") },
+                                isError = homePageError,
+                            )
+                            if (homePageError) {
+                                Text(
+                                    "URL không hợp lệ. Hãy nhập địa chỉ http hoặc https.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Button(onClick = {
+                                homePageError = !controller.setHomePage(customHomePage)
+                            }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                Text("Lưu URL trang chủ")
+                            }
+                        }
+                    }
+                }
+            }
+            if (matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab")) {
+                item {
+                    SettingsSectionTitle("KHI MỞ CAT BROWSER")
+                    SettingsCard {
+                        SettingsChoice(
+                            "Tiếp tục phiên trước",
+                            "Khôi phục các tab đang mở",
+                            controller.startupMode == "continue",
+                        ) { controller.updateStartupMode("continue") }
+                        SettingsChoice(
+                            "Mở trang chủ",
+                            "Mở sảnh Cat Browser (about:blank) hoặc URL bạn đã đặt",
+                            controller.startupMode == "home",
+                        ) { controller.updateStartupMode("home") }
+                    }
+                }
+            }
+            if (matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa")) {
+                item {
+                    SettingsSectionTitle("DỮ LIỆU DUYỆT WEB")
+                    SettingsCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Lịch sử duyệt web", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    if (controller.isHistoryLoaded) {
+                                        controller.history.size.toString() + " mục đã lưu"
+                                    } else {
+                                        "Đang tải lịch sử…"
+                                    },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             TextButton(
-                                onClick = {
-                                    val previousUri = newTabWallpaperUri?.let(Uri::parse)
-                                    if (previousUri != null) {
-                                        runCatching {
-                                            context.contentResolver.releasePersistableUriPermission(
-                                                previousUri,
-                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                onClick = { showClearHistoryDialog = true },
+                                enabled = controller.isHistoryLoaded && controller.history.isNotEmpty(),
+                            ) { Text("Xóa") }
+                        }
+                        if (historyCleared) {
+                            Text(
+                                "Đã xóa lịch sử.",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
+                        Text(
+                            if (controller.isBookmarksLoaded) {
+                                "Dấu trang: " + controller.bookmarks.size
+                            } else {
+                                "Đang tải dấu trang…"
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        OutlinedButton(
+                            onClick = { showClearDataDialog = true },
+                            enabled = !controller.isClearingData,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text(if (controller.isClearingData) "Đang xóa dữ liệu…" else "Xóa dữ liệu duyệt web")
+                        }
+                        controller.clearDataMessage?.let { message ->
+                            Text(
+                                message,
+                                color =
+                                    if (controller.clearDataError) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+            if (matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí")) {
+                item {
+                    SettingsSectionTitle("QUYỀN WEBSITE")
+                    SettingsCard {
+                        Text(
+                            "Quyền đã được lưu theo website. Tab ẩn danh dùng quyền tạm thời của phiên riêng.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        if (controller.isSitePermissionsLoading) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                CircularProgressIndicator(Modifier.size(19.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(9.dp))
+                                Text("Đang tải quyền website…", style = MaterialTheme.typography.bodySmall)
+                            }
+                        } else if (controller.sitePermissions.isEmpty()) {
+                            Text(
+                                controller.sitePermissionsMessage ?: "Chưa có website nào lưu quyền.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        } else {
+                            controller.sitePermissions.take(30).forEach { entry ->
+                                Row(
+                                    Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f).padding(end = 8.dp)) {
+                                        Text(
+                                            entry.origin,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                        )
+                                        Text(
+                                            entry.permissionLabel + " · " + entry.stateLabel +
+                                                if (entry.isPrivate) " · Ẩn danh" else "",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodySmall,
+                                        )
+                                        if (!entry.canReset) {
+                                            Text(
+                                                "Quyền này có giới hạn thu hồi theo GeckoView.",
+                                                color = MaterialTheme.colorScheme.error,
+                                                style = MaterialTheme.typography.labelSmall,
                                             )
                                         }
                                     }
-                                    wallpaperPreferences.edit()
-                                        .remove(HOME_WALLPAPER_URI_KEY)
-                                        .apply()
-                                    newTabWallpaperUri = null
-                                    wallpaperPickerError = null
+                                    TextButton(
+                                        onClick = { controller.resetSitePermission(entry) },
+                                        enabled = entry.canReset,
+                                    ) { Text("Đặt lại") }
                                 }
-                            ) {
-                                Text("Xóa")
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                                )
+                            }
+                            if (controller.sitePermissions.size > 30) {
+                                Text(
+                                    "Đang hiển thị 30 trên " + controller.sitePermissions.size + " quyền.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
                             }
                         }
-                    }
-                    wallpaperPickerError?.let {
-                        Text(it, color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            if (matchesSettings("bảo vệ quyền riêng tư", "quyền riêng tư", "privacy", "tracking protection", "tracker", "chặn theo dõi", "fingerprint")) item {
-                SettingsSectionTitle("BẢO VỆ QUYỀN RIÊNG TƯ")
-                SettingsCard {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f).padding(end = 10.dp)) {
+                        controller.sitePermissionsMessage?.let {
                             Text(
-                                "Chặn nội dung theo dõi",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                "Dùng danh sách bảo vệ của GeckoView để chặn các tracker đã biết trên tab thường và tab ẩn danh.",
+                                it,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        Switch(
-                            checked = controller.trackingProtectionEnabled,
-                            onCheckedChange = controller::updateTrackingProtection
-                        )
-                    }
-                    HorizontalDivider(
-                        Modifier.padding(vertical = 10.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                    )
-                    Text(
-                        "Thống kê 7 ngày được tổng hợp cục bộ từ GeckoView. Dữ liệu tab ẩn danh không được tính; số liệu bắt đầu từ khi bộ ghi thống kê được bật.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-            }
-            if (matchesSettings("tìm kiếm", "search", "Google", "Bing", "DuckDuckGo", "Brave Search")) item {
-                SettingsSectionTitle("TÌM KIẾM")
-                SettingsCard {
-                    Text("Công cụ tìm kiếm", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold)
-                    Text("Dùng khi nhập từ khóa vào thanh địa chỉ",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(8.dp))
-                    listOf("google" to "Google", "duckduckgo" to "DuckDuckGo",
-                        "bing" to "Bing", "brave" to "Brave Search").forEach { (id, label) ->
-                        SettingsChoice(label, null, controller.searchEngine == id) {
-                            controller.updateSearchEngine(id)
-                        }
-                    }
-                }
-            }
-            if (matchesSettings("trang chủ", "home", "website tùy chỉnh", "URL")) item {
-                SettingsSectionTitle("TRANG CHỦ")
-                SettingsCard {
-                    Text("Kiểu trang chủ", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold)
-                    Text("Chọn cách Cat Browser mở trang chủ. URL chỉ cần nhập khi chọn website tùy chỉnh.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    SettingsChoice("Trang Cat Browser", "Lối tắt, dấu trang và website gần đây",
-                        homePageMode == "cat") {
-                        homePageMode = "cat"
-                        homePageError = false
-                        controller.setHomePageMode("cat")
-                    }
-                    SettingsChoice("Trang công cụ tìm kiếm", "Mở trang chủ của công cụ đang chọn trong mục Tìm kiếm",
-                        homePageMode == "search") {
-                        homePageMode = "search"
-                        homePageError = false
-                        controller.setHomePageMode("search")
-                    }
-                    SettingsChoice("Website tùy chỉnh", "Tự nhập địa chỉ trang chủ",
-                        homePageMode == "custom") {
-                        homePageMode = "custom"
-                        homePageError = false
-                    }
-                    if (homePageMode == "custom") {
-                        OutlinedTextField(customHomePage,
-                            { customHomePage = it; homePageError = false },
-                            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                            singleLine = true, label = { Text("URL trang chủ") },
-                            placeholder = { Text("https://example.com") }, isError = homePageError)
-                        if (homePageError) Text("URL không hợp lệ. Hãy nhập địa chỉ http hoặc https.",
-                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = {
-                            homePageError = !controller.setHomePage(customHomePage)
-                        }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                            Text("Lưu URL trang chủ")
-                        }
-                    }
-                }
-            }
-            if (matchesSettings("khi mở", "khởi động", "startup", "tiếp tục phiên", "tab")) item {
-                SettingsSectionTitle("KHI MỞ CAT BROWSER")
-                SettingsCard {
-                    SettingsChoice("Tiếp tục phiên trước", "Khôi phục các tab đang mở",
-                        controller.startupMode == "continue") { controller.updateStartupMode("continue") }
-                    SettingsChoice("Mở trang chủ", "Mở sảnh Cat Browser (about:blank) hoặc URL bạn đã đặt",
-                        controller.startupMode == "home") { controller.updateStartupMode("home") }
-                }
-            }
-            if (matchesSettings("dữ liệu", "lịch sử", "cookie", "cache", "dấu trang", "xóa")) item {
-                SettingsSectionTitle("DỮ LIỆU DUYỆT WEB")
-                SettingsCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Lịch sử duyệt web", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                if (controller.isHistoryLoaded) {
-                                    controller.history.size.toString() + " mục đã lưu"
-                                } else {
-                                    "Đang tải lịch sử…"
-                                },
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        TextButton(
-                            onClick = { showClearHistoryDialog = true },
-                            enabled = controller.isHistoryLoaded && controller.history.isNotEmpty()
-                        ) { Text("Xóa") }
-                    }
-                    if (historyCleared) Text("Đã xóa lịch sử.",
-                        color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f))
-                    Text(
-                        if (controller.isBookmarksLoaded) {
-                            "Dấu trang: " + controller.bookmarks.size
-                        } else {
-                            "Đang tải dấu trang…"
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    OutlinedButton(
-                        onClick = { showClearDataDialog = true },
-                        enabled = !controller.isClearingData,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Text(if (controller.isClearingData) "Đang xóa dữ liệu…" else "Xóa dữ liệu duyệt web")
-                    }
-                    controller.clearDataMessage?.let { message ->
-                        Text(
-                            message,
-                            color = if (controller.clearDataError) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-            if (matchesSettings("quyền website", "permission", "camera", "microphone", "vị trí")) item {
-                SettingsSectionTitle("QUYỀN WEBSITE")
-                SettingsCard {
-                    Text(
-                        "Quyền đã được lưu theo website. Tab ẩn danh dùng quyền tạm thời của phiên riêng.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    if (controller.isSitePermissionsLoading) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(Modifier.size(19.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(9.dp))
-                            Text("Đang tải quyền website…", style = MaterialTheme.typography.bodySmall)
-                        }
-                    } else if (controller.sitePermissions.isEmpty()) {
-                        Text(
-                            controller.sitePermissionsMessage ?: "Chưa có website nào lưu quyền.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    } else {
-                        controller.sitePermissions.take(30).forEach { entry ->
-                            Row(
-                                Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                                    Text(
-                                        entry.origin,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        entry.permissionLabel + " · " + entry.stateLabel +
-                                            if (entry.isPrivate) " · Ẩn danh" else "",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    if (!entry.canReset) {
-                                        Text(
-                                            "Quyền này có giới hạn thu hồi theo GeckoView.",
-                                            color = MaterialTheme.colorScheme.error,
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
-                                    }
-                                }
-                                TextButton(
-                                    onClick = { controller.resetSitePermission(entry) },
-                                    enabled = entry.canReset
-                                ) { Text("Đặt lại") }
-                            }
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
-                            )
-                        }
-                        if (controller.sitePermissions.size > 30) {
-                            Text(
-                                "Đang hiển thị 30 trên " + controller.sitePermissions.size + " quyền.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                        }
-                    }
-                    controller.sitePermissionsMessage?.let {
-                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
 
-            if (matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")) item {
-                SettingsSectionTitle("THÔNG TIN")
-                SettingsCard {
-                    Text("Cat Browser", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text("Phiên bản $appVersion · Cập nhật qua GitHub Releases.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    Text("Chủ đề chỉ thay đổi giao diện trình duyệt, không tự ép màu các trang web.",
-                        modifier = Modifier.padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(6.dp))
-                    OutlinedButton(onClick = {
-                        developerCode = ""
-                        developerCodeError = false
-                        showDeveloperUnlockDialog = true
-                    }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                        Text(if (controller.developerMode) "Công cụ nhà phát triển đã mở" else "Nhập mã nhà phát triển")
-                    }
-                    if (controller.developerMode) {
-                        Text("Chẩn đoán thiết bị", fontWeight = FontWeight.SemiBold)
-                        Text("Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") · " +
-                            Build.SUPPORTED_ABIS.joinToString(),
+            if (matchesSettings("thông tin", "phiên bản", "developer", "chẩn đoán")) {
+                item {
+                    SettingsSectionTitle("THÔNG TIN")
+                    SettingsCard {
+                        Text(
+                            "Cat Browser",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            "Phiên bản $appVersion · Cập nhật qua GitHub Releases.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall)
-                        Text("Mã ứng dụng: " + context.packageName,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Text(
+                            "Chủ đề chỉ thay đổi giao diện trình duyệt, không tự ép màu các trang web.",
+                            modifier = Modifier.padding(top = 8.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = controller::disableDeveloperMode) {
-                            Text("Tắt công cụ nhà phát triển")
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(onClick = {
+                            developerCode = ""
+                            developerCodeError = false
+                            showDeveloperUnlockDialog = true
+                        }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                            Text(if (controller.developerMode) "Công cụ nhà phát triển đã mở" else "Nhập mã nhà phát triển")
+                        }
+                        if (controller.developerMode) {
+                            Text("Chẩn đoán thiết bị", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") · " +
+                                    Build.SUPPORTED_ABIS.joinToString(),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                "Mã ứng dụng: " + context.packageName,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            TextButton(onClick = controller::disableDeveloperMode) {
+                                Text("Tắt công cụ nhà phát triển")
+                            }
                         }
                     }
                 }
@@ -573,7 +726,7 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
                         Text(
                             "Không tìm thấy cài đặt phù hợp.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
@@ -581,100 +734,109 @@ fun SettingsScreen(controller: BrowserController, onBack: () -> Unit) {
         }
     }
 
-    if (showDeveloperUnlockDialog) AlertDialog(
-        onDismissRequest = { showDeveloperUnlockDialog = false },
-        title = { Text("Mở công cụ nhà phát triển") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Mã này chỉ mở thông tin chẩn đoán cục bộ; không cấp thêm quyền truy cập hay bảo vệ dữ liệu.")
-                OutlinedTextField(
-                    value = developerCode,
-                    onValueChange = { developerCode = it; developerCodeError = false },
-                    label = { Text("Mã mở khóa") },
-                    singleLine = true,
-                    isError = developerCodeError
-                )
-                if (developerCodeError) Text("Mã không đúng.", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                developerCodeError = !controller.unlockDeveloperMode(developerCode)
-                if (!developerCodeError) showDeveloperUnlockDialog = false
-            }) { Text("Mở") }
-        },
-        dismissButton = {
-            TextButton(onClick = { showDeveloperUnlockDialog = false }) { Text("Hủy") }
-        }
-    )
-
-    if (showClearHistoryDialog) AlertDialog(
-        onDismissRequest = { showClearHistoryDialog = false },
-        title = { Text("Xóa lịch sử duyệt web?") },
-        text = { Text("Thao tác này không thể hoàn tác. Dấu trang và các tab sẽ được giữ nguyên.") },
-        confirmButton = {
-            TextButton(onClick = {
-                controller.clearHistory()
-                historyCleared = true
-                showClearHistoryDialog = false
-            }) { Text("Xóa lịch sử") }
-        },
-        dismissButton = { TextButton(onClick = { showClearHistoryDialog = false }) { Text("Hủy") } }
-    )
-
-    if (showClearDataDialog) AlertDialog(
-        onDismissRequest = { if (!controller.isClearingData) showClearDataDialog = false },
-        title = { Text("Xóa dữ liệu duyệt web") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ClearDataOption(
-                    "Lịch sử duyệt web",
-                    "Xóa danh sách trang đã truy cập và lịch sử quay lại của tab.",
-                    clearHistorySelected
-                ) { clearHistorySelected = it }
-                ClearDataOption(
-                    "Cookie, web storage và đăng nhập",
-                    "Xóa cookie, DOM storage và auth sessions; có thể đăng xuất khỏi website.",
-                    clearCookiesSelected
-                ) { clearCookiesSelected = it }
-                ClearDataOption(
-                    "Cache và ảnh đã lưu",
-                    "Xóa tệp tạm để giải phóng bộ nhớ; website có thể tải lại chậm hơn lần đầu.",
-                    clearCacheSelected
-                ) { clearCacheSelected = it }
-                ClearDataOption(
-                    "Quyền website",
-                    "Đặt lại các quyền vị trí, thông báo và quyền nội dung đã lưu.",
-                    clearPermissionsSelected
-                ) { clearPermissionsSelected = it }
-                Text(
-                    "Các tab đang mở sẽ được tải lại sau khi xóa. Dấu trang và tệp đã tải xuống không bị xóa.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    controller.clearBrowsingData(
-                        clearHistory = clearHistorySelected,
-                        clearCookiesAndSiteData = clearCookiesSelected,
-                        clearCache = clearCacheSelected,
-                        clearSitePermissions = clearPermissionsSelected
+    if (showDeveloperUnlockDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeveloperUnlockDialog = false },
+            title = { Text("Mở công cụ nhà phát triển") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Mã này chỉ mở thông tin chẩn đoán cục bộ; không cấp thêm quyền truy cập hay bảo vệ dữ liệu.")
+                    OutlinedTextField(
+                        value = developerCode,
+                        onValueChange = {
+                            developerCode = it
+                            developerCodeError = false
+                        },
+                        label = { Text("Mã mở khóa") },
+                        singleLine = true,
+                        isError = developerCodeError,
                     )
-                    showClearDataDialog = false
-                },
-                enabled = !controller.isClearingData
-            ) { Text("Xóa dữ liệu đã chọn") }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = { showClearDataDialog = false },
-                enabled = !controller.isClearingData
-            ) { Text("Hủy") }
-        }
-    )
+                    if (developerCodeError) Text("Mã không đúng.", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    developerCodeError = !controller.unlockDeveloperMode(developerCode)
+                    if (!developerCodeError) showDeveloperUnlockDialog = false
+                }) { Text("Mở") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeveloperUnlockDialog = false }) { Text("Hủy") }
+            },
+        )
+    }
+
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = { Text("Xóa lịch sử duyệt web?") },
+            text = { Text("Thao tác này không thể hoàn tác. Dấu trang và các tab sẽ được giữ nguyên.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    controller.clearHistory()
+                    historyCleared = true
+                    showClearHistoryDialog = false
+                }) { Text("Xóa lịch sử") }
+            },
+            dismissButton = { TextButton(onClick = { showClearHistoryDialog = false }) { Text("Hủy") } },
+        )
+    }
+
+    if (showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!controller.isClearingData) showClearDataDialog = false },
+            title = { Text("Xóa dữ liệu duyệt web") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    ClearDataOption(
+                        "Lịch sử duyệt web",
+                        "Xóa danh sách trang đã truy cập và lịch sử quay lại của tab.",
+                        clearHistorySelected,
+                    ) { clearHistorySelected = it }
+                    ClearDataOption(
+                        "Cookie, web storage và đăng nhập",
+                        "Xóa cookie, DOM storage và auth sessions; có thể đăng xuất khỏi website.",
+                        clearCookiesSelected,
+                    ) { clearCookiesSelected = it }
+                    ClearDataOption(
+                        "Cache và ảnh đã lưu",
+                        "Xóa tệp tạm để giải phóng bộ nhớ; website có thể tải lại chậm hơn lần đầu.",
+                        clearCacheSelected,
+                    ) { clearCacheSelected = it }
+                    ClearDataOption(
+                        "Quyền website",
+                        "Đặt lại các quyền vị trí, thông báo và quyền nội dung đã lưu.",
+                        clearPermissionsSelected,
+                    ) { clearPermissionsSelected = it }
+                    Text(
+                        "Các tab đang mở sẽ được tải lại sau khi xóa. Dấu trang và tệp đã tải xuống không bị xóa.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        controller.clearBrowsingData(
+                            clearHistory = clearHistorySelected,
+                            clearCookiesAndSiteData = clearCookiesSelected,
+                            clearCache = clearCacheSelected,
+                            clearSitePermissions = clearPermissionsSelected,
+                        )
+                        showClearDataDialog = false
+                    },
+                    enabled = !controller.isClearingData,
+                ) { Text("Xóa dữ liệu đã chọn") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showClearDataDialog = false },
+                    enabled = !controller.isClearingData,
+                ) { Text("Hủy") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -682,11 +844,11 @@ private fun ClearDataOption(
     title: String,
     description: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
         Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) }.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         Column(Modifier.weight(1f).padding(start = 6.dp)) {
@@ -694,7 +856,7 @@ private fun ClearDataOption(
             Text(
                 description,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
@@ -706,7 +868,7 @@ private fun UpdateChannelCard(
     description: String,
     channel: UpdateChannel,
     state: UpdateUiState,
-    manager: BrowserUpdateManager
+    manager: BrowserUpdateManager,
 ) {
     SettingsCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -715,7 +877,7 @@ private fun UpdateChannelCard(
                 Text(
                     description,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
             if (state.isChecking || state.isDownloading) {
@@ -724,34 +886,34 @@ private fun UpdateChannelCard(
         }
         Text(
             state.message,
-            color = if (state.error) MaterialTheme.colorScheme.error
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall
+            color =
+                if (state.error) {
+                    MaterialTheme.colorScheme.error
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            style = MaterialTheme.typography.bodySmall,
         )
         if (state.isDownloading) {
             LinearProgressIndicator(
                 progress = { state.progress / 100f },
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
             )
             Text(
                 state.progress.toString() + "%",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall
+                style = MaterialTheme.typography.labelSmall,
             )
         }
         if (state.updateAvailable) {
             Text(
                 "Phiên bản " + state.version,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
             )
             if (state.releaseNotes.isNotBlank()) {
-                Text(
-                    state.releaseNotes,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                ReleaseNotesContent(state.releaseNotes)
             }
         }
         val onAction: () -> Unit = {
@@ -762,26 +924,27 @@ private fun UpdateChannelCard(
             }
         }
         val buttonEnabled = !state.isChecking && !state.isDownloading
-        val buttonText = when {
-            state.isDownloading -> "Đang tải…"
-            state.downloaded -> "Cài đặt " + title
-            state.updateAvailable -> "Tải " + title
-            channel == UpdateChannel.BETA -> "Kiểm tra Beta"
-            else -> "Kiểm tra Stable"
-        }
+        val buttonText =
+            when {
+                state.isDownloading -> "Đang tải…"
+                state.downloaded -> "Cài đặt " + title
+                state.updateAvailable -> "Tải " + title
+                channel == UpdateChannel.BETA -> "Kiểm tra Beta"
+                else -> "Kiểm tra Stable"
+            }
         if (channel == UpdateChannel.BETA) {
             OutlinedButton(
                 onClick = onAction,
                 enabled = buttonEnabled,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) { Text(buttonText) }
         } else {
             Button(
                 onClick = onAction,
                 enabled = buttonEnabled,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
             ) { Text(buttonText) }
         }
     }
@@ -789,34 +952,60 @@ private fun UpdateChannelCard(
 
 @Composable
 private fun SettingsSectionTitle(title: String) {
-    Text(title, Modifier.padding(start = 4.dp, bottom = 7.dp),
-        color = MaterialTheme.colorScheme.secondary, fontSize = 11.sp,
-        fontWeight = FontWeight.Bold, letterSpacing = 1.15.sp)
+    Text(
+        title,
+        Modifier.padding(start = 4.dp, bottom = 7.dp),
+        color = MaterialTheme.colorScheme.secondary,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.15.sp,
+    )
 }
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Surface(
-        Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
-            RoundedCornerShape(20.dp)),
+        Modifier.fillMaxWidth().border(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
+            RoundedCornerShape(20.dp),
+        ),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 0.dp
+        tonalElevation = 0.dp,
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp), content = content)
+        Column(
+            Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+            content = content,
+        )
     }
 }
 
 @Composable
-private fun SettingsChoice(title: String, subtitle: String?, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically) {
+private fun SettingsChoice(
+    title: String,
+    subtitle: String?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-            if (subtitle != null) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall)
+            Text(
+                title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            )
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
         RadioButton(selected = selected, onClick = onClick)
     }
