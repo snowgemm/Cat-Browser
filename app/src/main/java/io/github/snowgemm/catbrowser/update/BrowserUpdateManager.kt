@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
+import io.github.snowgemm.catbrowser.util.readUtf8Bounded
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -18,6 +19,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
+
+private const val MAX_RELEASE_METADATA_BYTES = 4 * 1024 * 1024
 
 enum class UpdateChannel {
     STABLE,
@@ -284,7 +287,7 @@ class BrowserUpdateManager(
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                     throw IllegalStateException("GitHub API trả về lỗi " + connection.responseCode + ".")
                 }
-                connection.inputStream.bufferedReader().use { it.readText() }
+                connection.inputStream.use { readUtf8Bounded(it, MAX_RELEASE_METADATA_BYTES) }
             } finally {
                 connection.disconnect()
             }

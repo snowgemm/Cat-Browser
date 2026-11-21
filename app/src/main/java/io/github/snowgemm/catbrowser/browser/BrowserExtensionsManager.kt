@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.snowgemm.catbrowser.util.readUtf8Bounded
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -586,7 +587,7 @@ class BrowserExtensionsManager(
                 } else {
                     connection.errorStream
                 }
-                val payload = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                val payload = responseStream?.use { readUtf8Bounded(it, MAX_AMO_RESPONSE_BYTES) }.orEmpty()
                 if (responseCode !in 200..299) {
                     val detail = runCatching {
                         JSONObject(payload).optString("detail")
@@ -975,6 +976,7 @@ class BrowserExtensionsManager(
     }
 
     private companion object {
+        const val MAX_AMO_RESPONSE_BYTES = 2 * 1024 * 1024
         const val AMO_SEARCH_URL = "https://addons.mozilla.org/api/v5/addons/search/"
         const val MAX_XPI_SIZE = 50L * 1024L * 1024L
         const val KEY_NEXT_DOWNLOAD_ID = "next_download_id"

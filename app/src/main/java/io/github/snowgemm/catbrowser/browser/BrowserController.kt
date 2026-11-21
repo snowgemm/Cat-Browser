@@ -1206,6 +1206,7 @@ class BrowserController(
 
     fun clearHistory() {
         historyClearGeneration++
+        tabs.forEach { it.session?.purgeHistory() }
         history.clear()
         recentlyClosedTabs.clear()
         isHistoryLoaded = true
@@ -1597,7 +1598,8 @@ class BrowserController(
                 } else {
                     GeckoSession.FINDER_FIND_BACKWARDS
                 },
-            ).accept(
+            )
+            .accept(
                 { result ->
                     dataHandler.post {
                         if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
@@ -1634,7 +1636,8 @@ class BrowserController(
                 } else {
                     GeckoSession.FINDER_FIND_BACKWARDS
                 },
-            ).accept(
+            )
+            .accept(
                 { result ->
                     dataHandler.post {
                         if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
@@ -1657,7 +1660,11 @@ class BrowserController(
 
     fun clearFindInPage() {
         findInPageRequests.invalidate()
-        activeTab?.session?.takeIf { it.isOpen }?.getFinder()?.clear()
+        activeTab
+            ?.session
+            ?.takeIf { it.isOpen }
+            ?.getFinder()
+            ?.clear()
         findInPageResult = null
     }
 
