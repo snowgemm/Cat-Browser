@@ -1309,7 +1309,8 @@ class BrowserController(
         val callback = pendingAndroidPermissionCallback
         if (request != null) {
             val denied =
-                preferences.getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                preferences
+                    .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
                     .orEmpty()
                     .toMutableSet()
             denied.removeAll(request.permissions.toSet())
@@ -1621,24 +1622,24 @@ class BrowserController(
                 },
             )
         findResult.accept(
-                { result ->
-                    dataHandler.post {
-                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
-                            findInPageResult =
-                                result?.let {
-                                    FindInPageState(it.found, it.current, it.total)
-                                } ?: FindInPageState(false, 0, 0)
-                        }
+            { result ->
+                dataHandler.post {
+                    if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                        findInPageResult =
+                            result?.let {
+                                FindInPageState(it.found, it.current, it.total)
+                            } ?: FindInPageState(false, 0, 0)
                     }
-                },
-                {
-                    dataHandler.post {
-                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
-                            findInPageResult = FindInPageState(false, 0, 0)
-                        }
+                }
+            },
+            {
+                dataHandler.post {
+                    if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                        findInPageResult = FindInPageState(false, 0, 0)
                     }
-                },
-            )
+                }
+            },
+        )
     }
 
     fun findNextInPage(forward: Boolean) {
@@ -1660,24 +1661,24 @@ class BrowserController(
                 },
             )
         findResult.accept(
-                { result ->
-                    dataHandler.post {
-                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
-                            findInPageResult =
-                                result?.let {
-                                    FindInPageState(it.found, it.current, it.total)
-                                } ?: FindInPageState(false, 0, 0)
-                        }
+            { result ->
+                dataHandler.post {
+                    if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                        findInPageResult =
+                            result?.let {
+                                FindInPageState(it.found, it.current, it.total)
+                            } ?: FindInPageState(false, 0, 0)
                     }
-                },
-                {
-                    dataHandler.post {
-                        if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
-                            findInPageResult = FindInPageState(false, 0, 0)
-                        }
+                }
+            },
+            {
+                dataHandler.post {
+                    if (findInPageRequests.isCurrent(generation) && activeTab?.session === session) {
+                        findInPageResult = FindInPageState(false, 0, 0)
                     }
-                },
-            )
+                }
+            },
+        )
     }
 
     fun clearFindInPage() {
@@ -2005,7 +2006,8 @@ class BrowserController(
                     }
 
                     val denied =
-                        preferences.getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
+                        preferences
+                            .getStringSet(KEY_DENIED_ANDROID_PERMISSIONS, emptySet())
                             .orEmpty()
                             .toMutableSet()
                     val alreadyGranted =

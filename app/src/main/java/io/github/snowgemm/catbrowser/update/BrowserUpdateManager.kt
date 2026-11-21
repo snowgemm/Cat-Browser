@@ -539,4 +539,5 @@ private val UpdateChannel.label: String
 private const val MAX_RELEASE_METADATA_BYTES = 4 * 1024 * 1024
 
 private fun readReleaseMetadata(input: java.io.InputStream): String =
-    io.github.snowgemm.catbrowser.util.readUtf8Bounded(input, MAX_RELEASE_METADATA_BYTES)
+    io.github.snowgemm.catbrowser.util
+        .readUtf8Bounded(input, MAX_RELEASE_METADATA_BYTES)

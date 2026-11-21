@@ -984,4 +984,5 @@ class BrowserExtensionsManager(
 private const val MAX_AMO_RESPONSE_BYTES = 2 * 1024 * 1024
 
 private fun readAmoResponse(input: java.io.InputStream): String =
-    io.github.snowgemm.catbrowser.util.readUtf8Bounded(input, MAX_AMO_RESPONSE_BYTES)
+    io.github.snowgemm.catbrowser.util
+        .readUtf8Bounded(input, MAX_AMO_RESPONSE_BYTES)
