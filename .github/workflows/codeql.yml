@@ -24,7 +24,9 @@ jobs:
       matrix:
         include:
           - language: java-kotlin
-            build-mode: autobuild
+            # Kotlin requires compilation; use a clean manual build so CodeQL
+            # observes compiler invocations instead of Gradle cache hits.
+            build-mode: manual
           - language: javascript-typescript
             build-mode: none
     steps:
@@ -63,9 +65,12 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      - name: Autobuild Java and Kotlin
-        if: matrix.build-mode == 'autobuild'
-        uses: github/codeql-action/autobuild@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      - name: Build Java and Kotlin without Gradle build cache
+        if: matrix.build-mode == 'manual'
+        run: |
+          # CodeQL must observe the Kotlin compiler. Gradle build-cache hits
+          # can restore compile outputs without invoking the compiler.
+          ./gradlew --no-daemon --no-build-cache clean assemble
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
