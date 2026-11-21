@@ -98,7 +98,7 @@ class BrowserExtensionsManager(
     private val onOpenOptionsPage: (String) -> Unit,
     private val onRestoreBrowserFocus: () -> Unit
 ) {
-    private val controller = runtime.webExtensionController
+    private val controller = GeckoViewExtensionOperations(runtime.webExtensionController)
     private val webExecutor = GeckoWebExecutor(runtime)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val networkExecutor = Executors.newSingleThreadExecutor()
@@ -232,15 +232,15 @@ class BrowserExtensionsManager(
                 kind,
                 decision,
             )
-        // GeckoView may issue several permission requests while another dialog is visible.
-        // Each request retains its own result callback and is presented in arrival order.
-        // Refusing one request never approves or silently rejects a different extension.
-        // Removing an extension rejects only the requests that belong to that extension.
-        // The next waiting request becomes visible after the active decision is completed.
+        // GeckoView may issue several requests while another dialog is visible.
+        // Each request keeps its own callback in FIFO order until it is resolved.
     }
 
     fun resolvePermissionPrompt(approved: Boolean, allowDataCollection: Boolean = false) {
-        permissionPrompt = pendingPermissionPrompts.resolve(approved, allowDataCollection).also { refreshInstalled() }
+        permissionPrompt =
+            pendingPermissionPrompts
+                .resolve(approved, allowDataCollection)
+                .also { refreshInstalled() }
     }
 
     private fun attachExtension(extension: WebExtension) {
@@ -1019,7 +1019,7 @@ class BrowserExtensionsManager(
                 override fun onDisabledProcessSpawning() {
                     statusMessage =
                         "GeckoView đã tạm dừng tiến trình tiện ích sau nhiều lần lỗi. " +
-                            "Hãy khởi động lại Cat Browser để thử lại."
+                        "Hãy khởi động lại Cat Browser để thử lại."
                 }
             },
         )

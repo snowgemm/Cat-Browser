@@ -132,7 +132,7 @@ class BrowserMediaPlaybackService : Service() {
         startId: Int,
     ): Int {
         when (intent?.action) {
-            ACTION_UPDATE -> intent?.let(::handleUpdate)
+            ACTION_UPDATE -> handleUpdate(intent)
             ACTION_PLAY -> handlePlay()
             ACTION_PAUSE -> browserController()?.pauseMediaPlayback()
             ACTION_STOP -> {

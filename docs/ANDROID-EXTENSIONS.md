@@ -29,6 +29,7 @@ Implemented in the Android app:
 - Keep extension private-browsing access disabled by default. A separate confirmation is required before enabling it for an individual extension.
 - Serialize install, optional-permission and update permission prompts in arrival order; reject that extension's outstanding prompts when it is disabled or uninstalled.
 - Detach extension-level and per-session action, tab and download delegates when an extension is disabled or uninstalled.
+- Run `WebExtensionController` operations annotated `@HandlerThread` on a dedicated extension-operation thread, and dispatch `GeckoResult` callbacks back to the UI thread before updating Compose state.
 - Refresh the installed extension list when the GeckoView debugger delegate reports a temporary extension-list change.
 - Surface GeckoView's disabled extension-process-spawning state and advise restarting Cat Browser after repeated extension-process crashes.
 
@@ -67,8 +68,7 @@ Cat targets Firefox WebExtensions inside GeckoView. It is not Firefox Desktop, a
 | `tabs.update` / `tabs.remove` | URL navigation, active/highlighted selection and session close | Partial; mute/pin/auto-discard changes are not supported |
 | `downloads.download()` | Uses GeckoWebExecutor, reports progress and terminal metadata, handles `saveAs` through Android's Storage Access Framework, and applies safe filename conflict handling | Partial; `OVERWRITE` is conservatively uniquified and query/control APIs are not complete |
 | Download task history in Cat UI | Persists up to 100 non-private task records and output references | Implemented for local display; interrupted transfers are restored as interrupted records, not resumed |
-| Automatic extension updates | WorkManager + `WebExtensionController.update()` + serialized update-permission prompts | Not yet integrated; Cat currently exposes manual update only |
-| Extension process recovery | `ExtensionProcessDelegate`, `enableExtensionProcessSpawning()` | Detects GeckoView process-spawning shutdown and exposes an explicit retry action; a retry can be disabled again if crashes continue |
+| Extension process recovery | `ExtensionProcessDelegate` | Detects GeckoView process-spawning shutdown and shows a status message advising a Cat Browser restart; no in-app retry action is exposed yet |
 | Automatic extension updates | WorkManager + `WebExtensionController.update()` + update-permission queue | Not yet integrated; only manual update is exposed |
 | `downloads.pause()` / `resume()` / `cancel()` from extensions | GeckoView's public `WebExtension.Download` surface only exposes `update(Info)`; no public app callback is available for these commands | Not implementable through the pinned public API |
 | `storage`, content scripts and other engine APIs | Executed by Gecko where supported by the bundled GeckoView build | Not comprehensively certified by Cat |
