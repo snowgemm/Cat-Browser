@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="media_play">Phát</string>
+    <string name="media_pause">Tạm dừng</string>
+    <string name="media_notification_channel">Điều khiển media</string>
+    <string name="media_notification_channel_description">Điều khiển nội dung media đang phát trong Cat Browser.</string>
+</resources>

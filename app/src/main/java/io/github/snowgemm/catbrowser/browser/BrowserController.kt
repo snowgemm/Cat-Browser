@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.snowgemm.catbrowser.BrowserMediaPlaybackService
 import io.github.snowgemm.catbrowser.update.BrowserUpdateManager
 import org.mozilla.geckoview.ExperimentalGeckoViewApi
 import org.mozilla.geckoview.GeckoResult
@@ -167,6 +168,9 @@ class BrowserController(
     private var pictureInPictureExitHandledByGecko = false
     private var enterPictureInPictureWindow: (() -> Boolean)? = null
     private var exitPictureInPictureWindow: (() -> Unit)? = null
+    private var activeMediaGeckoSession: GeckoSession? = null
+    private var activeMediaSession: MediaSession? = null
+    private var isActiveMediaPlaying = false
 
     var selectedTabId by mutableStateOf("")
         private set
@@ -397,21 +401,7 @@ class BrowserController(
      */
     fun onAppBackgrounded() {
         isAppForegrounded = false
-        tabs.forEach { tab ->
-            val session = tab.session ?: return@forEach
-            if (!session.isOpen) return@forEach
-            val isPictureInPictureSource = session === pictureInPictureSourceSession
-            session.setFocused(false)
-            session.setActive(isPictureInPictureSource)
-            session.setPriorityHint(
-                if (isPictureInPictureSource) {
-                    GeckoSession.PRIORITY_HIGH
-                } else {
-                    GeckoSession.PRIORITY_DEFAULT
-                },
-            )
-            runtime.webExtensionController.setTabActive(session, false)
-        }
+        tabs.forEach(::updateSessionActivity)
         pictureInPictureSession?.takeIf { it.isOpen }?.apply {
             setFocused(false)
             setActive(true)
@@ -422,24 +412,7 @@ class BrowserController(
 
     fun onAppForegrounded() {
         isAppForegrounded = true
-        tabs.forEach { tab ->
-            val session = tab.session ?: return@forEach
-            if (!session.isOpen) return@forEach
-            val isPictureInPictureSource = session === pictureInPictureSourceSession
-            val visible =
-                isPictureInPictureSource ||
-                    GeckoSessionVisibilityPolicy.isVisible(
-                        isAppForegrounded,
-                        tab.id == selectedTabId,
-                        tab.isViewAttached,
-                    )
-            session.setActive(visible)
-            session.setFocused(visible && !isPictureInPictureSource)
-            session.setPriorityHint(
-                if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
-            )
-            runtime.webExtensionController.setTabActive(session, visible && !isPictureInPictureSource)
-        }
+        tabs.forEach(::updateSessionActivity)
         pictureInPictureSession?.takeIf { it.isOpen }?.apply {
             setFocused(false)
             setActive(true)
@@ -462,6 +435,121 @@ class BrowserController(
 
     fun clearPictureInPictureCloseHost() {
         exitPictureInPictureWindow = null
+    }
+
+    fun resumeMediaPlayback() {
+        activeMediaSession?.takeIf { it.isActive() }?.play()
+    }
+
+    fun pauseMediaPlayback() {
+        activeMediaSession?.takeIf { it.isActive() }?.pause()
+    }
+
+    fun stopMediaPlayback() {
+        activeMediaSession?.stop()
+    }
+
+    fun seekMediaPlayback(positionMs: Long) {
+        if (positionMs < 0L) return
+        activeMediaSession?.takeIf { it.isActive() }?.seekTo(positionMs / 1_000.0, false)
+    }
+
+    fun notifyMediaAudioFocusChange(change: Int) {
+        activeMediaSession?.notifySystemAudioFocusChange(change)
+    }
+
+    private fun rememberMediaSession(
+        tab: BrowserTab,
+        session: GeckoSession,
+        mediaSession: MediaSession,
+    ) {
+        if (tab.session !== session) return
+        activeMediaGeckoSession = session
+        activeMediaSession = mediaSession
+    }
+
+    private fun updateMediaPlaybackState(
+        tab: BrowserTab,
+        session: GeckoSession,
+        mediaSession: MediaSession,
+        isPlaying: Boolean,
+    ) {
+        if (tab.session !== session) return
+        rememberMediaSession(tab, session, mediaSession)
+        isActiveMediaPlaying = isPlaying
+        if (isPlaying) {
+            session.setActive(true)
+            session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
+        }
+        publishMediaPlayback(tab, isPlaying)
+        updateSessionActivity(tab)
+    }
+
+    private fun refreshMediaNotification(
+        tab: BrowserTab,
+        session: GeckoSession,
+    ) {
+        if (activeMediaGeckoSession !== session) return
+        publishMediaPlayback(tab, isActiveMediaPlaying)
+    }
+
+    private fun publishMediaPlayback(
+        tab: BrowserTab,
+        isPlaying: Boolean,
+    ) {
+        val title =
+            if (tab.isPrivate) {
+                "Đang phát media riêng tư"
+            } else {
+                tab.title.ifBlank { "Cat Browser" }
+            }
+        val subtitle =
+            if (tab.isPrivate) {
+                "Cat Browser"
+            } else {
+                Uri.parse(tab.url).host?.takeIf(String::isNotBlank) ?: "Cat Browser"
+            }
+        runCatching {
+            BrowserMediaPlaybackService.publish(
+                context = appContext,
+                isActive = true,
+                isPlaying = isPlaying,
+                title = title,
+                subtitle = subtitle,
+            )
+        }
+    }
+
+    private fun clearMediaPlaybackSession(session: GeckoSession) {
+        if (activeMediaGeckoSession !== session) return
+        activeMediaGeckoSession = null
+        activeMediaSession = null
+        isActiveMediaPlaying = false
+        runCatching { BrowserMediaPlaybackService.stop(appContext) }
+        tabs.firstOrNull { it.session === session }?.let(::updateSessionActivity)
+    }
+
+    private fun updateSessionActivity(tab: BrowserTab) {
+        val session = tab.session?.takeIf { it.isOpen } ?: return
+        val isPictureInPictureSource = session === pictureInPictureSourceSession
+        val isVisible =
+            GeckoSessionVisibilityPolicy.isVisible(
+                isAppForegrounded,
+                tab.id == selectedTabId,
+                tab.isViewAttached,
+            )
+        val keepActive =
+            BrowserMediaPlaybackPolicy.shouldKeepSessionActive(
+                isVisible = isVisible,
+                isPictureInPictureSource = isPictureInPictureSource,
+                isPlayingMedia = activeMediaGeckoSession === session && isActiveMediaPlaying,
+            )
+        session.setFocused(isVisible && !isPictureInPictureSource)
+        session.setActive(keepActive)
+        session.setPriorityHint(
+            if (keepActive) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
+        )
+        runtime.webExtensionController.setTabActive(session, isVisible && !isPictureInPictureSource)
     }
 
     fun onPictureInPictureWindowDestroyed(session: GeckoSession) {
@@ -1819,37 +1907,10 @@ class BrowserController(
 
     private fun activateSelectedTab() {
         val selected = activeTab ?: return
-        tabs.forEach { tab ->
-            tab.session?.let { session ->
-                val visible =
-                    GeckoSessionVisibilityPolicy.isVisible(
-                        isAppForegrounded,
-                        tab.id == selected.id,
-                        tab.isViewAttached,
-                    )
-                session.setActive(visible)
-                session.setFocused(visible)
-                session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
-                )
-                runtime.webExtensionController.setTabActive(session, visible)
-            }
-        }
+        tabs.forEach(::updateSessionActivity)
         if (selected.url != START_PAGE_URL || selected.session != null) {
             ensureSession(selected)
-            selected.session?.let { session ->
-                val visible =
-                    GeckoSessionVisibilityPolicy.isVisible(
-                        isAppForegrounded,
-                        selected.id == selectedTabId,
-                        selected.isViewAttached,
-                    )
-                session.setActive(visible)
-                session.setFocused(visible)
-                session.setPriorityHint(
-                    if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
-                )
-            }
+            updateSessionActivity(selected)
         }
     }
 
@@ -1867,12 +1928,7 @@ class BrowserController(
                 tab.id == selectedTabId,
                 tab.isViewAttached,
             )
-        session.setActive(visible)
-        session.setFocused(visible)
-        session.setPriorityHint(
-            if (visible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
-        )
-        runtime.webExtensionController.setTabActive(session, visible)
+        updateSessionActivity(tab)
 
         if (visible && tab.loadPendingUntilAttached) {
             val originalInput = tab.pendingOriginalInput ?: tab.url
@@ -1898,19 +1954,7 @@ class BrowserController(
         if (tab.session !== session) return
 
         tab.isViewAttached = false
-        if (session.isOpen) {
-            val isPictureInPictureSource = session === pictureInPictureSourceSession
-            session.setFocused(false)
-            session.setActive(isPictureInPictureSource)
-            session.setPriorityHint(
-                if (isPictureInPictureSource) {
-                    GeckoSession.PRIORITY_HIGH
-                } else {
-                    GeckoSession.PRIORITY_DEFAULT
-                },
-            )
-            runtime.webExtensionController.setTabActive(session, false)
-        }
+        updateSessionActivity(tab)
     }
 
     private fun ensureSession(
@@ -2151,6 +2195,7 @@ class BrowserController(
                 ) {
                     if (tab.session !== session || title.isNullOrBlank()) return
                     tab.title = title
+                    refreshMediaNotification(tab, session)
                     persistTabs()
                 }
 
@@ -2215,6 +2260,51 @@ class BrowserController(
 
         session.setMediaSessionDelegate(
             object : MediaSession.Delegate {
+                override fun onActivated(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                ) {
+                    rememberMediaSession(tab, session, mediaSession)
+                }
+
+                override fun onDeactivated(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                ) {
+                    clearMediaPlaybackSession(session)
+                }
+
+                override fun onPlay(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                ) {
+                    updateMediaPlaybackState(tab, session, mediaSession, isPlaying = true)
+                }
+
+                override fun onPause(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                ) {
+                    updateMediaPlaybackState(tab, session, mediaSession, isPlaying = false)
+                }
+
+                override fun onStop(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                ) {
+                    clearMediaPlaybackSession(session)
+                }
+
+                override fun onMetadata(
+                    session: GeckoSession,
+                    mediaSession: MediaSession,
+                    meta: MediaSession.Metadata,
+                ) {
+                    if (activeMediaGeckoSession === session) {
+                        refreshMediaNotification(tab, session)
+                    }
+                }
+
                 override fun onFullscreen(
                     session: GeckoSession,
                     mediaSession: MediaSession,
@@ -2290,13 +2380,7 @@ class BrowserController(
 
         session.open(runtime)
         extensionsManager.attachSession(session)
-        val isVisible = GeckoSessionVisibilityPolicy.isVisible(isAppForegrounded, tab.id == selectedTabId, tab.isViewAttached)
-        session.setActive(isVisible)
-        session.setFocused(isVisible)
-        session.setPriorityHint(
-            if (isVisible) GeckoSession.PRIORITY_HIGH else GeckoSession.PRIORITY_DEFAULT,
-        )
-        runtime.webExtensionController.setTabActive(session, isVisible)
+        updateSessionActivity(tab)
     }
 
     private fun recoverAfterContentProcessDeath(
@@ -2308,6 +2392,7 @@ class BrowserController(
 
         // GeckoView closes a session before delivering onCrash/onKill. It must not
         // remain attached to Compose's AndroidView or be reused for the retry.
+        clearMediaPlaybackSession(failedSession)
         if (pictureInPictureSourceSession === failedSession) {
             closePictureInPictureForSourceSession(
                 sourceSession = failedSession,
@@ -2343,6 +2428,7 @@ class BrowserController(
                 if (contextMenuRequest?.tabId == tab.id) dismissContextMenu()
                 return
             }
+        clearMediaPlaybackSession(session)
         if (pictureInPictureSourceSession === session) {
             closePictureInPictureForSourceSession(
                 sourceSession = session,
