@@ -2,32 +2,50 @@ package io.github.snowgemm.catbrowser.browser
 
 import java.net.URI
 
+internal class ReplaceableDecision<T> {
+    private var pending: ((T) -> Unit)? = null
+
+    fun replace(
+        next: (T) -> Unit,
+        rejectedValue: T,
+    ) {
+        val previous = pending
+        pending = next
+        previous?.let { callback -> runCatching { callback(rejectedValue) } }
+    }
+
+    fun resolve(value: T) {
+        val callback = pending
+        pending = null
+        callback?.invoke(value)
+    }
+}
+
 internal class ExtensionPromptQueue<T> {
-    private val waiting = java.util.ArrayDeque<T>()
+    private val waiting = ArrayDeque<T>()
 
     var active: T? = null
         private set
 
-    fun enqueue(item: T) {
+    fun enqueue(item: T): T? {
         waiting.addLast(item)
-        activateNextIfNeeded()
+        activateNext()
+        return active
     }
 
     fun resolveActive(): T? {
         active = null
-        activateNextIfNeeded()
+        activateNext()
         return active
     }
 
     fun removeAll(predicate: (T) -> Boolean): List<T> {
         val removed = mutableListOf<T>()
-        val current = active
-        if (current != null && predicate(current)) {
-            removed += current
+        active?.takeIf(predicate)?.let {
+            removed += it
             active = null
         }
-
-        val retained = java.util.ArrayDeque<T>()
+        val retained = ArrayDeque<T>()
         while (waiting.isNotEmpty()) {
             val item = waiting.removeFirst()
             if (predicate(item)) {
@@ -37,11 +55,11 @@ internal class ExtensionPromptQueue<T> {
             }
         }
         waiting.addAll(retained)
-        activateNextIfNeeded()
+        activateNext()
         return removed
     }
 
-    private fun activateNextIfNeeded() {
+    private fun activateNext() {
         if (active == null && waiting.isNotEmpty()) {
             active = waiting.removeFirst()
         }
