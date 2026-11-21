@@ -44,10 +44,11 @@ class BrowserAndroidPermissionTest {
 
     @Test
     fun deniedPermissionsAreRememberedWithoutMarkingGrantedPermissionsDenied() {
-        val requested = listOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO,
-        )
+        val requested =
+            listOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO,
+            )
 
         assertTrue(
             BrowserAndroidPermissionPolicy.deniedPermissionsAfterRequest(
@@ -62,19 +63,21 @@ class BrowserAndroidPermissionTest {
 
     @Test
     fun approximateLocationDoesNotPersistFineLocationDenial() {
-        val requested = listOf(
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        )
+        val requested =
+            listOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            )
 
         assertTrue(
-            BrowserAndroidPermissionPolicy.deniedPermissionsAfterRequest(
-                requested,
-                mapOf(
-                    Manifest.permission.ACCESS_COARSE_LOCATION to true,
-                    Manifest.permission.ACCESS_FINE_LOCATION to false,
-                ),
-            ).isEmpty(),
+            BrowserAndroidPermissionPolicy
+                .deniedPermissionsAfterRequest(
+                    requested,
+                    mapOf(
+                        Manifest.permission.ACCESS_COARSE_LOCATION to true,
+                        Manifest.permission.ACCESS_FINE_LOCATION to false,
+                    ),
+                ).isEmpty(),
         )
     }
 

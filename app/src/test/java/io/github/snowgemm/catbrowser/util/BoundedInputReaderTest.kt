@@ -1,10 +1,10 @@
 package io.github.snowgemm.catbrowser.util
 
-import java.io.ByteArrayInputStream
-import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.IOException
 
 class BoundedInputReaderTest {
     @Test
