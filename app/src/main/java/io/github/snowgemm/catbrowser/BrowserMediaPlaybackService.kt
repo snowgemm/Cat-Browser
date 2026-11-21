@@ -5,17 +5,21 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaMetadata
-import android.media.session.MediaSession as PlatformMediaSession
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
+import android.media.session.MediaSession as PlatformMediaSession
 import org.mozilla.geckoview.MediaSession as GeckoMediaSession
 
 /**
@@ -30,6 +34,7 @@ class BrowserMediaPlaybackService : Service() {
     private lateinit var platformSession: PlatformMediaSession
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
+    private var isAudioFocusRequestPending = false
     private var isForeground = false
     private var isStopping = false
     private var isActive = false
@@ -37,24 +42,41 @@ class BrowserMediaPlaybackService : Service() {
     private var mediaTitle = "Cat Browser"
     private var mediaSubtitle = "Đang phát nội dung web"
 
+    private val becomingNoisyReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                    browserController()?.pauseMediaPlayback()
+                }
+            }
+        }
+
     private val audioFocusListener =
         AudioManager.OnAudioFocusChangeListener { focusChange ->
             val controller = browserController()
             when (focusChange) {
                 AudioManager.AUDIOFOCUS_GAIN -> {
                     hasAudioFocus = true
+                    isAudioFocusRequestPending = false
                     controller?.notifyMediaAudioFocusChange(GeckoMediaSession.SYSTEM_AUDIO_FOCUS_GAIN)
                 }
 
                 AudioManager.AUDIOFOCUS_LOSS -> {
                     hasAudioFocus = false
+                    isAudioFocusRequestPending = false
                     controller?.notifyMediaAudioFocusChange(
                         GeckoMediaSession.SYSTEM_AUDIO_FOCUS_PERMANENT_LOSS,
                     )
                 }
 
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK,
+                -> {
+                    hasAudioFocus = false
+                    isAudioFocusRequestPending = true
                     controller?.notifyMediaAudioFocusChange(
                         GeckoMediaSession.SYSTEM_AUDIO_FOCUS_TRANSIENT_LOSS,
                     )
@@ -67,12 +89,18 @@ class BrowserMediaPlaybackService : Service() {
         notificationManager = getSystemService(NotificationManager::class.java)
         audioManager = getSystemService(AudioManager::class.java)
         createNotificationChannel()
+        ContextCompat.registerReceiver(
+            this,
+            becomingNoisyReceiver,
+            IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         platformSession =
             PlatformMediaSession(this, MEDIA_SESSION_TAG).apply {
                 setCallback(
                     object : PlatformMediaSession.Callback() {
                         override fun onPlay() {
-                            browserController()?.resumeMediaPlayback()
+                            handlePlay()
                         }
 
                         override fun onPause() {
@@ -81,6 +109,7 @@ class BrowserMediaPlaybackService : Service() {
 
                         override fun onStop() {
                             browserController()?.stopMediaPlayback()
+                            stopPlayback()
                         }
 
                         override fun onSeekTo(position: Long) {
@@ -88,11 +117,12 @@ class BrowserMediaPlaybackService : Service() {
                         }
                     },
                 )
+                @Suppress("DEPRECATION")
                 setFlags(
                     PlatformMediaSession.FLAG_HANDLES_MEDIA_BUTTONS or
                         PlatformMediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS,
                 )
-                isActive = true
+                isActive = false
             }
     }
 
@@ -102,7 +132,7 @@ class BrowserMediaPlaybackService : Service() {
         startId: Int,
     ): Int {
         when (intent?.action) {
-            ACTION_UPDATE -> handleUpdate(intent)
+            ACTION_UPDATE -> intent?.let(::handleUpdate)
             ACTION_PLAY -> handlePlay()
             ACTION_PAUSE -> browserController()?.pauseMediaPlayback()
             ACTION_STOP -> {
@@ -114,7 +144,11 @@ class BrowserMediaPlaybackService : Service() {
     }
 
     private fun handleUpdate(intent: Intent) {
-        isActive = intent.getBooleanExtra(EXTRA_ACTIVE, false)
+        val requestedActive = intent.getBooleanExtra(EXTRA_ACTIVE, false)
+        val requestedPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false)
+        if (isStopping && !requestedPlaying) return
+        isStopping = false
+        isActive = requestedActive
         if (!isActive) {
             stopPlayback()
             return
@@ -122,14 +156,14 @@ class BrowserMediaPlaybackService : Service() {
 
         mediaTitle = intent.getStringExtra(EXTRA_TITLE)?.take(MAX_METADATA_LENGTH) ?: "Cat Browser"
         mediaSubtitle = intent.getStringExtra(EXTRA_SUBTITLE)?.take(MAX_METADATA_LENGTH).orEmpty()
-        isPlaying = intent.getBooleanExtra(EXTRA_PLAYING, false)
+        isPlaying = requestedPlaying
         updatePlatformSession()
 
         val notification = buildNotification()
         if (isPlaying) {
             if (!startAsForeground(notification)) {
-                browserController()?.pauseMediaPlayback()
                 stopPlayback()
+                browserController()?.pauseMediaPlayback()
                 return
             }
             requestAudioFocus()
@@ -144,6 +178,7 @@ class BrowserMediaPlaybackService : Service() {
     }
 
     private fun handlePlay() {
+        isStopping = false
         isActive = true
         isPlaying = true
         updatePlatformSession()
@@ -151,8 +186,7 @@ class BrowserMediaPlaybackService : Service() {
             stopPlayback()
             return
         }
-        requestAudioFocus()
-        browserController()?.resumeMediaPlayback()
+        if (requestAudioFocus()) browserController()?.resumeMediaPlayback()
     }
 
     private fun startAsForeground(notification: Notification): Boolean =
@@ -169,84 +203,88 @@ class BrowserMediaPlaybackService : Service() {
             isForeground = true
         }.isSuccess
 
-    private fun requestAudioFocus() {
-        if (hasAudioFocus) return
-        val request =
-            audioFocusRequest
-                ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build(),
-                    )
-                    .setAcceptsDelayedFocusGain(true)
-                    .setWillPauseWhenDucked(true)
-                    .setOnAudioFocusChangeListener(audioFocusListener)
-                    .build()
-                    .also { audioFocusRequest = it }
+    private fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        if (isAudioFocusRequestPending) return false
 
-        when (audioManager.requestAudioFocus(request)) {
+        val attributesBuilder = AudioAttributes.Builder()
+        attributesBuilder.setUsage(AudioAttributes.USAGE_MEDIA)
+        attributesBuilder.setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+        val requestBuilder = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        requestBuilder.setAudioAttributes(attributesBuilder.build())
+        requestBuilder.setAcceptsDelayedFocusGain(true)
+        requestBuilder.setWillPauseWhenDucked(true)
+        requestBuilder.setOnAudioFocusChangeListener(audioFocusListener)
+        val request =
+            requestBuilder.build().also {
+                audioFocusRequest = it
+            }
+
+        return when (audioManager.requestAudioFocus(request)) {
             AudioManager.AUDIOFOCUS_REQUEST_GRANTED -> {
                 hasAudioFocus = true
                 browserController()?.notifyMediaAudioFocusChange(GeckoMediaSession.SYSTEM_AUDIO_FOCUS_GAIN)
+                true
             }
 
             AudioManager.AUDIOFOCUS_REQUEST_DELAYED -> {
+                isAudioFocusRequestPending = true
                 browserController()?.notifyMediaAudioFocusChange(
                     GeckoMediaSession.SYSTEM_AUDIO_FOCUS_TRANSIENT_LOSS,
                 )
+                false
             }
 
-            else -> browserController()?.pauseMediaPlayback()
+            else -> {
+                browserController()?.pauseMediaPlayback()
+                false
+            }
         }
     }
 
     private fun abandonAudioFocus() {
         audioFocusRequest?.let(audioManager::abandonAudioFocusRequest)
         hasAudioFocus = false
+        isAudioFocusRequestPending = false
     }
 
     private fun updatePlatformSession() {
-        platformSession.setMetadata(
-            MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, mediaTitle)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, mediaSubtitle)
-                .build(),
+        val metadataBuilder = MediaMetadata.Builder()
+        metadataBuilder.putString(MediaMetadata.METADATA_KEY_TITLE, mediaTitle)
+        metadataBuilder.putString(MediaMetadata.METADATA_KEY_ARTIST, mediaSubtitle)
+        platformSession.setMetadata(metadataBuilder.build())
+
+        val actions =
+            PlaybackState.ACTION_PLAY or
+                PlaybackState.ACTION_PAUSE or
+                PlaybackState.ACTION_PLAY_PAUSE or
+                PlaybackState.ACTION_STOP or
+                PlaybackState.ACTION_SEEK_TO
+        val playbackStateBuilder = PlaybackState.Builder()
+        playbackStateBuilder.setActions(actions)
+        playbackStateBuilder.setState(
+            if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+            PlaybackState.PLAYBACK_POSITION_UNKNOWN,
+            if (isPlaying) 1f else 0f,
         )
-        platformSession.setPlaybackState(
-            PlaybackState.Builder()
-                .setActions(
-                    PlaybackState.ACTION_PLAY or
-                        PlaybackState.ACTION_PAUSE or
-                        PlaybackState.ACTION_PLAY_PAUSE or
-                        PlaybackState.ACTION_STOP or
-                        PlaybackState.ACTION_SEEK_TO,
-                )
-                .setState(
-                    if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
-                    PlaybackState.PLAYBACK_POSITION_UNKNOWN,
-                    if (isPlaying) 1f else 0f,
-                )
-                .build(),
-        )
+        platformSession.setPlaybackState(playbackStateBuilder.build())
         platformSession.isActive = isActive
     }
 
     private fun buildNotification(): Notification {
-        val action =
+        val actionBuilder =
             if (isPlaying) {
                 Notification.Action.Builder(
-                    android.R.drawable.ic_media_pause,
+                    Icon.createWithResource(this, android.R.drawable.ic_media_pause),
                     getString(R.string.media_pause),
                     servicePendingIntent(ACTION_PAUSE, REQUEST_PAUSE),
-                ).build()
+                )
             } else {
                 Notification.Action.Builder(
-                    android.R.drawable.ic_media_play,
+                    Icon.createWithResource(this, android.R.drawable.ic_media_play),
                     getString(R.string.media_play),
                     servicePendingIntent(ACTION_PLAY, REQUEST_PLAY),
-                ).build()
+                )
             }
         val openIntent =
             Intent(this, MainActivity::class.java).apply {
@@ -259,23 +297,21 @@ class BrowserMediaPlaybackService : Service() {
                 openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-
-        return Notification.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(mediaTitle)
-            .setContentText(mediaSubtitle)
-            .setContentIntent(contentIntent)
-            .setCategory(Notification.CATEGORY_TRANSPORT)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
-            .setOngoing(isPlaying)
-            .addAction(action)
-            .setStyle(
-                Notification.MediaStyle()
-                    .setMediaSession(platformSession.sessionToken)
-                    .setShowActionsInCompactView(0),
-            )
-            .build()
+        val mediaStyle = Notification.MediaStyle()
+        mediaStyle.setMediaSession(platformSession.sessionToken)
+        mediaStyle.setShowActionsInCompactView(0)
+        val notificationBuilder = Notification.Builder(this, CHANNEL_ID)
+        notificationBuilder.setSmallIcon(android.R.drawable.ic_media_play)
+        notificationBuilder.setContentTitle(mediaTitle)
+        notificationBuilder.setContentText(mediaSubtitle)
+        notificationBuilder.setContentIntent(contentIntent)
+        notificationBuilder.setCategory(Notification.CATEGORY_TRANSPORT)
+        notificationBuilder.setVisibility(Notification.VISIBILITY_PUBLIC)
+        notificationBuilder.setOnlyAlertOnce(true)
+        notificationBuilder.setOngoing(isPlaying)
+        notificationBuilder.addAction(actionBuilder.build())
+        notificationBuilder.setStyle(mediaStyle)
+        return notificationBuilder.build()
     }
 
     private fun servicePendingIntent(
@@ -290,20 +326,18 @@ class BrowserMediaPlaybackService : Service() {
         )
 
     private fun createNotificationChannel() {
-        notificationManager.createNotificationChannel(
+        val channel =
             NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.media_notification_channel),
                 NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = getString(R.string.media_notification_channel_description)
-                setShowBadge(false)
-            },
-        )
+            )
+        channel.description = getString(R.string.media_notification_channel_description)
+        channel.setShowBadge(false)
+        notificationManager.createNotificationChannel(channel)
     }
 
-    private fun browserController() =
-        (application as? CatBrowserApplication)?.existingBrowserController()
+    private fun browserController() = (application as? CatBrowserApplication)?.existingBrowserController()
 
     private fun stopPlayback() {
         if (isStopping) return
@@ -329,6 +363,7 @@ class BrowserMediaPlaybackService : Service() {
 
     override fun onDestroy() {
         abandonAudioFocus()
+        unregisterReceiver(becomingNoisyReceiver)
         platformSession.isActive = false
         platformSession.release()
         super.onDestroy()
@@ -356,7 +391,7 @@ class BrowserMediaPlaybackService : Service() {
         private const val EXTRA_SUBTITLE = "subtitle"
 
         fun publish(
-            context: android.content.Context,
+            context: Context,
             isActive: Boolean,
             isPlaying: Boolean,
             title: String,
@@ -376,7 +411,7 @@ class BrowserMediaPlaybackService : Service() {
             }
         }
 
-        fun stop(context: android.content.Context) {
+        fun stop(context: Context) {
             context.startService(
                 Intent(context, BrowserMediaPlaybackService::class.java).setAction(ACTION_STOP),
             )

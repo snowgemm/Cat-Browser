@@ -171,6 +171,7 @@ class BrowserController(
     private var activeMediaGeckoSession: GeckoSession? = null
     private var activeMediaSession: MediaSession? = null
     private var isActiveMediaPlaying = false
+    private var hasMediaPlaybackNotification = false
 
     var selectedTabId by mutableStateOf("")
         private set
@@ -462,8 +463,21 @@ class BrowserController(
         tab: BrowserTab,
         session: GeckoSession,
         mediaSession: MediaSession,
+        force: Boolean = false,
     ) {
         if (tab.session !== session) return
+        if (
+            !force &&
+            activeMediaGeckoSession != null &&
+            activeMediaGeckoSession !== session &&
+            isActiveMediaPlaying
+        ) {
+            return
+        }
+        if (activeMediaGeckoSession !== session && hasMediaPlaybackNotification) {
+            hasMediaPlaybackNotification = false
+            runCatching { BrowserMediaPlaybackService.stop(appContext) }
+        }
         activeMediaGeckoSession = session
         activeMediaSession = mediaSession
     }
@@ -475,13 +489,14 @@ class BrowserController(
         isPlaying: Boolean,
     ) {
         if (tab.session !== session) return
-        rememberMediaSession(tab, session, mediaSession)
+        rememberMediaSession(tab, session, mediaSession, force = true)
         isActiveMediaPlaying = isPlaying
         if (isPlaying) {
+            hasMediaPlaybackNotification = true
             session.setActive(true)
             session.setPriorityHint(GeckoSession.PRIORITY_HIGH)
         }
-        publishMediaPlayback(tab, isPlaying)
+        if (hasMediaPlaybackNotification) publishMediaPlayback(tab, isPlaying)
         updateSessionActivity(tab)
     }
 
@@ -489,7 +504,7 @@ class BrowserController(
         tab: BrowserTab,
         session: GeckoSession,
     ) {
-        if (activeMediaGeckoSession !== session) return
+        if (activeMediaGeckoSession !== session || !hasMediaPlaybackNotification) return
         publishMediaPlayback(tab, isActiveMediaPlaying)
     }
 
@@ -525,6 +540,7 @@ class BrowserController(
         activeMediaGeckoSession = null
         activeMediaSession = null
         isActiveMediaPlaying = false
+        hasMediaPlaybackNotification = false
         runCatching { BrowserMediaPlaybackService.stop(appContext) }
         tabs.firstOrNull { it.session === session }?.let(::updateSessionActivity)
     }
@@ -2285,7 +2301,9 @@ class BrowserController(
                     session: GeckoSession,
                     mediaSession: MediaSession,
                 ) {
-                    updateMediaPlaybackState(tab, session, mediaSession, isPlaying = false)
+                    if (activeMediaGeckoSession === session) {
+                        updateMediaPlaybackState(tab, session, mediaSession, isPlaying = false)
+                    }
                 }
 
                 override fun onStop(
