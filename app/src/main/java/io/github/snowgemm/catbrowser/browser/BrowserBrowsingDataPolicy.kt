@@ -10,8 +10,10 @@ internal object BrowserBrowsingDataPolicy {
             else -> sinceUnixTimestamp * MILLIS_PER_SECOND
         }
 
-    fun shouldRemove(timestampMillis: Long, sinceUnixTimestamp: Long): Boolean =
-        timestampMillis >= sinceTimestampMillis(sinceUnixTimestamp)
+    fun shouldRemove(
+        timestampMillis: Long,
+        sinceUnixTimestamp: Long,
+    ): Boolean = timestampMillis >= sinceTimestampMillis(sinceUnixTimestamp)
 
     fun shouldRemoveDownload(
         status: BrowserDownloadStatus,
@@ -19,15 +21,15 @@ internal object BrowserBrowsingDataPolicy {
         createdAtMillis: Long,
         sinceUnixTimestamp: Long,
     ): Boolean {
-        val isTerminal = status == BrowserDownloadStatus.COMPLETE ||
-            status == BrowserDownloadStatus.FAILED ||
-            status == BrowserDownloadStatus.CANCELLED
+        val isTerminal =
+            status == BrowserDownloadStatus.COMPLETE ||
+                status == BrowserDownloadStatus.FAILED ||
+                status == BrowserDownloadStatus.CANCELLED
         return !isPrivate && isTerminal && shouldRemove(createdAtMillis, sinceUnixTimestamp)
     }
 
     fun retainHistory(
         entries: List<BrowserEntry>,
         sinceUnixTimestamp: Long,
-    ): List<BrowserEntry> =
-        entries.filterNot { shouldRemove(it.timestamp, sinceUnixTimestamp) }
+    ): List<BrowserEntry> = entries.filterNot { shouldRemove(it.timestamp, sinceUnixTimestamp) }
 }

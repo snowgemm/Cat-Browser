@@ -182,10 +182,11 @@ internal class BrowserLocalStore(
     }
 
     fun removeHistorySince(sinceUnixTimestamp: Long) {
-        val retained = BrowserBrowsingDataPolicy.retainHistory(
-            readEntries(KEY_HISTORY),
-            sinceUnixTimestamp,
-        )
+        val retained =
+            BrowserBrowsingDataPolicy.retainHistory(
+                readEntries(KEY_HISTORY),
+                sinceUnixTimestamp,
+            )
         writeEntries(KEY_HISTORY, retained)
     }
 

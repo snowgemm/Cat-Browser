@@ -22,8 +22,7 @@ internal class BrowserExtensionBrowsingDataDelegate(
         return result
     }
 
-    override fun onClearHistory(sinceUnixTimestamp: Long): GeckoResult<Void> =
-        clearHistorySince(sinceUnixTimestamp)
+    override fun onClearHistory(sinceUnixTimestamp: Long): GeckoResult<Void> = clearHistorySince(sinceUnixTimestamp)
 
     override fun onClearDownloads(sinceUnixTimestamp: Long): GeckoResult<Void> {
         val result = GeckoResult<Void>()

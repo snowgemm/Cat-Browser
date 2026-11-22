@@ -211,14 +211,15 @@ class BrowserDownloadManager(context: Context) {
     }
 
     fun clearHistorySince(sinceUnixTimestamp: Long) {
-        val completed = downloads.filter {
-            BrowserBrowsingDataPolicy.shouldRemoveDownload(
+        val completed =
+            downloads.filter {
+                BrowserBrowsingDataPolicy.shouldRemoveDownload(
                 status = it.status,
                 isPrivate = it.isPrivate,
                 createdAtMillis = it.createdAt,
-                sinceUnixTimestamp = sinceUnixTimestamp,
-            )
-        }
+                    sinceUnixTimestamp = sinceUnixTimestamp,
+                )
+            }
         completed.forEach { remove(it, deleteFile = false) }
     }
 

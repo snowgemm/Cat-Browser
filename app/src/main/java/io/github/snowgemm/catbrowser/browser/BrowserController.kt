@@ -1337,9 +1337,10 @@ class BrowserController(
             }
             val retainedHistory = history.toList()
             dataExecutor.execute {
-                val saveResult = runCatching {
-                    localStore.saveHistory(retainedHistory)
-                }
+                val saveResult =
+                    runCatching {
+                        localStore.saveHistory(retainedHistory)
+                    }
                 dataHandler.post {
                     saveResult.fold(
                         onSuccess = { result.complete(null) },
@@ -1352,10 +1353,11 @@ class BrowserController(
 
         val updateLoadedHistory = isHistoryLoading
         dataExecutor.execute {
-            val clearResult = runCatching {
-                localStore.removeHistorySince(sinceUnixTimestamp)
-                if (updateLoadedHistory) localStore.readHistory(MAX_HISTORY) else emptyList()
-            }
+            val clearResult =
+                runCatching {
+                    localStore.removeHistorySince(sinceUnixTimestamp)
+                    if (updateLoadedHistory) localStore.readHistory(MAX_HISTORY) else emptyList()
+                }
             dataHandler.post {
                 clearResult.fold(
                     onSuccess = { retainedHistory ->
