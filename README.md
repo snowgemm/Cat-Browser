@@ -237,6 +237,7 @@ See the [Macrobenchmark guide](macrobenchmark/README.md).
 |---|---|
 | [Architecture](docs/ARCHITECTURE.md) | Component ownership, GeckoRuntime/GeckoSession lifecycle and persistence boundaries |
 | [Android extension support](docs/ANDROID-EXTENSIONS.md) | Implemented WebExtension APIs, limitations and compatibility rules |
+| [WebExtensions compatibility ledger](docs/WEBEXTENSIONS-COMPATIBILITY.md) | Per-API Firefox/GeckoView/Cat ownership, evidence and support status |
 | [Extension test matrix](docs/EXTENSION-TEST-MATRIX.md) | Candidate add-ons and physical-device validation status |
 | [Feature roadmap](docs/FEATURE-ROADMAP.md) | Feature status and acceptance requirements |
 | [Cat AI integration](docs/AI-APP-CONTROL.md) | Gemini/Supabase architecture, user approval and data handling |

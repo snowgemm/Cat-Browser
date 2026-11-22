@@ -71,13 +71,14 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 | Cat AI | Optional Gemini assistant, Supabase anonymous Auth, Android Keystore session storage, stateless Gemini Interactions client, explicit approval queue for every browser tool call; private tabs and page contents excluded |
 | AI gateway | Supabase Edge Function with JWT verification, server-only Gemini API key, fixed function-tool allowlist, bounded request parsing and database-backed per-user/global quotas |
 | Runtime | GeckoRuntime lifetime and Gecko engine process |
-| BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, desktop-site settings, TLS state, PDF export, print, find-in-page, context-menu routing and storage clearing |
+| BrowserController | In-memory tab/session coordination, active tab, navigation, transient downscaled tab previews, tab order, normal/private data boundaries, permission callbacks, desktop-site settings, TLS state, PDF export, print, find-in-page, context-menu routing, storage clearing and GeckoView media-session coordination |
 | BrowserLocalStore | Reads and writes saved regular tabs (including desktop-site preference), normal-mode history, bookmarks and bookmark folders using additive SharedPreferences keys/fields; excludes private tabs |
 | BrowserTab | Per-tab UI state, transient preview bitmap, privacy mode, desktop-site preference, current security snapshot, GeckoSession reference and temporary same-mode navigation referrer |
 | Context-menu policy | Restricts page-provided targets to normalized, bounded HTTP(S) URLs before the controller can open them. |
 | Site permissions | GeckoView content/media permission prompts, Android runtime permission bridge and saved permission inspection/reset for supported types; device validation pending |
 | Extension manager | GeckoView WebExtensionController, AMO v5 Android discovery, official listing links, signed-XPI installation, permission prompts and lifecycle actions |
 | Downloads | GeckoView response-stream interception, safe filename handling, MediaStore/app-scoped/SAF destination, progress, app cancellation, open/share/delete and persisted non-private task metadata. Transfers interrupted by process death are not resumed. |
+| Media playback | `BrowserMediaPlaybackService` bridges GeckoView media sessions to Android `MediaSession`, notification and lock-screen actions, audio focus, seeking and foreground-service lifecycle; physical-device/OEM behavior still requires validation. |
 | Privacy controls | Private-mode sessions, private-data exclusion, site permissions and selective browsing-data clearing; tracking-protection UI is not fully implemented |
 
 ## Current limitations
@@ -91,6 +92,7 @@ CI then verifies the APK signatures, normalizes artifact filenames and writes SH
 - Desktop-site mode now sets both GeckoView's desktop User-Agent and desktop viewport per tab; its preference is restored for regular tabs only. Save-as-PDF uses `GeckoSession.saveAsPdf()` and Android's Storage Access Framework; printing uses GeckoView's PrintDelegate and Android PrintManager. These flows still require physical-device validation.
 - The address-bar secure indicator is based on GeckoView's `ProgressDelegate.onSecurityChange`, including security exceptions and loaded mixed content, rather than inferring security from an `https://` URL.
 - Find-in-page requires real-device validation; reader mode and built-in translation UI are not implemented.
-- No built-in password manager/autofill UI or bookmark import/export.
+- Android system Autofill is integrated for regular tabs and disabled for private tabs; Cat does not provide its own password manager or credential vault. Bookmark import/export is implemented through Android's Storage Access Framework.
 - Cat AI depends on Supabase Anonymous Auth and the server-side GEMINI_API_KEY secret. Physical-device end-to-end tests remain required; the in-app assistant is not a ChatGPT Android app connector.
+- `AndroidManifest.xml` currently sets `android:usesCleartextTraffic="true"`. Static inspection of the app-owned AMO, GitHub Releases and Supabase endpoints found HTTPS URLs, but the setting remains broad. Do not narrow it until a physical-device test proves GeckoView HTTP page navigation still works under an appropriately scoped native-app policy.
 - Physical-device smoke testing is still required; CI build success does not prove real-device runtime behavior.

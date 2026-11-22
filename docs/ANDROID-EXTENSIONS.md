@@ -19,7 +19,7 @@ Implemented in the Android app:
 - Track GeckoView installation, ready, enable/disable, uninstall, optional-permission and installation-failure events through a dedicated lifecycle delegate; also refresh the installed list when developer tooling changes it.
 - Re-register extension and per-session action/tab delegates when an extension becomes ready or the installed list changes.
 - Serialize permission prompts in arrival order so concurrent installation, update and optional-permission requests are not overwritten; pending prompts for an extension are rejected when that extension is disabled or removed.
-- Detect when GeckoView disables extension-process spawning after repeated crashes, and provide an explicit user-triggered restart action.
+- Detect when GeckoView disables extension-process spawning after repeated crashes and show a status message advising the user to restart Cat Browser. There is no in-app extension-process restart action in the current implementation.
 - Register browser actions and page actions; display action icons when GeckoView can decode them, with a monogram fallback, and display badges.
 - Open extension popup pages in a separate GeckoSession hosted in a Cat dialog.
 - Route `runtime.openOptionsPage()` to a Cat tab when GeckoView delegates options-page handling to the app.
@@ -45,7 +45,7 @@ The target is Firefox WebExtensions through GeckoView. This does not imply full 
 - **Unsupported:** a required manifest feature or browser API cannot be provided by GeckoView or Cat.
 - **Not checked:** there is insufficient evidence. Never show this state as supported.
 
-The AMO Android filter is only a catalog compatibility signal. It is not proof that an add-on works in Cat. Static manifest analysis is not runtime verification. Do not label an extension fully compatible solely because installation succeeds.
+The AMO Android filter is only a catalog compatibility signal. It is not proof that an add-on works in Cat. Static manifest analysis is not runtime verification. Do not label an extension fully compatible solely because installation succeeds. See [WEBEXTENSIONS-COMPATIBILITY.md](WEBEXTENSIONS-COMPATIBILITY.md) for per-API implementation ownership and evidence status.
 
 ## Installation and permission constraints
 

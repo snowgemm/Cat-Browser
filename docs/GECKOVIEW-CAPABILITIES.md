@@ -1,6 +1,6 @@
 # GeckoView capability audit
 
-Last reviewed: 2026-11-20  
+Last reviewed: 2026-11-22  
 Pinned application dependency: `org.mozilla.geckoview:geckoview:160.0.20261104181552`
 
 This document separates APIs provided by GeckoView from complete browser features owned by Cat Browser. An API being available in the engine does not mean the browser already exposes a safe, tested workflow for it.
@@ -21,6 +21,8 @@ This document separates APIs provided by GeckoView from complete browser feature
 | TLS and mixed content | `ProgressDelegate.onSecurityChange`, `SecurityInformation` | Address-bar lock depends on GeckoView security state, certificate exception state and whether active/passive mixed content was loaded. |
 | Save as PDF | `GeckoSession.saveAsPdf()` | The user chooses a destination through Android Storage Access Framework; PDF bytes are streamed to that URI on a worker executor. |
 | Print | `GeckoSession.printPageContent()`, `GeckoView.ActivityContextDelegate` | GeckoView's print delegate uses Android PrintManager with the current Activity context. |
+| Android system Autofill | `GeckoView.setAutofillEnabled()` | Enabled on regular-tab GeckoViews and disabled for private tabs. Android's configured Autofill service supplies credentials; Cat does not provide an app-owned password manager or credential vault. Physical-device/provider validation remains required. |
+| Media playback controls | `GeckoSession.MediaSession.Delegate`, Android `MediaSession`, `AudioManager` | GeckoView playback state is bridged to Android media controls, a foreground media-playback service, notification/lock-screen actions, metadata, seeking and audio focus. Private-tab page identity is masked. Physical-device/OEM validation remains required. |
 | Picture-in-picture | `PictureInPictureController.SessionPictureInPicture.Delegate`, `GeckoSessionSettings.Builder.pictureInPictureToken`, `CompositorController.onPipModeChanged` | Experimental GeckoView 160 placement-token flow; a dedicated, non-exported Activity hosts the cloned session while the original tab remains intact. Physical-device/vendor validation is still required. |
 | Context menus | `ContentDelegate.onContextMenu`, `ContentDelegate.ContextElement`, `GeckoSession.Loader.referrer` | Long-press menu for HTTP(S) links, images and media; opens in a new tab with source privacy mode and referrer session preserved, or copies the validated URL. Unsupported schemes are omitted. |
 
@@ -30,8 +32,6 @@ This document separates APIs provided by GeckoView from complete browser feature
 |---|---|---|
 | Full tab/session restoration | `ProgressDelegate.onSessionStateChange`, `SessionState`, `restoreState()` | Session snapshots can include history, scroll, zoom and form data. Persisting them requires encrypted storage, schema/version handling, corruption recovery and explicit privacy controls. Private-tab state must never be persisted. Cat Browser remains URL-level restore for now. |
 | Page translation | `GeckoSession.getSessionTranslation()`, runtime translation/model management | Requires language selection, model-size/download consent, progress/error handling, storage management and a clear network/data notice. It should not silently download large language models. |
-| Android system Autofill | `GeckoView.setAutofillEnabled()` | Enabled on regular-tab GeckoViews and disabled in private tabs. Credential selection and storage are delegated to Android's configured Autofill service; Cat does not store credentials or claim to include a password manager. Physical-device/provider validation remains required. |
-| Media controls | `MediaSession.Delegate`, Android `MediaSession`, media-playback foreground service and `AudioManager` | Integrated: play/pause/stop, notification and lock-screen controls, page metadata, audio-focus changes, private-tab metadata masking and background-session retention. Physical-device and OEM validation remains required. |
 | WebExtension native messaging | WebExtension native-messaging delegates and extension messaging APIs | A host bridge must be allowlisted, capability-scoped and permission-gated. Arbitrary native commands must not be exposed to content scripts. |
 | Accessibility/page extraction | Accessibility-tree and page-extraction APIs | Needs a concrete user-facing feature, bounded data flow and a privacy review before page content is exposed to other app components. |
 | Text selection customization | `SelectionActionDelegate` | GeckoView's native text-selection behavior is left unchanged; a custom action toolbar needs separate UX and clipboard-permission design. |
@@ -50,7 +50,7 @@ This document separates APIs provided by GeckoView from complete browser feature
 - Context-menu targets are length-bounded, normalized with the browser's HTTP(S) address policy, and revalidated against the active source request before opening. New tabs inherit the source tab's regular/private mode and tab group; the source GeckoSession is used as referrer for that same-mode navigation only. Pending referrer references are cleared if the source crashes or closes.
 - The context menu does not offer a simulated "Save image/media" action. GeckoView's `ContextElement` supplies the resource URI, not an authenticated response body; a real save action needs Gecko-authenticated fetching and private-session isolation.
 - Translation model downloads, Cat-owned credential storage and native messaging are not enabled without explicit user-facing consent and capability controls.
-- Android system Autofill is enabled only for regular tabs. Private tabs opt out, and Cat does not create or persist an app-owned credential vault.
+- Android system Autofill is integrated only for regular tabs. Private tabs opt out; credential storage and selection belong to the user's configured Android Autofill service, not Cat.
 - Media playback is kept active only while GeckoView reports active playback; Android audio focus is forwarded to GeckoView's system-audio-focus API. Private-tab titles and origins are not exposed in media notifications.
 - No full Firefox WebExtensions API parity or general Chrome Web Store CRX support is claimed.
 
@@ -67,3 +67,7 @@ This document separates APIs provided by GeckoView from complete browser feature
 - [GeckoView API changelog](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/doc-files/CHANGELOG)
 
 The PiP integration uses experimental APIs introduced in GeckoView 160.0; the other listed capabilities are evaluated against the pinned 160.0 dependency. Android CI verifies source compatibility with the exact dependency resolved by the project.
+
+## Version decision
+
+Cat remains pinned to `160.0.20261104181552`. The current upstream GeckoView Javadoc identifies API build `163.0.20261121093549`. This is a documentation signal, not proof that a matching Mozilla Maven artifact is available or suitable for Cat. Do not upgrade until the exact artifact is verified, API changes are checked against Cat's delegates and experimental PiP path, ABI packaging is validated, and the full extension/browser regression matrix passes. No dependency upgrade is part of this Phase 0 change.

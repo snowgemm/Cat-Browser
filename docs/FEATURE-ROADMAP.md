@@ -1,6 +1,6 @@
 # Cat Browser feature roadmap
 
-Last reviewed: 2026-11-20
+Last reviewed: 2026-11-22
 
 This is an implementation-status audit of the Android app, not a promise that every item is available today. A feature is marked implemented only when the repository contains its user-facing flow and the corresponding app behavior.
 
@@ -10,6 +10,8 @@ This is an implementation-status audit of the Android app, not a promise that ev
 - Multiple tabs, tab overview, persistent groups for regular tabs, tab closing and URL-level restore for regular tabs.
 - Local browsing history and bookmarks; bookmark titles can be edited, individual entries can be deleted, and the list can be sorted by name or date.
 - Configurable home page, startup behavior, four search engines and light/dark/system themes.
+- Android system Autofill on regular tabs; private tabs opt out. Cat does not store credentials or include its own password manager.
+- Background web-media controls through Android notifications and lock-screen media actions; physical-device and OEM validation remains pending.
 - Firefox WebExtension manager with AMO search/install, local signed XPI import, enable/disable/update/uninstall, action buttons and badges, popup sessions, options-page routing, supported tab lifecycle callbacks, basic `downloads.download()` and explicit per-extension private-browsing permission. Full API compatibility reporting and physical-device validation are not complete.
 - Stable and Beta (GitHub pre-release) update channels with ABI selection and SHA-256 verification.
 - Private tabs backed by GeckoView private-mode sessions. Private tabs are not persisted, private visits are not added to app history, and private tabs cannot add bookmarks.
@@ -49,7 +51,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 | Full tab/session restore | Partial | Restore back/forward history and scroll state safely, with recovery for corrupted or stale state. |
 | Bookmark manager | Implemented for local management and versioned JSON backup | Edit/delete/sort, up to 30 folders, move bookmarks, import/export through Android's system file picker, URL validation, duplicate handling and merge-without-overwrite. Duplicate URLs are collapsed to the newest saved timestamp when local bookmarks load. Import caps files at 5 MB and 10,000 bookmarks; imports reuse same-named folders and never replace an existing URL. Physical-device file-picker validation remains pending. |
 | Extension toolbar, tabs, popup and downloads | Partial; matrix and physical-device validation pending | Browser/page action icons and badges, popup GeckoSessions, options pages, signed XPI import, private-browsing opt-in, selected tab callbacks, downloads progress/terminal updates and Android `saveAs` picker are integrated. Public GeckoView does not expose extension pause/resume/cancel callbacks; `UNIQUIFY` is implemented, `PROMPT` delegates to Android's document picker and `OVERWRITE` conservatively falls back to a unique name. Full Firefox API coverage and Chrome Store compatibility remain unsupported or unverified. |
-| Autofill/password management | Missing | Secure storage, Android autofill integration, user consent and biometric/device-authentication safeguards where appropriate. |
+| Android Autofill / password management | Partial | Android's configured Autofill service is integrated on regular tabs and disabled in private tabs. A Cat-owned password manager or credential vault is not implemented and requires a separate security design. |
 
 ## Priority 2 — Reading and advanced controls
 
@@ -57,7 +59,7 @@ This is an implementation-status audit of the Android app, not a promise that ev
 |---|---|---|
 | Reader mode | Missing | Readability extraction, font/spacing controls and a clear exit action. |
 | Translation | Missing | User-triggered translation with language selection and a clear privacy/data notice. |
-| Media and picture-in-picture | Partial | Consistent media controls, fullscreen handling and Android PiP integration where supported. |
+| Media and picture-in-picture | Partial | Android media notification/lock-screen controls, audio focus and playback actions are integrated. GeckoView 160 experimental PiP is integrated but still needs physical-device/vendor validation. |
 | Page actions | Partial; print/PDF/share/copy/open externally implemented | Save a page as PDF through SAF, print through Android PrintManager, share the current HTTP(S) URL through Android Sharesheet, copy it to the clipboard, or choose another installed app to open it. QR remains future work; physical-device validation is pending. |
 | Per-site privacy controls | Missing | Tracking protection controls, site data inspection and a visible explanation of protection limits. |
 

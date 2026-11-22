@@ -1,6 +1,8 @@
 # Android WebExtension compatibility test matrix
 
-Last audit: 2026-11-19  
+See [WEBEXTENSIONS-COMPATIBILITY.md](WEBEXTENSIONS-COMPATIBILITY.md) for API-by-API implementation ownership and evidence status.
+
+Last audit: 2026-11-22  
 Target engine: GeckoView `160.0.20261104181552` (see `app/build.gradle.kts`).  
 Current code state: tab preview/reorder and Android `saveAs` are implemented; physical-device results below are intentionally **PENDING** until a test is run and recorded.
 
