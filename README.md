@@ -54,7 +54,7 @@ Private browsing limits what Cat stores locally. It does not make activity invis
 
 Cat targets **Firefox WebExtensions through GeckoView**. The current integration includes AMO discovery, signed XPI import, extension management, action buttons, popup sessions, options-page routing and selected tab/download bridges.
 
-Compatibility is API-by-API and remains partial. Installing an add-on does not prove that every API it uses works in Cat. Chrome Web Store/CRX support and complete Firefox Desktop API parity are not provided.
+Compatibility is API-by-API and remains partial. Cat targets the WebExtensions surface supported by Firefox for Android; desktop-only APIs are out of scope unless explicitly marked as Cat extras. Installing an add-on does not prove that every API it uses works in Cat. Chrome Web Store/CRX support is not provided.
 
 See the [Android extension support contract](docs/ANDROID-EXTENSIONS.md) and [physical-device test matrix](docs/EXTENSION-TEST-MATRIX.md).
 

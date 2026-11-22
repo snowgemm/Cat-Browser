@@ -2,17 +2,18 @@
 
 **Audit date:** 2026-11-22  
 **Cat Browser branch:** `main`  
-**Reviewed baseline:** `3de44c79996383da8be5d9204f1516a6a1b3e1bf`  
+**Reviewed baseline:** `e6127d41036a38fd15994b50c02eccb02bae8ffa`  
 **Pinned engine:** GeckoView `160.0.20261104181552`  
 **Target:** Firefox WebExtensions on Android, embedded through GeckoView
 
-This is an evidence ledger, not a promise of complete Firefox Desktop parity. A WebExtensions API in Firefox does not by itself prove that the pinned GeckoView build exposes every behavior to an Android embedder. **Not verified** is the default when Cat has no API-level or end-to-end evidence.
+The parity target is the WebExtensions surface supported by current Firefox for Android (Fenix), not Firefox Desktop. An API that Firefox for Android itself does not support is not a parity gap; Cat may still implement it as an explicitly labeled extra. A WebExtensions API available in desktop Firefox does not by itself prove that the pinned GeckoView build exposes it to an Android embedder. **Not verified** is the default when Cat has no API-level or end-to-end evidence.
 
 ## Status vocabulary
 
 - **Supported:** end-to-end behavior passes on the pinned GeckoView build and a supported Android device.
 - **Limited:** a documented subset works; unsupported options or behavior are explicitly rejected or described.
 - **Unsupported:** the required behavior cannot be provided within this GeckoView/Android product boundary.
+- **Not in Firefox Android baseline:** Firefox for Android does not expose this API/feature; it is not required for Fenix parity.
 - **Not verified:** evidence is insufficient; never present it as supported.
 
 Ownership vocabulary:
@@ -30,20 +31,25 @@ Ownership vocabulary:
 | Manifest keys / permissions | Gecko-native + Cat prompts | Install/update and optional permission prompts exist; there is no full fixture suite for every manifest key or permission combination. | Limited | Manifest and permission fixture suite for MV2/MV3 variants. |
 | MV3 background service worker | Firefox engine boundary | Firefox does not support `background.service_worker`; compatible fallback extensions may provide `background.scripts` or `background.page`. | Unsupported for service-worker-only add-ons | Test fallback manifests; never infer support from Chrome Web Store packaging. |
 | `runtime` | Gecko-native + selected Cat route | `runtime.openOptionsPage()` is routed to a Cat tab. Other runtime behavior has no comprehensive compatibility suite. | Not verified | Messaging, lifecycle and error-path fixtures. |
-| `storage` | Gecko-native | No duplicate Cat storage implementation is intended; persistence and quota semantics are not certified in Cat's pinned build. | Not verified | Local/sync storage fixtures, persistence and quota tests. |
+| `storage` | Gecko-native | No duplicate Cat storage implementation is intended; persistence and quota semantics are not certified in Cat's pinned build. Firefox for Android does not sync `storage.sync` data to a Mozilla account. | Not verified | Local/session/sync fixtures, persistence, quota and Android sync behavior. |
 | `tabs.create` | Embedder delegate + Cat tab/session integration | Regular/private sessions and `active=false` are supported; unsupported create options are rejected. | Limited | EXT-08 for active/background tabs, limits and privacy modes. |
 | `tabs.update` / `tabs.remove` | Session embedder delegate + Cat tab integration | URL, active/highlighted selection and close are handled; pin/mute/auto-discard options are rejected. | Limited | EXT-08, event ordering and rejection semantics. |
-| `windows` | Android-limited | Cat owns one browser Activity and does not claim Firefox Desktop multi-window semantics. | Not verified | Define an Android window mapping before any bridge is added. |
+| `windows` | Android-limited | Firefox for Android has one browser window and does not support the WebExtensions `windows` API. Cat owns one browser Activity. | Not in Firefox Android baseline | Do not add desktop multi-window semantics solely for Fenix parity. |
+| `commands` | Android input/UI boundary | Firefox for Android does not support the WebExtensions `commands` API or keyboard-shortcut manifest key. | Not in Firefox Android baseline | No parity work planned for desktop keyboard shortcuts. |
+| `omnibox` | Android address-bar boundary | Firefox for Android does not support extension-provided omnibox suggestions; Cat owns its native address bar. | Not in Firefox Android baseline | No desktop omnibox bridge planned for Fenix parity. |
+| `sidebarAction` | Android UI boundary | Firefox for Android does not support extension sidebars; browser panels are presented as full tabs. | Not in Firefox Android baseline | No sidebar UI bridge planned for Fenix parity. |
+| `devtools.*` | Android developer-tools boundary | Firefox for Android uses remote debugging and does not expose extension DevTools APIs. | Not in Firefox Android baseline | No embedded DevTools API bridge planned for Fenix parity. |
+| Manifest UI overrides | Android browser UI boundary | Firefox for Android does not support `chrome_url_overrides` or `chrome_settings_overrides`; Cat owns its New Tab page and settings UI. | Not in Firefox Android baseline | No extension-owned browser home/settings override planned. |
 | `webNavigation` | Gecko-native | Cat does not have a complete API fixture suite for frame, redirect and navigation-event order. | Not verified | Redirect, frame, history and process-restart fixtures. |
 | `browserAction` / `pageAction` | Gecko delegate + Cat toolbar | Toolbar actions, badges and popup GeckoSessions are implemented; action-icon and device behavior remains unverified. | Limited | EXT-04 / EXT-05 on physical devices. |
-| `contextMenus` | Gecko extension API / Cat UI integration | Cat's page long-press menu is its own UI and is not evidence of `browser.contextMenus` parity. | Not verified | Verify exact pinned GeckoView exposure and menu lifecycle before integrating. |
-| `notifications` | Gecko extension API / Android notification integration | Android media notifications and GeckoView website-notification callbacks are not proof of extension `browser.notifications` support. | Not verified | Permission, channels, click actions and dismissal tests for extension notifications. |
-| `downloads.download()` | Cat download bridge | Uses GeckoWebExecutor, Cat DownloadManager and `WebExtension.Download.update()`; query/control behavior is not complete. | Limited | EXT-10 with redirects, authentication, failures, save-as and private fetch. |
+| `contextMenus` / `menus` | Android UI boundary | Firefox for Android does not support the WebExtensions menus API; Cat's page long-press menu is a separate native feature. | Not in Firefox Android baseline | Do not treat Cat's native long-press menu as extension API support. |
+| `notifications` | Gecko extension API / Android notification integration | Android media notifications and GeckoView website-notification callbacks are not proof of extension `browser.notifications` support. | Not verified | Verify the pinned GeckoView runtime before designing an Android notification bridge. |
+| `downloads.download()` | Cat download bridge | Uses GeckoWebExecutor, Cat DownloadManager and `WebExtension.Download.update()`; query/control behavior is not complete. Cat's Android SAF `saveAs` picker is a Cat extension; Firefox for Android rejects `saveAs: true`. | Limited | EXT-10 with redirects, authentication, failures, save-as and private fetch. |
 | Extension `downloads.pause/resume/cancel/search` | Cat download bridge / pinned public API boundary | Cat's current bridge does not expose a separate command path to control its download tasks from extension API calls. GeckoView's pinned `WebExtension.Download` type exposes `update(Info)` for state reporting. | Not verified | Confirm exact JS runtime behavior with fixtures; do not claim support or platform impossibility without a pinned-build test. |
-| `bookmarks` | Cat storage integration | Cat's native bookmark manager does not imply `browser.bookmarks` is connected to the same store. | Not verified | Read/write, folders, events, duplicates and private-mode tests. |
-| `history` | Cat storage integration | Cat registers GeckoSession.HistoryDelegate for visited-link lookups backed by normal-mode Cat history. This is separate from the extension API and does not bridge `browser.history.search/onVisited/deleteUrl`. | Not verified | EXT-14 verifies GeckoSession visited-link callbacks; separately probe extension history query, events, deletion and private-mode behavior. |
+| `bookmarks` | Cat storage integration | Firefox for Android does not expose the WebExtensions `browser.bookmarks` API. Cat's native bookmark manager remains independent. | Not in Firefox Android baseline | Do not implement a bridge solely for Fenix parity; keep Cat's native bookmark UI separate. |
+| `history` | Cat storage integration | Firefox for Android does not expose the WebExtensions `browser.history` API. Cat registers GeckoSession.HistoryDelegate for core visited-link lookups; this is not an extension history bridge. | Not in Firefox Android baseline | EXT-14 verifies only GeckoSession callbacks; do not add `browser.history.search/onVisited/deleteUrl` solely for Fenix parity. |
 | `cookies` | Gecko-native / privacy boundary | No Cat-owned compatibility test for cookies, partitioning or private browsing is recorded. | Not verified | Cookie partitioning, private-session isolation and permission tests. |
-| `sessions` | Gecko-native / Android-limited | Recently closed Cat tabs restore the last URL only; this is not evidence of extension `browser.sessions` support. | Not verified | Restore, session identity and event tests. |
+| `sessions` | Gecko-native / Android-limited | Firefox for Android does not support the WebExtensions `browser.sessions` API. Cat's recently closed tabs restore the last URL only. | Not in Firefox Android baseline | Do not build desktop recently-closed-session API semantics solely for Fenix parity. |
 | `permissions` | Cat permission-prompt integration | Required install/update and optional prompts are queued; private access is a separate opt-in. | Limited | EXT-02 across install, update, optional, data-collection and private access. |
 | Content scripts | Gecko-native | Gecko executes content scripts where the extension and engine support them; Cat lacks comprehensive certification on real devices. | Not verified | EXT-06 across representative add-ons and origin boundaries. |
 | `scripting` | Gecko-native / embedder compatibility | No Cat API fixture or pinned-version certification is recorded. | Not verified | Verify API exposure and execution constraints on GeckoView 160. |
@@ -73,7 +79,12 @@ Ownership vocabulary:
 - [WebExtension API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.html)
 - [WebExtension.Download API (GeckoView 160)](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtension.Download.html)
 - [WebExtensionController API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/WebExtensionController.html)
+- [Firefox for Android extension differences](https://extensionworkshop.com/documentation/develop/differences-between-desktop-and-android-extensions/)
+- [Browser support for JavaScript APIs](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Browser_support_for_JavaScript_APIs)
+- [GeckoSession.HistoryDelegate API](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/GeckoSession.HistoryDelegate.html)
 - [Firefox background manifest support](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background)
+- [downloads.download() Android behavior](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/downloads/download)
+- [storage.sync Android behavior](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync)
 - [GeckoView API changelog](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/doc-files/CHANGELOG)
 
 The pinned dependency remains `160.0.20261104181552`. The currently surfaced upstream Javadoc identifies build `163.0.20261121093549`; that does not alone establish a published Maven artifact or a safe Cat upgrade. No engine update is implied.
