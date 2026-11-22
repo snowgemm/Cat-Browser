@@ -41,7 +41,7 @@ Ownership vocabulary:
 | `downloads.download()` | Cat download bridge | Uses GeckoWebExecutor, Cat DownloadManager and `WebExtension.Download.update()`; query/control behavior is not complete. | Limited | EXT-10 with redirects, authentication, failures, save-as and private fetch. |
 | Extension `downloads.pause/resume/cancel/search` | Cat download bridge / pinned public API boundary | Cat's current bridge does not expose a separate command path to control its download tasks from extension API calls. GeckoView's pinned `WebExtension.Download` type exposes `update(Info)` for state reporting. | Not verified | Confirm exact JS runtime behavior with fixtures; do not claim support or platform impossibility without a pinned-build test. |
 | `bookmarks` | Cat storage integration | Cat's native bookmark manager does not imply `browser.bookmarks` is connected to the same store. | Not verified | Read/write, folders, events, duplicates and private-mode tests. |
-| `history` | Cat storage integration | Cat's native history UI does not imply `browser.history` is bridged. GeckoSession history callbacks are a separate API. | Not verified | Query, event, deletion and private-mode tests. |
+| `history` | Cat storage integration | Cat registers GeckoSession.HistoryDelegate for visited-link lookups backed by normal-mode Cat history. This is separate from the extension API and does not bridge `browser.history.search/onVisited/deleteUrl`. | Not verified | EXT-14 verifies GeckoSession visited-link callbacks; separately probe extension history query, events, deletion and private-mode behavior. |
 | `cookies` | Gecko-native / privacy boundary | No Cat-owned compatibility test for cookies, partitioning or private browsing is recorded. | Not verified | Cookie partitioning, private-session isolation and permission tests. |
 | `sessions` | Gecko-native / Android-limited | Recently closed Cat tabs restore the last URL only; this is not evidence of extension `browser.sessions` support. | Not verified | Restore, session identity and event tests. |
 | `permissions` | Cat permission-prompt integration | Required install/update and optional prompts are queued; private access is a separate opt-in. | Limited | EXT-02 across install, update, optional, data-collection and private access. |
@@ -64,6 +64,7 @@ Ownership vocabulary:
 - **Downloads:** EXT-10.
 - **Content scripts, storage, network and lifecycle:** EXT-06 / EXT-07 / EXT-09 / EXT-12.
 - **Browsing data:** EXT-13 verifies the supported time-scoped history/download metadata bridge.
+- **GeckoSession history:** EXT-14 verifies app-owned visited-link lookup and private-mode isolation; it does not certify the WebExtensions `browser.history` API.
 - The physical-device matrix remains **PENDING** until logged with Cat commit, GeckoView version, add-on version/hash, Android version and device.
 
 ## Official references

@@ -2101,6 +2101,8 @@ class BrowserController(
                 }
             }
 
+        session.historyDelegate = createHistoryDelegate(tab, session)
+
         session.permissionDelegate =
             object : GeckoSession.PermissionDelegate {
                 override fun onAndroidPermissionsRequest(
@@ -2545,6 +2547,7 @@ class BrowserController(
         session.contentDelegate = null
         session.permissionDelegate = null
         session.progressDelegate = null
+        session.historyDelegate = null
         session.pictureInPictureDelegate = null
         if (session.isOpen) session.close()
         tab.session = null
@@ -2552,6 +2555,69 @@ class BrowserController(
         tab.loadPendingUntilAttached = false
         tab.pendingOriginalInput = null
     }
+
+    private fun createHistoryDelegate(
+        tab: BrowserTab,
+        expectedSession: GeckoSession,
+    ): GeckoSession.HistoryDelegate =
+        object : GeckoSession.HistoryDelegate {
+            override fun onVisited(
+                session: GeckoSession,
+                url: String,
+                lastVisitedURL: String?,
+                flags: Int,
+            ): GeckoResult<Boolean>? {
+                if (tab.session !== expectedSession || session !== expectedSession) {
+                    return GeckoResult.fromValue(false)
+                }
+                return GeckoResult.fromValue(
+                    BrowserHistoryPolicy.shouldMarkVisited(
+                        isPrivate = tab.isPrivate,
+                        url = url,
+                        flags = flags,
+                    ),
+                )
+            }
+
+            override fun getVisited(
+                session: GeckoSession,
+                urls: Array<out String>,
+            ): GeckoResult<BooleanArray>? {
+                if (tab.session !== expectedSession || session !== expectedSession || tab.isPrivate) {
+                    return GeckoResult.fromValue(null)
+                }
+
+                val requestedUrls = urls.toList()
+                val inMemoryUrls =
+                    if (isHistoryLoaded) {
+                        history.mapTo(mutableSetOf()) { it.url }
+                    } else {
+                        null
+                    }
+                if (inMemoryUrls != null) {
+                    return GeckoResult.fromValue(requestedUrls.map { it in inMemoryUrls }.toBooleanArray())
+                }
+
+                val result = GeckoResult<BooleanArray>()
+                val clearGeneration = historyClearGeneration
+                dataExecutor.execute {
+                    val storedUrls =
+                        runCatching {
+                            localStore.readHistory(MAX_HISTORY).mapTo(mutableSetOf()) { it.url }
+                        }.getOrDefault(mutableSetOf())
+                    dataHandler.post {
+                        val currentUrls =
+                            if (clearGeneration == historyClearGeneration) {
+                                storedUrls
+                            } else {
+                                emptySet()
+                            }
+                        result.complete(requestedUrls.map { it in currentUrls }.toBooleanArray())
+                    }
+                }
+                return result
+            }
+        }
 
     private fun recordVisit(tab: BrowserTab) {
         if (!shouldRecordBrowserHistory(tab) || !isWebUrl(tab.url)) return
