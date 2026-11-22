@@ -16,15 +16,19 @@ class BrowserSitePermissionPolicyTest {
     }
 
     @Test
-    fun persistentStorageAndTrackingPermissionsCannotBeResetToPrompt() {
+    fun trackingProtectionExceptionsCanBeResetToDefault() {
+        assertTrue(
+            BrowserSitePermissionPolicy.canReset(
+                GeckoSession.PermissionDelegate.PERMISSION_TRACKING,
+            ),
+        )
+    }
+
+    @Test
+    fun persistentStoragePermissionCannotBeResetToPrompt() {
         assertFalse(
             BrowserSitePermissionPolicy.canReset(
                 GeckoSession.PermissionDelegate.PERMISSION_PERSISTENT_STORAGE,
-            ),
-        )
-        assertFalse(
-            BrowserSitePermissionPolicy.canReset(
-                GeckoSession.PermissionDelegate.PERMISSION_TRACKING,
             ),
         )
     }
