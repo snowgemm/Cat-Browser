@@ -30,3 +30,4 @@ internal object BrowserBrowsingDataPolicy {
         sinceUnixTimestamp: Long,
     ): List<BrowserEntry> =
         entries.filterNot { shouldRemove(it.timestamp, sinceUnixTimestamp) }
+}

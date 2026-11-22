@@ -49,3 +49,4 @@ internal class BrowserExtensionBrowsingDataDelegate(
         )
         return result
     }
+}
