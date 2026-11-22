@@ -1337,15 +1337,11 @@ class BrowserController(
             }
             val retainedHistory = history.toList()
             dataExecutor.execute {
-                val saveResult =
-                    runCatching {
-                        localStore.saveHistory(retainedHistory)
-                    }
-                dataHandler.post {
-                    saveResult.fold(
-                        onSuccess = { result.complete(null) },
-                        onFailure = { error -> result.completeExceptionally(error) },
-                    )
+                try {
+                    localStore.saveHistory(retainedHistory)
+                    dataHandler.post { result.complete(null) }
+                } catch (error: Exception) {
+                    dataHandler.post { result.completeExceptionally(error) }
                 }
             }
             return result
@@ -1353,29 +1349,28 @@ class BrowserController(
 
         val updateLoadedHistory = isHistoryLoading
         dataExecutor.execute {
-            val clearResult =
-                runCatching {
-                    localStore.removeHistorySince(sinceUnixTimestamp)
-                    if (updateLoadedHistory) localStore.readHistory(MAX_HISTORY) else emptyList()
+            try {
+                localStore.removeHistorySince(sinceUnixTimestamp)
+                var retainedHistory = emptyList<BrowserEntry>()
+                if (updateLoadedHistory) {
+                    retainedHistory = localStore.readHistory(MAX_HISTORY)
                 }
-            dataHandler.post {
-                clearResult.fold(
-                    onSuccess = { retainedHistory ->
-                        if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
-                            history.clear()
-                            history.addAll(retainedHistory)
-                            isHistoryLoaded = true
-                            isHistoryLoading = false
-                        }
-                        result.complete(null)
-                    },
-                    onFailure = { error ->
-                        if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
-                            isHistoryLoading = false
-                        }
-                        result.completeExceptionally(error)
-                    },
-                )
+                dataHandler.post {
+                    if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
+                        history.clear()
+                        history.addAll(retainedHistory)
+                        isHistoryLoaded = true
+                        isHistoryLoading = false
+                    }
+                    result.complete(null)
+                }
+            } catch (error: Exception) {
+                dataHandler.post {
+                    if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
+                        isHistoryLoading = false
+                    }
+                    result.completeExceptionally(error)
+                }
             }
         }
         return result
