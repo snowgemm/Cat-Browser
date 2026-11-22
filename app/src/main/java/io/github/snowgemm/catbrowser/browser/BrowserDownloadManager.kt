@@ -214,9 +214,9 @@ class BrowserDownloadManager(context: Context) {
         val completed =
             downloads.filter {
                 BrowserBrowsingDataPolicy.shouldRemoveDownload(
-                status = it.status,
-                isPrivate = it.isPrivate,
-                createdAtMillis = it.createdAt,
+                    status = it.status,
+                    isPrivate = it.isPrivate,
+                    createdAtMillis = it.createdAt,
                     sinceUnixTimestamp = sinceUnixTimestamp,
                 )
             }

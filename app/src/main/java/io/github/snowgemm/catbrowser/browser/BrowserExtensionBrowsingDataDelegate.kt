@@ -35,11 +35,9 @@ internal class BrowserExtensionBrowsingDataDelegate(
         return result
     }
 
-    override fun onClearFormData(sinceUnixTimestamp: Long): GeckoResult<Void> =
-        unsupportedDataType("dữ liệu biểu mẫu")
+    override fun onClearFormData(sinceUnixTimestamp: Long): GeckoResult<Void> = unsupportedDataType("dữ liệu biểu mẫu")
 
-    override fun onClearPasswords(sinceUnixTimestamp: Long): GeckoResult<Void> =
-        unsupportedDataType("mật khẩu")
+    override fun onClearPasswords(sinceUnixTimestamp: Long): GeckoResult<Void> = unsupportedDataType("mật khẩu")
 
     private fun unsupportedDataType(label: String): GeckoResult<Void> {
         val result = GeckoResult<Void>()

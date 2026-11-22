@@ -22,9 +22,9 @@ class BrowserBrowsingDataPolicyTest {
     fun retainsOlderHistoryInItsOriginalOrder() {
         val entries =
             listOf(
-            BrowserEntry("older", "https://older.example", 1_724_999L),
-            BrowserEntry("boundary", "https://boundary.example", 1_725_000L),
-            BrowserEntry("newer", "https://newer.example", 1_726_000L),
+                BrowserEntry("older", "https://older.example", 1_724_999L),
+                BrowserEntry("boundary", "https://boundary.example", 1_725_000L),
+                BrowserEntry("newer", "https://newer.example", 1_726_000L),
         )
 
         assertEquals(
