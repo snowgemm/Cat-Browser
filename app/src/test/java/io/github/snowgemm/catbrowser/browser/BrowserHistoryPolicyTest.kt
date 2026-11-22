@@ -23,8 +23,9 @@ class BrowserHistoryPolicyTest {
             BrowserHistoryPolicy.shouldMarkVisited(
                 isPrivate = false,
                 url = "http://example.com",
-                flags = GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL or
-                    GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE,
+                flags =
+                    GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL or
+                        GeckoSession.HistoryDelegate.VISIT_REDIRECT_SOURCE,
             ),
         )
     }
