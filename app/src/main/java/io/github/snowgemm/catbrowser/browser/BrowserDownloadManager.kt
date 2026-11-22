@@ -210,6 +210,18 @@ class BrowserDownloadManager(context: Context) {
         completed.forEach { remove(it, deleteFile = deleteFiles) }
     }
 
+    fun clearHistorySince(sinceUnixTimestamp: Long) {
+        val completed = downloads.filter {
+            BrowserBrowsingDataPolicy.shouldRemoveDownload(
+                status = it.status,
+                isPrivate = it.isPrivate,
+                createdAtMillis = it.createdAt,
+                sinceUnixTimestamp = sinceUnixTimestamp,
+            )
+        }
+        completed.forEach { remove(it, deleteFile = false) }
+    }
+
     private fun copyResponse(
         item: BrowserDownloadItem,
         input: InputStream,

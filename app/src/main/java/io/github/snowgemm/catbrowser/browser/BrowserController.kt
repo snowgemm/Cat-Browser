@@ -88,6 +88,7 @@ class BrowserController(
             onRestoreBrowserFocus = {
                 activeTab?.session?.let(::activateExtensionTab)
             },
+            onClearHistorySince = ::clearHistorySince,
         )
 
     // Kept in memory only; private tabs are never added here.
@@ -1114,6 +1115,7 @@ class BrowserController(
     fun loadHistory() {
         if (isHistoryLoaded || isHistoryLoading) return
         isHistoryLoading = true
+        val clearGeneration = historyClearGeneration
         dataExecutor.execute {
             val entries =
                 runCatching {
@@ -1121,8 +1123,10 @@ class BrowserController(
                 }.getOrDefault(emptyList())
 
             dataHandler.post {
-                if (!isHistoryLoaded) history.addAll(entries)
-                isHistoryLoaded = true
+                if (historyClearGeneration == clearGeneration && !isHistoryLoaded) {
+                    history.addAll(entries)
+                    isHistoryLoaded = true
+                }
                 isHistoryLoading = false
             }
         }
@@ -1321,6 +1325,58 @@ class BrowserController(
         isHistoryLoaded = true
         isHistoryLoading = false
         persistHistory()
+    }
+
+    fun clearHistorySince(sinceUnixTimestamp: Long): GeckoResult<Void> {
+        val result = GeckoResult<Void>()
+        val clearGeneration = ++historyClearGeneration
+
+        if (isHistoryLoaded) {
+            history.removeAll {
+                BrowserBrowsingDataPolicy.shouldRemove(it.timestamp, sinceUnixTimestamp)
+            }
+            val retainedHistory = history.toList()
+            dataExecutor.execute {
+                val saveResult = runCatching {
+                    localStore.saveHistory(retainedHistory)
+                }
+                dataHandler.post {
+                    saveResult.fold(
+                        onSuccess = { result.complete(null) },
+                        onFailure = { error -> result.completeExceptionally(error) },
+                    )
+                }
+            }
+            return result
+        }
+
+        val updateLoadedHistory = isHistoryLoading
+        dataExecutor.execute {
+            val clearResult = runCatching {
+                localStore.removeHistorySince(sinceUnixTimestamp)
+                if (updateLoadedHistory) localStore.readHistory(MAX_HISTORY) else emptyList()
+            }
+            dataHandler.post {
+                clearResult.fold(
+                    onSuccess = { retainedHistory ->
+                        if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
+                            history.clear()
+                            history.addAll(retainedHistory)
+                            isHistoryLoaded = true
+                            isHistoryLoading = false
+                        }
+                        result.complete(null)
+                    },
+                    onFailure = { error ->
+                        if (clearGeneration == historyClearGeneration && updateLoadedHistory) {
+                            isHistoryLoading = false
+                        }
+                        result.completeExceptionally(error)
+                    },
+                )
+            }
+        }
+        return result
     }
 
     fun updateThemeMode(mode: String) {

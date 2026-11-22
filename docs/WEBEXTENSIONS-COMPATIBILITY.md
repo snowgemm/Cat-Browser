@@ -50,7 +50,7 @@ Ownership vocabulary:
 | `webRequest` | Gecko-native/network engine | Cat does not have a full extension request-block/redirect fixture suite. | Not verified | Block, redirect, auth and performance/privacy tests. |
 | `declarativeNetRequest` | Gecko extension engine | No Cat-side evidence establishes its API support or parity in the pinned build. | Not verified | Verify exact Gecko engine support before designing Cat code. |
 | `identity` | Gecko extension API / Android app-link boundary | No Cat OAuth redirect/identity integration is recorded. | Not verified | Verify allowed redirect and account-data boundaries. |
-| `browsingData` | Embedder delegate + Cat storage integration | GeckoView has a `WebExtension.BrowsingDataDelegate` API; Cat does not currently register this delegate for extensions. Cat's manual clear-data screen is a separate user workflow. | Not verified | Integrate safely with the existing clear-data selections and verify every data type. |
+| `browsingData` | Gecko-native + embedder delegate + Cat storage | Cat registers `WebExtension.BrowsingDataDelegate` per extension. The settings delegate exposes history and downloads; history is removed by Unix timestamp and recent completed regular-mode download records are removed without deleting downloaded files. Active downloads and private-mode download records are preserved. Form-data and password deletion requests are explicitly rejected because Cat does not own those stores. | Limited | EXT-13 on a physical device; verify Gecko-owned cache/cookie/local-storage requests, timestamp boundaries, private-mode behavior and that downloaded files/bookmarks remain intact. |
 | Runtime messaging | Gecko-native | No comprehensive test suite certifies extension messaging, sender identity or lifecycle in Cat. | Not verified | Message routing, sender and background-lifecycle fixtures. |
 | Native messaging | Privileged built-in extension only | GeckoView native messaging requires privileged built-in extensions and `geckoViewAddons`; content scripts additionally require `nativeMessagingFromContent`. Cat does not expose arbitrary native commands to third-party XPI packages. | Unsupported for ordinary third-party XPI | A future built-in bridge needs an allowlist, capability model and separate threat model. |
 | Chrome Web Store / CRX | Unavailable in current engine architecture | Cat uses GeckoView and Firefox XPI packages; it has no Chromium engine or CRX installer. | Unsupported | Out of scope for the selected GeckoView architecture. |
@@ -63,6 +63,7 @@ Ownership vocabulary:
 - **Tabs:** EXT-08.
 - **Downloads:** EXT-10.
 - **Content scripts, storage, network and lifecycle:** EXT-06 / EXT-07 / EXT-09 / EXT-12.
+- **Browsing data:** EXT-13 verifies the supported time-scoped history/download metadata bridge.
 - The physical-device matrix remains **PENDING** until logged with Cat commit, GeckoView version, add-on version/hash, Android version and device.
 
 ## Official references

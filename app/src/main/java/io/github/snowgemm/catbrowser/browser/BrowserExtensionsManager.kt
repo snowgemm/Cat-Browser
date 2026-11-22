@@ -96,7 +96,8 @@ class BrowserExtensionsManager(
     private val onActivateSession: (GeckoSession) -> Unit,
     private val onCloseSession: (GeckoSession) -> Boolean,
     private val onOpenOptionsPage: (String) -> Unit,
-    private val onRestoreBrowserFocus: () -> Unit
+    private val onRestoreBrowserFocus: () -> Unit,
+    private val onClearHistorySince: (Long) -> GeckoResult<Void>,
 ) {
     private val controller = GeckoViewExtensionOperations(runtime.webExtensionController)
     private val webExecutor = GeckoWebExecutor(runtime)
@@ -246,6 +247,12 @@ class BrowserExtensionsManager(
     private fun attachExtension(extension: WebExtension) {
         extension.setActionDelegate(createActionDelegate(extension))
         extension.setDownloadDelegate(createDownloadDelegate())
+        extension.setBrowsingDataDelegate(
+            BrowserExtensionBrowsingDataDelegate(
+                clearHistorySince = onClearHistorySince,
+                clearDownloadsSince = downloadManager::clearHistorySince,
+            ),
+        )
         extension.setTabDelegate(object : WebExtension.TabDelegate {
             override fun onNewTab(
                 source: WebExtension,
@@ -1004,6 +1011,7 @@ class BrowserExtensionsManager(
         extension.setActionDelegate(null)
         extension.setTabDelegate(null)
         extension.setDownloadDelegate(null)
+        extension.setBrowsingDataDelegate(null)
     }
 
     init {

@@ -181,6 +181,14 @@ internal class BrowserLocalStore(
         preferences.edit().remove(KEY_HISTORY).apply()
     }
 
+    fun removeHistorySince(sinceUnixTimestamp: Long) {
+        val retained = BrowserBrowsingDataPolicy.retainHistory(
+            readEntries(KEY_HISTORY),
+            sinceUnixTimestamp,
+        )
+        writeEntries(KEY_HISTORY, retained)
+    }
+
     private fun readTabGroups(): List<BrowserTabGroup> {
         val saved = readArray(KEY_TAB_GROUPS)
         val seenIds = mutableSetOf<String>()

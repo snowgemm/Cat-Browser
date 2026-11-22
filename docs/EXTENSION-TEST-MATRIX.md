@@ -47,6 +47,7 @@ Run each candidate against the same Cat build and record the commit SHA and bund
 | EXT-10 | Downloads | `downloads.download()` progress/terminal events are correct; `saveAs`/`PROMPT` open Android picker; `UNIQUIFY` produces a free name; `OVERWRITE` preserves the existing file and falls back to a free name; cancellation rejects cleanly |
 | EXT-11 | Private browsing | Extension access is denied by default; after opt-in, private tabs remain excluded from persistent Cat history/download metadata |
 | EXT-12 | Lifecycle and stress | Switch 1/5/10/20 tabs, background/foreground, rotate, process-restart, low-memory and network loss without crashes or leaked views |
+| EXT-13 | Extension browsing data | History removal respects the Unix-second cutoff; only recent completed regular-mode download metadata is removed, not output files; active/private downloads and bookmarks remain untouched; form-data/password requests reject explicitly; verify Gecko-owned data types and private-mode behavior |
 
 ## Results log
 
