@@ -46,7 +46,7 @@ The physical-device Macrobenchmark suite clears Cat Browser's app data when it p
 
 ## GitHub Actions and releases
 
-- Android CI runs on pushes to `main` and can be started manually. It runs the AI gateway checks, Python validator tests, Android lint, Kotlin lint, JVM tests, ABI APK builds, signature checks and benchmark compilation.
+- Android CI runs on pushes and pull requests targeting `main`, and can be started manually. It runs the AI gateway checks, Python validator tests, Android lint, Kotlin lint, JVM tests, ABI APK builds, signature checks and benchmark compilation.
 - A commit containing `[refresh-ktlint-baseline]` generates a short-lived review artifact. CI never commits or pushes a generated baseline. Download and inspect the artifact, replace `app/config/ktlint/baseline.xml.zip` only after reviewing the entries, then make a normal source commit so the complete lint gate runs.
 - CodeQL analyzes Java/Kotlin and JavaScript/TypeScript on `main`, with a weekly scheduled scan.
 - A release is initiated only by pushing a validated `vMAJOR.MINOR.PATCH` or `vMAJOR.MINOR.PATCH-beta[.N]` tag. The workflow runs the same source-quality gates, builds and verifies the production-signed ABI APKs, creates provenance attestations, then publishes the GitHub Release in a separate write-scoped job.

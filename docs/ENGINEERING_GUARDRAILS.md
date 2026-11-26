@@ -22,6 +22,8 @@ For every change, the implementing agent must be able to demonstrate:
 - **Security/privacy:** permissions, private browsing, AI approval, and data boundaries are unchanged unless explicitly reviewed.
 - **Evidence:** build/test/lint results are reported accurately; device-only behavior is marked unverified until tested on hardware.
 
+The guard is mutation-tested: valid architecture fixtures must pass, while fixtures that introduce a second GeckoRuntime, remove private-session binding, or drop a CI gate must fail. These tests run with the existing Python validator suite.
+
 ## Required verification
 
 ```bash

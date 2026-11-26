@@ -1,53 +1,51 @@
 #!/usr/bin/env python3
-"""Fail CI when Cat Browser's core runtime/session boundaries drift."""
+"""Validate Cat Browser's high-risk architecture and CI invariants."""
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "app/src/main/java/io/github/snowgemm/catbrowser"
-WORKFLOW = ROOT / ".github/workflows/android-ci.yml"
 
-
-def fail(message: str) -> None:
-    print(f"ARCHITECTURE VIOLATION: {message}", file=sys.stderr)
-    raise SystemExit(1)
-
-
-def main() -> None:
-    kotlin_files = sorted(SOURCE.rglob("*.kt"))
+def check_architecture(root: Path) -> list[str]:
+    failures: list[str] = []
+    source = root / "app/src/main/java/io/github/snowgemm/catbrowser"
+    kotlin_files = sorted(source.rglob("*.kt")) if source.exists() else []
     if not kotlin_files:
-        fail("no Kotlin production sources found")
+        return ["no Kotlin production sources found"]
 
     creation_sites = [
-        path.relative_to(ROOT).as_posix()
+        path.relative_to(root).as_posix()
         for path in kotlin_files
         if "GeckoRuntime.create(" in path.read_text(encoding="utf-8")
     ]
     expected_owner = "app/src/main/java/io/github/snowgemm/catbrowser/CatBrowserApplication.kt"
     if creation_sites != [expected_owner]:
-        fail(f"GeckoRuntime must be created only by CatBrowserApplication; found {creation_sites}")
+        failures.append(
+            "GeckoRuntime must be created only by CatBrowserApplication; "
+            f"found {creation_sites}"
+        )
 
-    application = (SOURCE / "CatBrowserApplication.kt").read_text(encoding="utf-8")
+    application_path = source / "CatBrowserApplication.kt"
+    application = application_path.read_text(encoding="utf-8") if application_path.is_file() else ""
     if "BrowserController(this, geckoRuntime)" not in application:
-        fail("CatBrowserApplication must inject its process-wide GeckoRuntime into BrowserController")
+        failures.append("CatBrowserApplication must inject its process-wide GeckoRuntime into BrowserController")
 
-    controller = (SOURCE / "browser/BrowserController.kt").read_text(encoding="utf-8")
-    required_controller_contract = (
+    controller_path = source / "browser/BrowserController.kt"
+    controller = controller_path.read_text(encoding="utf-8") if controller_path.is_file() else ""
+    for contract in (
         "private val runtime: GeckoRuntime",
         "GeckoSessionSettings",
         ".usePrivateMode(tab.isPrivate)",
-    )
-    for contract in required_controller_contract:
+    ):
         if contract not in controller:
-            fail(f"BrowserController is missing required session contract: {contract}")
+            failures.append(f"BrowserController is missing required session contract: {contract}")
 
-    tests = ROOT / "app/src/test/java/io/github/snowgemm/catbrowser/browser"
+    tests = root / "app/src/test/java/io/github/snowgemm/catbrowser/browser"
     for test_name in ("BrowserTabPrivacyTest.kt", "BrowserMemoryTrimPolicyTest.kt"):
         if not (tests / test_name).is_file():
-            fail(f"required privacy/lifecycle regression test is missing: {test_name}")
+            failures.append(f"required privacy/lifecycle regression test is missing: {test_name}")
 
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    required_gates = (
+    workflow_path = root / ".github/workflows/android-ci.yml"
+    workflow = workflow_path.read_text(encoding="utf-8") if workflow_path.is_file() else ""
+    for gate in (
         ":app:lintDebug",
         ":app:ktlintCheck",
         ":app:testDebugUnitTest",
@@ -55,13 +53,23 @@ def main() -> None:
         "verify_abi_apks.py",
         "apksigner",
         "verify --verbose",
-    )
-    for gate in required_gates:
+    ):
         if gate not in workflow:
-            fail(f"Android CI is missing required quality gate: {gate}")
+            failures.append(f"Android CI is missing required quality gate: {gate}")
 
+    return failures
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parents[1]
+    failures = check_architecture(root)
+    if failures:
+        for failure in failures:
+            print(f"ARCHITECTURE VIOLATION: {failure}", file=sys.stderr)
+        return 1
     print("Cat Browser architecture guard passed: runtime ownership, session privacy, regression tests, and CI gates.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
