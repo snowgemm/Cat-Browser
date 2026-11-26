@@ -3,9 +3,11 @@ package io.github.snowgemm.catbrowser.ui
 import android.animation.ValueAnimator
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 
 /**
@@ -22,6 +24,24 @@ internal object BrowserMotionPolicy {
     ): Int {
         require(preferredDurationMillis >= 0) { "Animation duration must not be negative." }
         return if (enabled) preferredDurationMillis else 0
+    }
+}
+
+internal fun browserScaleFadeEnter(
+    enabled: Boolean,
+    durationMillis: Int,
+    initialScale: Float = 0.96f,
+): EnterTransition {
+    require(durationMillis >= 0) { "Animation duration must not be negative." }
+    require(initialScale in 0f..1f) { "Initial scale must be between zero and one." }
+    return if (enabled) {
+        fadeIn(tween(durationMillis, easing = FastOutSlowInEasing)) +
+            scaleIn(
+                animationSpec = tween(durationMillis, easing = FastOutSlowInEasing),
+                initialScale = initialScale,
+            )
+    } else {
+        EnterTransition.None
     }
 }
 

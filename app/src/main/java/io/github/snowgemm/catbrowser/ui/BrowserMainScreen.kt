@@ -805,7 +805,7 @@ internal fun BrowserMainScreen(
                             }
                             AnimatedVisibility(
                                 visible = tab.isLoading && !addressFocused,
-                                enter = browserFadeEnter(motionEnabled, 120),
+                                enter = browserScaleFadeEnter(motionEnabled, 120),
                                 exit = browserFadeExit(motionEnabled, 90),
                             ) {
                                 LinearProgressIndicator(
