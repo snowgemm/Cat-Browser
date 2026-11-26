@@ -97,6 +97,7 @@ internal fun TabsOverview(
     onNewTab: () -> Unit,
     onNewPrivateTab: () -> Unit,
 ) {
+    val motionEnabled = isBrowserMotionEnabled()
     var tabSearch by remember { mutableStateOf("") }
     var tabFilter by remember { mutableStateOf("regular") }
     var selectedGroupId by remember { mutableStateOf<String?>(null) }
@@ -421,22 +422,22 @@ internal fun TabsOverview(
                         }
                     val borderColor by animateColorAsState(
                         targetValue = targetBorderColor,
-                        animationSpec = tween(180),
+                        animationSpec = tween(BrowserMotionPolicy.durationMillis(motionEnabled, 180)),
                         label = "tab-card-border",
                     )
                     val borderWidth by animateDpAsState(
                         targetValue = if (selected) 1.6.dp else 1.dp,
-                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
+                        animationSpec = if (motionEnabled) spring(dampingRatio = 0.9f, stiffness = 520f) else snap(),
                         label = "tab-card-border-width",
                     )
                     val cardScale by animateFloatAsState(
                         targetValue = if (draggingTabId == tab.id) 0.96f else 1f,
-                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 460f),
+                        animationSpec = if (motionEnabled) spring(dampingRatio = 0.82f, stiffness = 460f) else snap(),
                         label = "tab-card-drag-scale",
                     )
                     val cardElevation by animateDpAsState(
                         targetValue = if (selected) 4.dp else 1.dp,
-                        animationSpec = spring(dampingRatio = 0.9f, stiffness = 500f),
+                        animationSpec = if (motionEnabled) spring(dampingRatio = 0.9f, stiffness = 500f) else snap(),
                         label = "tab-card-elevation",
                     )
 
@@ -462,8 +463,14 @@ internal fun TabsOverview(
                             Modifier
                                 .fillMaxWidth()
                                 .height(210.dp)
-                                .animateContentSize()
-                                .animateItem()
+                                .animateContentSize(
+                                    animationSpec = tween(BrowserMotionPolicy.durationMillis(motionEnabled, 180)),
+                                )
+                                .animateItem(
+                                    fadeInSpec = if (motionEnabled) tween(120) else null,
+                                    placementSpec = if (motionEnabled) spring(stiffness = Spring.StiffnessMediumLow) else null,
+                                    fadeOutSpec = if (motionEnabled) tween(100) else null,
+                                )
                                 .graphicsLayer {
                                     alpha = if (draggingTabId == tab.id) 0.84f else 1f
                                     scaleX = cardScale

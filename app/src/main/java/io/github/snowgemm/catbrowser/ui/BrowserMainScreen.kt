@@ -18,9 +18,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -169,6 +166,7 @@ internal fun BrowserMainScreen(
     onOpenSettings: () -> Unit,
     onOpenDownloads: () -> Unit,
 ) {
+    val motionEnabled = isBrowserMotionEnabled()
     var showHistory by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -462,8 +460,8 @@ internal fun BrowserMainScreen(
     ) {
         AnimatedVisibility(
             visible = tab.isPrivate && !tab.isFullScreen,
-            enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { -it / 4 },
-            exit = fadeOut(tween(120)),
+            enter = browserFadeSlideEnter(motionEnabled, 180, 4),
+            exit = browserFadeExit(motionEnabled, 120),
         ) {
             Row(
                 Modifier
@@ -496,8 +494,8 @@ internal fun BrowserMainScreen(
 
         AnimatedVisibility(
             visible = showFind && !tab.isFullScreen,
-            enter = fadeIn(tween(150)) + slideInVertically(tween(150)) { -it / 3 },
-            exit = fadeOut(tween(100)),
+            enter = browserFadeSlideEnter(motionEnabled, 150, 3),
+            exit = browserFadeExit(motionEnabled, 100),
         ) {
             Surface(
                 Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
@@ -553,8 +551,8 @@ internal fun BrowserMainScreen(
 
         AnimatedVisibility(
             visible = tab.error != null && !tab.isFullScreen,
-            enter = fadeIn(tween(160)) + slideInVertically(tween(160)) { -it / 3 },
-            exit = fadeOut(tween(100)),
+            enter = browserFadeSlideEnter(motionEnabled, 160, 3),
+            exit = browserFadeExit(motionEnabled, 100),
         ) {
             tab.error?.let { message ->
                 Row(
@@ -682,7 +680,9 @@ internal fun BrowserMainScreen(
                             Modifier
                                 .weight(1f)
                                 .height(if (addressFocused) 52.dp else 48.dp)
-                                .animateContentSize()
+                                .animateContentSize(
+                                    animationSpec = tween(BrowserMotionPolicy.durationMillis(motionEnabled, 140)),
+                                )
                                 .pointerInput(tab.id, addressFocused, controller.tabs.size) {
                                     if (!addressFocused && controller.tabs.size > 1) {
                                         var dragDistance = 0f
@@ -806,8 +806,8 @@ internal fun BrowserMainScreen(
                             }
                             AnimatedVisibility(
                                 visible = tab.isLoading && !addressFocused,
-                                enter = fadeIn(tween(120)),
-                                exit = fadeOut(tween(90)),
+                                enter = browserFadeEnter(motionEnabled, 120),
+                                exit = browserFadeExit(motionEnabled, 90),
                             ) {
                                 LinearProgressIndicator(
                                     progress = { tab.progress.coerceIn(0, 100) / 100f },
