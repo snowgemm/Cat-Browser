@@ -19,7 +19,7 @@ class CatBrowserArchitectureGuardTests(unittest.TestCase):
             (tests / name).write_text("// fixture", encoding="utf-8")
 
         manifest = self.root / "app/src/main/AndroidManifest.xml"
-        manifest.parent.mkdir(parents=True)
+        manifest.parent.mkdir(parents=True, exist_ok=True)
         permissions = (
             "INTERNET", "REQUEST_INSTALL_PACKAGES", "ACCESS_COARSE_LOCATION",
             "ACCESS_FINE_LOCATION", "CAMERA", "RECORD_AUDIO", "POST_NOTIFICATIONS",
