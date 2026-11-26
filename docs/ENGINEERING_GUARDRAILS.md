@@ -25,6 +25,14 @@ For every change, the implementing agent must be able to demonstrate:
 
 The guard is mutation-tested: valid architecture fixtures must pass, while fixtures that introduce a second GeckoRuntime, remove private-session binding, or drop a CI gate must fail. These tests run with the existing Python validator suite.
 
+## Agent Evaluation Pipeline
+
+Task scenarios live in `evals/agent-evals.json`. The local runner checks architecture, privacy, regression-test presence, Android permissions, and CI configuration without executing commands supplied by the evaluation data.
+
+Run `python3 scripts/run_agent_evals.py` after an agent change. It writes `build/agent-evals/report.json`, calculates a weighted score (critical cases carry more weight), and fails CI if any required case fails. GitHub Actions publishes the report as an artifact and step summary.
+
+These deterministic evaluations grade repository artifacts, not model reasoning. Kotlin/JVM tests, lint, build, ABI/signature checks, benchmarks, and physical-device tests remain separate evidence gates.
+
 ## Required verification
 
 ```bash

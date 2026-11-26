@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "project": "Cat Browser",
+  "evaluation_scope": "Repository-artifact acceptance scenarios; no model API is invoked.",
+  "cases": [
+    {
+      "id": "CB-RUNTIME-001",
+      "title": "Single GeckoRuntime and tab-scoped sessions",
+      "category": "architecture",
+      "severity": "critical",
+      "task_prompt": "Change GeckoView runtime or session behavior without creating another GeckoRuntime or losing per-tab privacy settings.",
+      "checks": [
+        {
+          "id": "runtime-single-creation",
+          "type": "tree_count_text",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser",
+          "glob": "*.kt",
+          "text": "GeckoRuntime.create(",
+          "equals": 1
+        },
+        {
+          "id": "runtime-injected",
+          "type": "file_contains",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser/CatBrowserApplication.kt",
+          "text": "BrowserController(this, geckoRuntime)"
+        },
+        {
+          "id": "controller-owns-runtime",
+          "type": "file_contains",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser/browser/BrowserController.kt",
+          "text": "private val runtime: GeckoRuntime"
+        },
+        {
+          "id": "private-mode-from-tab",
+          "type": "file_contains",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser/browser/BrowserController.kt",
+          "text": ".usePrivateMode(tab.isPrivate)"
+        }
+      ]
+    },
+    {
+      "id": "CB-PRIVACY-001",
+      "title": "Private browsing data isolation",
+      "category": "privacy",
+      "severity": "critical",
+      "task_prompt": "Change tab persistence, history, bookmarks, or tab groups without storing private-tab data.",
+      "checks": [
+        {
+          "id": "persistence-filters-private-tabs",
+          "type": "file_contains",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser/browser/BrowserLocalStore.kt",
+          "text": "tabs.filter(::shouldPersistBrowserTab)"
+        },
+        {
+          "id": "private-tabs-regression-test",
+          "type": "test_method",
+          "path": "app/src/test/java/io/github/snowgemm/catbrowser/browser/BrowserTabPrivacyTest.kt",
+          "name": "privateTabsAreExcludedFromAllAppOwnedBrowsingRecords"
+        },
+        {
+          "id": "regular-tabs-regression-test",
+          "type": "test_method",
+          "path": "app/src/test/java/io/github/snowgemm/catbrowser/browser/BrowserTabPrivacyTest.kt",
+          "name": "regularTabsCanBeRestoredAndSaved"
+        }
+      ]
+    },
+    {
+      "id": "CB-PERMISSION-001",
+      "title": "Reviewed Android permission boundary",
+      "category": "security",
+      "severity": "high",
+      "task_prompt": "Introduce an Android capability only when justified; detect unreviewed permissions including API-scoped declarations.",
+      "checks": [
+        {
+          "id": "manifest-permission-allowlist",
+          "type": "manifest_permission_allowlist",
+          "path": "app/src/main/AndroidManifest.xml",
+          "allowed": [
+            "android.permission.INTERNET",
+            "android.permission.REQUEST_INSTALL_PACKAGES",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.CAMERA",
+            "android.permission.RECORD_AUDIO",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CB-MOTION-001",
+      "title": "Respect system animation preferences",
+      "category": "accessibility",
+      "severity": "normal",
+      "task_prompt": "Change non-essential UI motion while keeping transitions immediate when Android system animations are disabled.",
+      "checks": [
+        {
+          "id": "motion-policy",
+          "type": "file_contains",
+          "path": "app/src/main/java/io/github/snowgemm/catbrowser/ui/BrowserMotion.kt",
+          "texts": [
+            "ValueAnimator.areAnimatorsEnabled()",
+            "return if (enabled) preferredDurationMillis else 0",
+            "EnterTransition.None"
+          ]
+        },
+        {
+          "id": "motion-disabled-test",
+          "type": "test_method",
+          "path": "app/src/test/java/io/github/snowgemm/catbrowser/ui/BrowserMotionPolicyTest.kt",
+          "name": "removesNonEssentialDurationWhenSystemAnimationsAreDisabled"
+        },
+        {
+          "id": "negative-duration-test",
+          "type": "test_method",
+          "path": "app/src/test/java/io/github/snowgemm/catbrowser/ui/BrowserMotionPolicyTest.kt",
+          "name": "rejectsNegativeAnimationDurations"
+        }
+      ]
+    },
+    {
+      "id": "CB-CI-001",
+      "title": "Read-only and reproducible CI gates",
+      "category": "delivery",
+      "severity": "high",
+      "task_prompt": "Modify build automation without granting CI unnecessary repository write access or introducing mutable action references.",
+      "checks": [
+        {
+          "id": "read-only-token",
+          "type": "workflow_read_only",
+          "path": ".github/workflows/android-ci.yml"
+        },
+        {
+          "id": "actions-pinned",
+          "type": "workflow_actions_pinned_sha",
+          "path": ".github/workflows/android-ci.yml"
+        },
+        {
+          "id": "quality-gates",
+          "type": "workflow_contains_all",
+          "path": ".github/workflows/android-ci.yml",
+          "texts": [
+            "python3 scripts/verify_architecture.py",
+            "python3 scripts/run_agent_evals.py",
+            ":app:lintDebug",
+            ":app:ktlintCheck",
+            ":app:testDebugUnitTest",
+            ":app:assembleDebug",
+            "verify_abi_apks.py",
+            "apksigner"
+          ]
+        }
+      ]
+    }
+  ]
+}

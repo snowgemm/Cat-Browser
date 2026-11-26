@@ -22,3 +22,12 @@
 - Do not create a new GeckoRuntime or bypass BrowserController ownership.
 - Do not claim browser-extension compatibility beyond the verified compatibility matrix.
 - Never claim a device behavior is verified unless it was exercised on a physical device.
+
+
+## Agent evaluation protocol
+
+- Select the matching scenario in `evals/agent-evals.json` before changing a feature.
+- After implementation, run `python3 scripts/run_agent_evals.py` and the relevant Kotlin/JVM, lint, build, ABI, and benchmark checks.
+- Do not weaken an evaluation assertion or remove its regression test merely to obtain a pass. Update a scenario only when the product contract changes and the change is reviewed.
+- Report the score, failed cases, CI run, and physical-device limitations.
+- The pack grades repository artifacts; it does not score an LLM's hidden reasoning.

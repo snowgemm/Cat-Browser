@@ -465,13 +465,11 @@ internal fun TabsOverview(
                                 .height(210.dp)
                                 .animateContentSize(
                                     animationSpec = tween(BrowserMotionPolicy.durationMillis(motionEnabled, 180)),
-                                )
-                                .animateItem(
+                                ).animateItem(
                                     fadeInSpec = if (motionEnabled) tween(120) else null,
                                     placementSpec = if (motionEnabled) spring(stiffness = Spring.StiffnessMediumLow) else null,
                                     fadeOutSpec = if (motionEnabled) tween(100) else null,
-                                )
-                                .graphicsLayer {
+                                ).graphicsLayer {
                                     alpha = if (draggingTabId == tab.id) 0.84f else 1f
                                     scaleX = cardScale
                                     scaleY = cardScale

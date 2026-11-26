@@ -44,6 +44,9 @@ jobs:
       - name: Enforce architecture guardrails
         run: python3 scripts/verify_architecture.py
 
+      - name: Run Agent Evaluation Suite
+        run: python3 scripts/run_agent_evals.py --suite evals/agent-evals.json --output build/agent-evals/report.json
+
       - name: Set up JDK
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
@@ -129,6 +132,15 @@ jobs:
             echo "SHA-256:"
             cat dist/abi-apks/SHA256SUMS
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Agent Evaluation report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cat-browser-agent-evaluation
+          path: build/agent-evals/report.json
+          if-no-files-found: warn
+          retention-days: 14
 
       # upload-artifact v7 supports archive:false for a single standalone file.
       - name: Upload ARM64 APK

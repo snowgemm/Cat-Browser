@@ -16,7 +16,10 @@ import androidx.compose.animation.slideInVertically
 internal fun isBrowserMotionEnabled(): Boolean = ValueAnimator.areAnimatorsEnabled()
 
 internal object BrowserMotionPolicy {
-    fun durationMillis(enabled: Boolean, preferredDurationMillis: Int): Int {
+    fun durationMillis(
+        enabled: Boolean,
+        preferredDurationMillis: Int,
+    ): Int {
         require(preferredDurationMillis >= 0) { "Animation duration must not be negative." }
         return if (enabled) preferredDurationMillis else 0
     }

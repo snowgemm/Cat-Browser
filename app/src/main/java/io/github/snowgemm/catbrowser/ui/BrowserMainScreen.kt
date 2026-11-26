@@ -682,8 +682,7 @@ internal fun BrowserMainScreen(
                                 .height(if (addressFocused) 52.dp else 48.dp)
                                 .animateContentSize(
                                     animationSpec = tween(BrowserMotionPolicy.durationMillis(motionEnabled, 140)),
-                                )
-                                .pointerInput(tab.id, addressFocused, controller.tabs.size) {
+                                ).pointerInput(tab.id, addressFocused, controller.tabs.size) {
                                     if (!addressFocused && controller.tabs.size > 1) {
                                         var dragDistance = 0f
                                         detectHorizontalDragGestures(
