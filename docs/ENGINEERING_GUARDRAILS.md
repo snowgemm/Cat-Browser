@@ -9,6 +9,7 @@ These checks turn the architecture's highest-risk invariants into executable CI 
 3. BrowserController creates GeckoSession settings from the tab's privacy state, rather than relying on prompt instructions or caller discipline.
 4. CI continues to run Android Lint, KtLint, JVM tests, APK build, ABI validation, and APK signature checks.
 5. Privacy/lifecycle regression tests remain present.
+6. Android permission requests are restricted to the reviewed manifest allowlist; new permissions require an explicit guardrail update and review.
 
 The executable checks intentionally enforce narrow architectural invariants. They do not ban useful language constructs globally or treat every static rule as proof of correctness.
 

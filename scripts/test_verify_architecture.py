@@ -18,6 +18,22 @@ class CatBrowserArchitectureGuardTests(unittest.TestCase):
         for name in ("BrowserTabPrivacyTest.kt", "BrowserMemoryTrimPolicyTest.kt"):
             (tests / name).write_text("// fixture", encoding="utf-8")
 
+        manifest = self.root / "app/src/main/AndroidManifest.xml"
+        manifest.parent.mkdir(parents=True)
+        permissions = (
+            "INTERNET", "REQUEST_INSTALL_PACKAGES", "ACCESS_COARSE_LOCATION",
+            "ACCESS_FINE_LOCATION", "CAMERA", "RECORD_AUDIO", "POST_NOTIFICATIONS",
+            "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        )
+        manifest_items = "".join(
+            f'<uses-permission android:name="android.permission.{name}" />'
+            for name in permissions
+        )
+        manifest.write_text(
+            f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">{manifest_items}</manifest>',
+            encoding="utf-8",
+        )
+
         (self.source / "CatBrowserApplication.kt").write_text(
             "GeckoRuntime.create(this)\nBrowserController(this, geckoRuntime)", encoding="utf-8"
         )
@@ -35,6 +51,15 @@ class CatBrowserArchitectureGuardTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_rejects_unreviewed_android_permission(self) -> None:
+        manifest = self.root / "app/src/main/AndroidManifest.xml"
+        content = manifest.read_text(encoding="utf-8").replace(
+            "</manifest>",
+            '<uses-permission android:name="android.permission.READ_CONTACTS" /></manifest>',
+        )
+        manifest.write_text(content, encoding="utf-8")
+        self.assertTrue(any("outside the reviewed allowlist" in item for item in check_architecture(self.root)))
 
     def test_accepts_valid_architecture_fixture(self) -> None:
         self.assertEqual(check_architecture(self.root), [])

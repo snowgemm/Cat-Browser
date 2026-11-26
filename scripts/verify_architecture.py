@@ -2,10 +2,40 @@
 """Validate Cat Browser's high-risk architecture and CI invariants."""
 from pathlib import Path
 import sys
+import xml.etree.ElementTree as ET
 
 
 def check_architecture(root: Path) -> list[str]:
     failures: list[str] = []
+    manifest_path = root / "app/src/main/AndroidManifest.xml"
+    android_ns = "{http://schemas.android.com/apk/res/android}"
+    allowed_permissions = {
+        "android.permission.INTERNET",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+    }
+    try:
+        manifest = ET.parse(manifest_path).getroot()
+        requested_permissions = {
+            node.attrib.get(android_ns + "name", "<unnamed>")
+            for node in manifest
+            if node.tag.rsplit("}", 1)[-1].startswith("uses-permission")
+        }
+        unexpected_permissions = requested_permissions - allowed_permissions
+        if unexpected_permissions:
+            failures.append(
+                "Android manifest requests permissions outside the reviewed allowlist: "
+                f"{sorted(unexpected_permissions)}"
+            )
+    except (ET.ParseError, OSError) as error:
+        failures.append(f"Android manifest cannot be parsed: {error}")
+
     source = root / "app/src/main/java/io/github/snowgemm/catbrowser"
     kotlin_files = sorted(source.rglob("*.kt")) if source.exists() else []
     if not kotlin_files:
