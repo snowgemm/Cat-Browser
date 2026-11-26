@@ -39,6 +39,9 @@ jobs:
       - name: Test APK ABI validation
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
+      - name: Enforce architecture guardrails
+        run: python3 scripts/verify_architecture.py
+
       - name: Set up JDK
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
