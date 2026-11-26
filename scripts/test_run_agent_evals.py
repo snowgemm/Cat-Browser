@@ -65,7 +65,7 @@ class AgentEvalRunnerTests(unittest.TestCase):
         manifest.write_text(
             manifest.read_text(encoding="utf-8").replace(
                 "<application>",
-                '<uses-permission-sdk-23 android:name="android.permission.INTERNET" /><application>',
+                '<uses-permission-sdk-23 android:name="android.permission.INTERNET" /><application />',
             ),
             encoding="utf-8",
         )
